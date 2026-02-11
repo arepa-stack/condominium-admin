@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { paymentsService } from '@/lib/services/payments.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
+import { billingService } from '@/lib/services/billing.service';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,10 +24,10 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import type { Payment, Building, Unit } from '@/types/models';
-import { formatCurrency, formatDate, formatPaymentMethod } from '@/lib/utils/format';
+import { formatCurrency, formatDate, formatPaymentMethod, formatPeriod } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Eye, CheckCircle, XCircle, Info, Building2, Home, DollarSign } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Info, Building2, Home, DollarSign, Loader2 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import Image from 'next/image';
@@ -64,6 +65,8 @@ export default function PaymentsPage() {
     // The list GET usually returns light objects. Let's fetch detail on open.
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [detailedPayment, setDetailedPayment] = useState<Payment | null>(null);
+    const [paymentAllocations, setPaymentAllocations] = useState<any[]>([]);
+    const [isAllocationsLoading, setIsAllocationsLoading] = useState(false);
 
 
     const fetchData = useCallback(async () => {
@@ -128,21 +131,35 @@ export default function PaymentsPage() {
 
     const openApprovalDialog = async (payment: Payment) => {
         setApprovalPayment(payment);
-        setDetailedPayment(null); // Reset
+        setDetailedPayment(null);
+        setPaymentAllocations([]);
+        setIsAllocationsLoading(true);
 
         try {
-            // Fetch detailed payment to get allocations
-            const detailed = await paymentsService.getPaymentById(payment.id);
+            // Parallel fetch: basic payment details AND real allocations from the new endpoint
+            const [detailed, allocations] = await Promise.all([
+                paymentsService.getPaymentById(payment.id),
+                billingService.getPaymentInvoices(payment.id)
+            ]);
             setDetailedPayment(detailed);
+            setPaymentAllocations(allocations);
 
             // Legacy periods support
             const periods = detailed.periods || (detailed.period ? [detailed.period] : []);
             setAvailablePeriods(periods);
             setSelectedPeriods(periods);
         } catch (e) {
-            console.error("Failed to fetch payment details", e);
-            toast.error("Could not load payment details");
-            setApprovalPayment(null);
+            console.error("Failed to fetch payment details or allocations", e);
+            // Fallback
+            try {
+                const detailed = await paymentsService.getPaymentById(payment.id);
+                setDetailedPayment(detailed);
+            } catch (inner) {
+                toast.error("Could not load payment details");
+                setApprovalPayment(null);
+            }
+        } finally {
+            setIsAllocationsLoading(false);
         }
     };
 
@@ -306,7 +323,11 @@ export default function PaymentsPage() {
                                     </tr>
                                 ) : (
                                     payments.map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-accent/50 transition-colors">
+                                        <tr
+                                            key={payment.id}
+                                            className="hover:bg-accent/50 transition-colors cursor-pointer group"
+                                            onClick={() => openApprovalDialog(payment)}
+                                        >
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                                                 {formatDate(payment.payment_date)}
                                             </td>
@@ -428,20 +449,26 @@ export default function PaymentsPage() {
                             </div>
 
                             {/* Allocations Section (Real Data) */}
-                            {detailedPayment.allocations && detailedPayment.allocations.length > 0 && (
+                            {isAllocationsLoading ? (
+                                <div className="py-8 flex justify-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+                                </div>
+                            ) : paymentAllocations.length > 0 && (
                                 <div className="bg-muted/30 p-3 rounded-md border border-border/50">
-                                    <h4 className="flex items-center gap-2 font-medium text-sm mb-2 text-primary">
+                                    <h4 className="flex items-center gap-2 font-black text-xs mb-2 text-primary uppercase tracking-widest">
                                         <Info className="h-4 w-4" />
-                                        Allocations (Real Impact)
+                                        Impacted Invoices
                                     </h4>
-                                    <p className="text-xs text-muted-foreground mb-2">
-                                        This payment will be applied to the following invoices:
-                                    </p>
                                     <ul className="space-y-1">
-                                        {detailedPayment.allocations.map(alloc => (
-                                            <li key={alloc.id} className="text-sm flex justify-between">
-                                                <span>Invoice #{alloc.invoice?.number || alloc.invoice_id.slice(0, 8)}</span>
-                                                <span className="font-mono">{formatCurrency(alloc.amount)}</span>
+                                        {paymentAllocations.map(alloc => (
+                                            <li key={alloc.id} className="text-[11px] flex justify-between items-center p-2 rounded hover:bg-white/5">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-white">Invoice #{alloc.receipt_number || alloc.number || alloc.id.slice(0, 8)}</span>
+                                                    <span className="text-[9px] text-muted-foreground uppercase">
+                                                        {alloc.period ? formatPeriod(alloc.period) : (alloc.year && alloc.month ? formatPeriod(`${alloc.year}-${alloc.month}`) : '--')}
+                                                    </span>
+                                                </div>
+                                                <span className="font-black text-primary">{formatCurrency(alloc.allocated_amount || alloc.amount)}</span>
                                             </li>
                                         ))}
                                     </ul>

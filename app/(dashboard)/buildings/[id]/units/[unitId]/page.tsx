@@ -17,9 +17,18 @@ import {
     Building2,
     Home,
     MapPin,
-    Percent
+    Percent,
+    Eye,
+    Info
 } from 'lucide-react';
-import { formatCurrency, formatDate, formatPeriod } from '@/lib/utils/format';
+import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
 import { unitsService } from '@/lib/services/units.service';
 import { usersService } from '@/lib/services/users.service';
 import { paymentsService } from '@/lib/services/payments.service';
@@ -27,6 +36,10 @@ import { billingService } from '@/lib/services/billing.service';
 import type { Unit, User, Payment, Invoice, UnitBalance } from '@/types/models';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PaymentDialog } from '@/components/payments/PaymentDialog';
+import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog';
+import { toast } from 'sonner';
+import Image from 'next/image';
 
 export default function UnitDetailsPage({ params }: { params: Promise<{ id: string; unitId: string }> }) {
     const { id: buildingId, unitId } = use(params);
@@ -38,6 +51,18 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [balance, setBalance] = useState<UnitBalance | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Dialog States
+    const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+    const [detailedPayment, setDetailedPayment] = useState<Payment | null>(null);
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+    const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+    const [paymentAllocations, setPaymentAllocations] = useState<any[]>([]);
+    const [isAllocationsLoading, setIsAllocationsLoading] = useState(false);
+
+    const [proofUrl, setProofUrl] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -71,6 +96,41 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
         fetchAllData();
     }, [buildingId, unitId]);
 
+    const handleOpenPaymentDetail = async (payment: Payment) => {
+        setDetailedPayment(null);
+        setPaymentAllocations([]);
+        setSelectedPayment(payment);
+        setIsPaymentDialogOpen(true);
+        setIsAllocationsLoading(true);
+
+        try {
+            // Parallel fetch: basic payment details AND real allocations from the new endpoint
+            const [detailed, allocations] = await Promise.all([
+                paymentsService.getPaymentById(payment.id),
+                billingService.getPaymentInvoices(payment.id)
+            ]);
+            setDetailedPayment(detailed);
+            setPaymentAllocations(allocations);
+        } catch (error) {
+            console.error('Failed to fetch payment details or allocations:', error);
+            // Fallback: try to just show detailed payment if allocations fail
+            try {
+                const detailed = await paymentsService.getPaymentById(payment.id);
+                setDetailedPayment(detailed);
+            } catch (innerError) {
+                toast.error('Could not load payment details');
+                setIsPaymentDialogOpen(false);
+            }
+        } finally {
+            setIsAllocationsLoading(false);
+        }
+    };
+
+    const handleOpenInvoiceDetail = (id: string) => {
+        setSelectedInvoiceId(id);
+        setIsInvoiceDialogOpen(true);
+    };
+
     const totalPaid = useMemo(() =>
         payments.filter(p => p.status === 'APPROVED').reduce((sum, p) => sum + p.amount, 0),
         [payments]);
@@ -80,7 +140,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
             invoices.filter(i => i.status === 'PENDING').reduce((sum, i) => sum + (i.amount - (i.paid_amount || 0)), 0),
         [balance, invoices]);
 
-    if (isLoading) {
+    if (isLoading && !unit) {
         return (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -100,7 +160,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Header & Breadcrumbs */}
+            {/* Header & Breadcrumbs... same as before */}
             <div className="flex flex-col gap-4">
                 <Button
                     variant="ghost"
@@ -141,7 +201,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                 </div>
             </div>
 
-            {/* Stats Overview */}
+            {/* Stats Overview... same as before */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-green-500/5 border-green-500/10 shadow-2xl shadow-green-500/5 backdrop-blur-sm">
                     <CardContent className="p-6">
@@ -245,32 +305,41 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                     </div>
                                 ) : (
                                     invoices.map(inv => (
-                                        <div key={inv.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all group">
-                                            <div className="flex items-center gap-5 w-full sm:w-auto">
-                                                <div className="text-xs font-black p-2 bg-primary/10 rounded-lg text-primary tabular-nums border border-primary/20">
-                                                    #{inv.number || inv.id.slice(0, 6)}
+                                        <div
+                                            key={inv.id}
+                                            className="cursor-pointer group block"
+                                            onClick={() => handleOpenInvoiceDetail(inv.id)}
+                                        >
+                                            <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl group-hover:bg-white/10 group-hover:border-primary/30 transition-all">
+                                                <div className="flex items-center gap-5 w-full sm:w-auto">
+                                                    <div className="text-xs font-black p-2 bg-primary/10 rounded-lg text-primary tabular-nums border border-primary/20">
+                                                        #{inv.receipt_number || inv.number || inv.id.slice(0, 6)}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-white uppercase tracking-tighter">
+                                                            {formatPeriod(inv.period || `${inv.year}-${String(inv.month).padStart(2, '0')}`)}
+                                                        </span>
+                                                        <span className="text-[10px] text-muted-foreground mt-0.5">Issued: {formatDate(inv.issue_date || inv.created_at)}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-white uppercase tracking-tighter">
-                                                        {formatPeriod(inv.period || `${inv.year}-${String(inv.month).padStart(2, '0')}`)}
-                                                    </span>
-                                                    <span className="text-[10px] text-muted-foreground mt-0.5">Issued: {formatDate(inv.issue_date || inv.created_at)}</span>
-                                                </div>
-                                            </div>
 
-                                            <div className="flex items-center gap-8 mt-4 sm:mt-0 w-full sm:w-auto justify-between sm:justify-end">
-                                                <div className="flex flex-col text-right">
-                                                    <span className="text-base font-black text-white tabular-nums">{formatCurrency(inv.amount)}</span>
-                                                    {inv.paid_amount > 0 && (
-                                                        <span className="text-[10px] font-bold text-green-400">Paid: {formatCurrency(inv.paid_amount)}</span>
-                                                    )}
+                                                <div className="flex items-center gap-8 mt-4 sm:mt-0 w-full sm:w-auto justify-between sm:justify-end">
+                                                    <div className="flex flex-col text-right">
+                                                        <span className="text-base font-black text-white tabular-nums">{formatCurrency(inv.amount)}</span>
+                                                        {inv.paid_amount > 0 && (
+                                                            <span className="text-[10px] font-bold text-green-400">Paid: {formatCurrency(inv.paid_amount)}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge className={`px-4 py-1 font-bold text-[10px] uppercase tracking-widest ${inv.status === 'PAID' ? 'bg-green-500/20 text-green-400 border-green-500/20' :
+                                                            inv.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/20' :
+                                                                'bg-gray-500/20 text-gray-400 border-gray-500/20'
+                                                            }`}>
+                                                            {inv.status}
+                                                        </Badge>
+                                                        <ArrowUpRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-all" />
+                                                    </div>
                                                 </div>
-                                                <Badge className={`px-4 py-1 font-bold text-[10px] uppercase tracking-widest ${inv.status === 'PAID' ? 'bg-green-500/20 text-green-400 border-green-500/20' :
-                                                    inv.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/20' :
-                                                        'bg-gray-500/20 text-gray-400 border-gray-500/20'
-                                                    }`}>
-                                                    {inv.status}
-                                                </Badge>
                                             </div>
                                         </div>
                                     ))
@@ -287,7 +356,11 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                     </div>
                                 ) : (
                                     payments.map(payment => (
-                                        <div key={payment.id} className="p-5 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all flex flex-col gap-4">
+                                        <div
+                                            key={payment.id}
+                                            className="p-5 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-primary/20 transition-all flex flex-col gap-4 cursor-pointer group"
+                                            onClick={() => handleOpenPaymentDetail(payment)}
+                                        >
                                             <div className="flex justify-between items-start">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-black text-white uppercase tracking-tighter">
@@ -297,12 +370,15 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                                         {formatDate(payment.payment_date)}
                                                     </span>
                                                 </div>
-                                                <Badge className={`px-3 py-1 font-black text-[9px] uppercase tracking-tighter ${payment.status === 'APPROVED' ? 'bg-green-500/20 text-green-400 border-green-500/20' :
-                                                    payment.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/20' :
-                                                        'bg-red-500/20 text-red-500 border-red-500/20'
-                                                    }`}>
-                                                    {payment.status}
-                                                </Badge>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge className={`px-3 py-1 font-black text-[9px] uppercase tracking-tighter ${payment.status === 'APPROVED' ? 'bg-green-500/20 text-green-400 border-green-500/20' :
+                                                        payment.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/20' :
+                                                            'bg-red-500/20 text-red-500 border-red-500/20'
+                                                        }`}>
+                                                        {payment.status}
+                                                    </Badge>
+                                                    <Info className="h-3 w-3 text-primary opacity-0 group-hover:opacity-100 transition-all" />
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center justify-between pt-4 border-t border-white/5">
@@ -310,7 +386,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                                     <div className="p-1.5 rounded-md bg-white/5 border border-white/5">
                                                         <CreditCard className="w-3.5 h-3.5" />
                                                     </div>
-                                                    <span className="text-xs font-bold uppercase tracking-wider">{payment.method}</span>
+                                                    <span className="text-xs font-bold uppercase tracking-wider">{formatPaymentMethod(payment.method)}</span>
                                                 </div>
                                                 <span className="text-xl font-black text-primary tabular-nums">{formatCurrency(payment.amount)}</span>
                                             </div>
@@ -329,6 +405,113 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                     </div>
                 </Tabs>
             </div>
+
+            {/* Payment Details Dialog */}
+            <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+                <DialogContent className="sm:max-w-[450px] bg-card border-white/10 backdrop-blur-2xl shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Transaction Details</DialogTitle>
+                        <DialogDescription className="text-muted-foreground">
+                            Complete breakdown of the payment and its allocations.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {!detailedPayment ? (
+                        <div className="py-12 flex justify-center">
+                            <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                        </div>
+                    ) : (
+                        <div className="py-4 space-y-6">
+                            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
+                                <div>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Total Payment</span>
+                                    <span className="text-2xl font-black text-white tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Date</span>
+                                    <span className="text-sm font-bold text-white">{formatDate(detailedPayment.payment_date)}</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 px-1">
+                                <h4 className="flex items-center gap-2 font-black text-xs text-primary uppercase tracking-widest">
+                                    <Info className="h-4 w-4" />
+                                    Allocations
+                                </h4>
+                                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {isAllocationsLoading ? (
+                                        <div className="py-8 flex justify-center">
+                                            <Loader2 className="w-6 h-6 animate-spin text-primary/40" />
+                                        </div>
+                                    ) : paymentAllocations.length > 0 ? (
+                                        paymentAllocations.map((alloc: any) => (
+                                            <div
+                                                key={alloc.id}
+                                                className="flex justify-between items-center p-3 rounded-lg border bg-white/5 border-white/5 hover:bg-white/10 transition-colors"
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-bold text-white">
+                                                        Invoice #{alloc.receipt_number || alloc.number || alloc.id.slice(0, 8)}
+                                                    </span>
+                                                    <span className="text-[9px] text-muted-foreground uppercase">
+                                                        {alloc.period ? formatPeriod(alloc.period) : (alloc.year && alloc.month ? formatPeriod(`${alloc.year}-${alloc.month}`) : '--')}
+                                                    </span>
+                                                </div>
+                                                <span className="font-black text-sm text-white tabular-nums">{formatCurrency(alloc.allocated_amount || alloc.amount)}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-8 text-center flex flex-col items-center gap-2">
+                                            <Info className="h-8 w-8 text-muted-foreground/20" />
+                                            <p className="text-[11px] text-muted-foreground italic">No detailed allocations found.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {detailedPayment.proof_url && (
+                                <Button
+                                    variant="outline"
+                                    className="w-full gap-2 border-white/10 hover:bg-white/5 transition-all"
+                                    onClick={() => setProofUrl(detailedPayment.proof_url!)}
+                                >
+                                    <Eye className="h-4 w-4" /> View Full Proof
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Invoice Details Dialog */}
+            <InvoiceDetailsDialog
+                isOpen={isInvoiceDialogOpen}
+                onClose={() => setIsInvoiceDialogOpen(false)}
+                invoiceId={selectedInvoiceId}
+                unitName={unit.name}
+            // Building name will be resolved from context inside if not passed, 
+            // but we can try to find it in the URL or context if needed.
+            />
+
+            {/* Proof Modal */}
+            <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
+                <DialogContent className="max-w-3xl bg-card border-white/10 backdrop-blur-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Payment Proof</DialogTitle>
+                    </DialogHeader>
+                    {proofUrl && (
+                        <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/5 shadow-2xl">
+                            <Image
+                                src={proofUrl}
+                                alt="Payment Proof"
+                                fill
+                                className="object-contain"
+                                unoptimized
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

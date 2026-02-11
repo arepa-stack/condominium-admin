@@ -19,6 +19,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
+import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog';
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Eye, Plus, FileSpreadsheet, Home } from 'lucide-react';
@@ -36,6 +37,8 @@ export default function BuildingBillingPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
     const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
     // Filters
     const [filterUnitId, setFilterUnitId] = useState<string>('all');
@@ -199,7 +202,14 @@ export default function BuildingBillingPage() {
                                     invoices.map((invoice) => {
                                         const progress = (invoice.paid_amount / invoice.amount) * 100;
                                         return (
-                                            <tr key={invoice.id} className="hover:bg-white/5 transition-colors group">
+                                            <tr
+                                                key={invoice.id}
+                                                className="hover:bg-white/5 transition-colors group cursor-pointer"
+                                                onClick={() => {
+                                                    setSelectedInvoiceId(invoice.id);
+                                                    setIsDetailsOpen(true);
+                                                }}
+                                            >
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{invoice.number}</td>
                                                 <td className="px-6 py-4 text-sm">
                                                     <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{invoice.unit?.name || 'Unknown Unit'}</div>
@@ -226,7 +236,11 @@ export default function BuildingBillingPage() {
                                                     </Badge>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/billing/invoices/${invoice.id}`)} className="hover:bg-primary/20 hover:text-primary">
+                                                    <Button variant="ghost" size="sm" onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedInvoiceId(invoice.id);
+                                                        setIsDetailsOpen(true);
+                                                    }} className="hover:bg-primary/20 hover:text-primary">
                                                         <Eye className="h-4 w-4 mr-2" /> View
                                                     </Button>
                                                 </td>
@@ -253,6 +267,11 @@ export default function BuildingBillingPage() {
                 buildingId={buildingId}
                 buildings={[]} // Not needed in contextual view or could fetch if needed
                 onSuccess={fetchData}
+            />
+            <InvoiceDetailsDialog
+                isOpen={isDetailsOpen}
+                onClose={() => setIsDetailsOpen(false)}
+                invoiceId={selectedInvoiceId}
             />
         </div >
     );

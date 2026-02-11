@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { paymentsService } from '@/lib/services/payments.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
+import { billingService } from '@/lib/services/billing.service';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,10 +24,10 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import type { Payment, Unit } from '@/types/models';
-import { formatCurrency, formatDate, formatPaymentMethod } from '@/lib/utils/format';
+import { formatCurrency, formatDate, formatPaymentMethod, formatPeriod } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Eye, CheckCircle, XCircle, Info, Home, DollarSign } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Info, Home, DollarSign, Loader2 } from 'lucide-react';
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import Image from 'next/image';
@@ -56,6 +57,8 @@ export default function BuildingPaymentsPage() {
     const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [detailedPayment, setDetailedPayment] = useState<Payment | null>(null);
+    const [paymentAllocations, setPaymentAllocations] = useState<any[]>([]);
+    const [isAllocationsLoading, setIsAllocationsLoading] = useState(false);
 
 
     const fetchData = useCallback(async () => {
@@ -93,17 +96,32 @@ export default function BuildingPaymentsPage() {
     const openApprovalDialog = async (payment: Payment) => {
         setApprovalPayment(payment);
         setDetailedPayment(null);
+        setPaymentAllocations([]);
+        setIsAllocationsLoading(true);
 
         try {
-            const detailed = await paymentsService.getPaymentById(payment.id);
+            // Parallel fetch: basic payment details AND real allocations from the new endpoint
+            const [detailed, allocations] = await Promise.all([
+                paymentsService.getPaymentById(payment.id),
+                billingService.getPaymentInvoices(payment.id)
+            ]);
             setDetailedPayment(detailed);
+            setPaymentAllocations(allocations);
             const periods = detailed.periods || (detailed.period ? [detailed.period] : []);
             setAvailablePeriods(periods);
             setSelectedPeriods(periods);
         } catch (e) {
-            console.error("Failed to fetch payment details", e);
-            toast.error("Could not load payment details");
-            setApprovalPayment(null);
+            console.error("Failed to fetch payment details or allocations", e);
+            // Fallback: try to just show detailed payment if allocations fail
+            try {
+                const detailed = await paymentsService.getPaymentById(payment.id);
+                setDetailedPayment(detailed);
+            } catch (inner) {
+                toast.error("Could not load payment details");
+                setApprovalPayment(null);
+            }
+        } finally {
+            setIsAllocationsLoading(false);
         }
     };
 
@@ -223,6 +241,7 @@ export default function BuildingPaymentsPage() {
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">User / Unit</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Period</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ref / Method</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Proof</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
@@ -232,7 +251,7 @@ export default function BuildingPaymentsPage() {
                             <tbody className="divide-y divide-white/5">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                                        <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
                                             <div className="flex flex-col items-center gap-2">
                                                 <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                                                 <span>Loading payments...</span>
@@ -241,11 +260,15 @@ export default function BuildingPaymentsPage() {
                                     </tr>
                                 ) : payments.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">No payments found.</td>
+                                        <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">No payments found.</td>
                                     </tr>
                                 ) : (
                                     payments.map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-white/5 transition-colors group">
+                                        <tr
+                                            key={payment.id}
+                                            className="hover:bg-white/5 transition-colors group cursor-pointer"
+                                            onClick={() => openApprovalDialog(payment)}
+                                        >
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground tabular-nums">
                                                 {formatDate(payment.payment_date)}
                                             </td>
@@ -254,13 +277,20 @@ export default function BuildingPaymentsPage() {
                                                 <span className="text-xs text-muted-foreground">
                                                     {(() => {
                                                         const unitId = payment.unit_id || payment.user?.unit_id;
-                                                        const unitName = unitId ? units.find(u => u.id === unitId)?.name : payment.user?.unit;
-                                                        return unitName ? `Unit ${unitName}` : '';
+                                                        // Try to find unit name in local units list
+                                                        const unitName = unitId ? units.find(u => u.id === unitId)?.name : null;
+                                                        // Fallback to user's unit_name from units array if exists
+                                                        const userUnitName = payment.user?.units?.find(u => u.unit_id === unitId)?.unit_name;
+                                                        const finalUnitName = unitName || userUnitName || payment.user?.unit;
+                                                        return finalUnitName ? `Unit ${finalUnitName}` : '';
                                                     })()}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-white tabular-nums">
                                                 {formatCurrency(payment.amount)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground tabular-nums">
+                                                {payment.period || (payment.periods && payment.periods.length > 0 ? payment.periods.join(', ') : '-')}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                                 <div className="text-white font-medium">{formatPaymentMethod(payment.method)}</div>
@@ -285,29 +315,30 @@ export default function BuildingPaymentsPage() {
                                                 </Badge>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                {payment.status === 'PENDING' ? (
-                                                    <div className="flex justify-end gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() => openApprovalDialog(payment)}
-                                                            className="bg-green-600 hover:bg-green-500 text-white h-8 w-8 p-0 rounded-lg shadow-lg shadow-green-600/20"
-                                                        >
-                                                            <CheckCircle className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="destructive"
-                                                            onClick={() => handleReject(payment.id)}
-                                                            className="h-8 w-8 p-0 rounded-lg shadow-lg shadow-red-600/20"
-                                                        >
-                                                            <XCircle className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                ) : (
-                                                    <Button variant="ghost" size="sm" onClick={() => openApprovalDialog(payment)} className="h-8 w-8 p-0">
+                                                <div className="flex justify-end gap-2">
+                                                    {payment.status === 'PENDING' && (
+                                                        <>
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() => openApprovalDialog(payment)}
+                                                                className="bg-green-600 hover:bg-green-500 text-white h-8 w-8 p-0 rounded-lg shadow-lg shadow-green-600/20"
+                                                            >
+                                                                <CheckCircle className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="destructive"
+                                                                onClick={() => handleReject(payment.id)}
+                                                                className="h-8 w-8 p-0 rounded-lg shadow-lg shadow-red-600/20"
+                                                            >
+                                                                <XCircle className="h-4 w-4" />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                    <Button variant="ghost" size="sm" onClick={() => openApprovalDialog(payment)} className="h-8 w-8 p-0 hover:bg-white/10">
                                                         <Info className="h-4 w-4 text-muted-foreground" />
                                                     </Button>
-                                                )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -365,17 +396,26 @@ export default function BuildingPaymentsPage() {
                                 </div>
                             </div>
 
-                            {detailedPayment.allocations && detailedPayment.allocations.length > 0 && (
+                            {isAllocationsLoading ? (
+                                <div className="py-8 flex justify-center">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+                                </div>
+                            ) : paymentAllocations.length > 0 && (
                                 <div className="space-y-3">
-                                    <h4 className="flex items-center gap-2 font-bold text-sm text-primary uppercase tracking-wide">
+                                    <h3 className="flex items-center gap-2 font-black text-xs text-primary uppercase tracking-widest">
                                         <Info className="h-4 w-4" />
                                         Impacted Invoices
-                                    </h4>
+                                    </h3>
                                     <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {detailedPayment.allocations.map(alloc => (
+                                        {paymentAllocations.map(alloc => (
                                             <div key={alloc.id} className="flex justify-between items-center p-3 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
-                                                <span className="text-sm font-medium text-white">Invoice #{alloc.invoice?.number || alloc.invoice_id.slice(0, 8)}</span>
-                                                <span className="font-bold text-primary">{formatCurrency(alloc.amount)}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-bold text-white">Invoice #{alloc.receipt_number || alloc.number || alloc.id.slice(0, 8)}</span>
+                                                    <span className="text-[9px] text-muted-foreground uppercase">
+                                                        {alloc.period ? formatPeriod(alloc.period) : (alloc.year && alloc.month ? formatPeriod(`${alloc.year}-${alloc.month}`) : '--')}
+                                                    </span>
+                                                </div>
+                                                <span className="font-black text-sm text-primary tabular-nums">{formatCurrency(alloc.allocated_amount || alloc.amount)}</span>
                                             </div>
                                         ))}
                                     </div>
