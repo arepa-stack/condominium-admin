@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
     Select,
@@ -44,8 +44,14 @@ export function Sidebar() {
     const { user, isSuperAdmin, isBoardMember, displayName } = usePermissions();
     const { selectedBuildingId, setSelectedBuildingId, availableBuildings } = useBuildingContext();
     const [open, setOpen] = useState(false);
-
     const buildingId = params?.id as string;
+
+    // Sync context with URL if user deep-links into a specific building
+    useEffect(() => {
+        if (buildingId && buildingId !== selectedBuildingId) {
+            setSelectedBuildingId(buildingId);
+        }
+    }, [buildingId, selectedBuildingId, setSelectedBuildingId]);
 
     // Filter navigation based on user role and adjust hrefs for contextual routing
     const filteredNavigation = navigation
@@ -60,8 +66,9 @@ export function Sidebar() {
 
             // Other functional pages: if in building context, use contextual route
             const contextualPages = ['/units', '/users', '/billing', '/payments'];
-            if (buildingId && contextualPages.includes(item.href)) {
-                return { ...item, href: `/buildings/${buildingId}${item.href}` };
+            const activeBuildingId = buildingId || selectedBuildingId;
+            if (activeBuildingId && contextualPages.includes(item.href)) {
+                return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
             }
 
             return item;
@@ -84,14 +91,37 @@ export function Sidebar() {
                     <div className="px-2 mb-8">
                         {availableBuildings.length > 1 ? (
                             <Select
-                                value={selectedBuildingId || ''}
+                                value={selectedBuildingId || 'all'}
                                 onValueChange={(id) => {
+                                    if (id === 'all') {
+                                        setSelectedBuildingId(null);
+                                        // If in a building context, go to global equivalent
+                                        if (pathname.includes('/buildings/')) {
+                                            const parts = pathname.split('/');
+                                            const action = parts[parts.length - 1];
+                                            router.push(`/${action === 'dashboard' ? 'dashboard' : action}`);
+                                        } else {
+                                            router.push('/dashboard');
+                                        }
+                                        return;
+                                    }
+
                                     setSelectedBuildingId(id);
-                                    // If we are in a building context, we might want to redirect to the same page for the new building
-                                    if (pathname.includes('/buildings/')) {
+                                    // If we are in global, go to contextual dashboard
+                                    if (pathname === '/dashboard' || pathname === '/') {
+                                        router.push(`/buildings/${id}/dashboard`);
+                                    } else if (pathname.includes('/buildings/')) {
+                                        // Switch building while maintaining action
                                         const parts = pathname.split('/');
                                         const action = parts[parts.length - 1];
                                         router.push(`/buildings/${id}/${action}`);
+                                    } else {
+                                        // Global page to contextual page if applicable
+                                        const contextualPages = ['units', 'users', 'billing', 'payments'];
+                                        const currentAction = pathname.replace('/', '');
+                                        if (contextualPages.includes(currentAction)) {
+                                            router.push(`/buildings/${id}/${currentAction}`);
+                                        }
                                     }
                                 }}
                             >
@@ -102,6 +132,14 @@ export function Sidebar() {
                                     </div>
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {isSuperAdmin && (
+                                        <SelectItem value="all" className="font-bold text-primary">
+                                            <div className="flex items-center gap-2">
+                                                <LayoutDashboard className="h-4 w-4" />
+                                                Global Overview
+                                            </div>
+                                        </SelectItem>
+                                    )}
                                     {availableBuildings.map(building => (
                                         <SelectItem key={building.id} value={building.id}>
                                             {building.name || 'Unknown Building'}
@@ -122,7 +160,13 @@ export function Sidebar() {
 
                 <nav className="space-y-1">
                     {filteredNavigation.map((item) => {
-                        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                        let isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+                        // Special case: "Buildings" should only be active on the buildings list page, 
+                        // not while inside a specific building's context
+                        if (item.name === 'Buildings') {
+                            isActive = pathname === '/buildings' || pathname === '/buildings/';
+                        }
                         return (
                             <Link
                                 key={item.name}

@@ -70,6 +70,9 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
 
     // Auto-select first building
     useEffect(() => {
+        // SuperAdmins should start in "Global Mode" (null)
+        if (user?.role === 'admin') return;
+
         if (!selectedBuildingId && availableBuildings.length > 0) {
             // Try to use primary unit's building first if resident/board
             const primaryUnit = user?.units?.find(u => u.is_primary);

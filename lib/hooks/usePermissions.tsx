@@ -33,13 +33,15 @@ export function usePermissions() {
     const isResident = user?.role === 'resident';
 
     // Current Building ID from Context or Fallback
-    const buildingId = isSuperAdmin ? undefined : (selectedBuildingId || user?.building_id);
+    const buildingId = selectedBuildingId || (isSuperAdmin ? undefined : user?.building_id);
 
     // Get Building Name from available buildings or user
     const selectedBuilding = availableBuildings.find(b => b.id === buildingId);
-    const buildingName = selectedBuilding?.name ||
-        user?.building_name ||
-        user?.building?.name;
+    let buildingName = selectedBuilding?.name;
+
+    if (!buildingName && !isSuperAdmin) {
+        buildingName = user?.building_name || user?.building?.name;
+    }
 
     // Building-aware permissions
     const canManageBuilding = (buildingId?: string) => {
