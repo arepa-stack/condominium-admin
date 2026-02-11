@@ -59,8 +59,9 @@ export interface Invoice {
     user_id: string;
     user?: User;
     unit_id: string;
-    unit?: Unit;
+    unit: Unit;
     period?: string; // [NEW] Optional period string (YYYY-MM)
+    receipt_number?: string; // [NEW] Backend provided number
     created_at: string;
     updated_at: string;
 }

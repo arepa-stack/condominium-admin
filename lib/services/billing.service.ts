@@ -26,6 +26,12 @@ export const billingService = {
         return data;
     },
 
+    // Returns the invoices covered by a specific payment
+    async getPaymentInvoices(id: string): Promise<any[]> {
+        const { data } = await apiClient.get<any[]>(`/billing/payments/${id}/invoices`);
+        return data;
+    },
+
     async getUnitInvoices(unitId: string): Promise<Invoice[]> {
         const { data } = await apiClient.get<Invoice[]>(`/billing/units/${unitId}/invoices`);
         return data;

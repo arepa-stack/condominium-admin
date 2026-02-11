@@ -23,9 +23,10 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { paymentsService } from '@/lib/services/payments.service';
 import { unitsService } from '@/lib/services/units.service';
 import { buildingsService } from '@/lib/services/buildings.service';
+import { billingService } from '@/lib/services/billing.service';
 import { toast } from 'sonner';
-import { Loader2, Upload, Building2, Home, CreditCard, Calendar, DollarSign, FileText } from 'lucide-react';
-import type { Building, Unit } from '@/types/models';
+import { Loader2, Upload, Building2, Home, CreditCard, Calendar, DollarSign, FileText, ReceiptText } from 'lucide-react';
+import type { Building, Unit, Invoice } from '@/types/models';
 
 interface PaymentDialogProps {
     open: boolean;
@@ -48,6 +49,8 @@ export function PaymentDialog({
     // Form State
     const [selectedBuildingId, setSelectedBuildingId] = useState<string>(buildingId || '');
     const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+    const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>([]);
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
     const [amount, setAmount] = useState<string>('');
     const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [method, setMethod] = useState<string>('TRANSFER');
@@ -77,6 +80,31 @@ export function PaymentDialog({
         fetchUnits();
     }, [selectedBuildingId]);
 
+    useEffect(() => {
+        const fetchInvoices = async () => {
+            if (!selectedUnitId) {
+                setPendingInvoices([]);
+                setSelectedInvoiceId('');
+                return;
+            }
+            try {
+                const data = await billingService.getInvoices({
+                    unit_id: selectedUnitId,
+                    status: 'PENDING'
+                });
+                setPendingInvoices(data);
+                // Auto-select if there's only one pending invoice
+                if (data.length === 1) {
+                    setSelectedInvoiceId(data[0].id);
+                    setAmount(data[0].amount.toString());
+                }
+            } catch (error) {
+                console.error("Failed to fetch pending invoices", error);
+            }
+        };
+        fetchInvoices();
+    }, [selectedUnitId]);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -101,6 +129,9 @@ export function PaymentDialog({
             formData.append('method', method);
             formData.append('reference', reference);
             formData.append('notes', notes);
+            if (selectedInvoiceId) {
+                formData.append('invoice_id', selectedInvoiceId);
+            }
             if (proofFile) {
                 formData.append('file', proofFile);
             }
@@ -121,6 +152,8 @@ export function PaymentDialog({
     const resetForm = () => {
         if (!buildingId) setSelectedBuildingId('');
         setSelectedUnitId('');
+        setPendingInvoices([]);
+        setSelectedInvoiceId('');
         setAmount('');
         setDate(new Date().toISOString().split('T')[0]);
         setMethod('TRANSFER');
@@ -185,6 +218,28 @@ export function PaymentDialog({
                                 disabled={!selectedBuildingId}
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-2 col-span-2">
+                        <Label className="flex items-center gap-2">
+                            <ReceiptText className="h-4 w-4 text-muted-foreground" />
+                            Associate with Invoice (Optional)
+                        </Label>
+                        <SearchableSelect
+                            options={pendingInvoices.map(i => ({
+                                value: i.id,
+                                label: `${i.period || i.number || 'Invoice'} - $${i.amount}`,
+                                icon: ReceiptText
+                            }))}
+                            value={selectedInvoiceId}
+                            onValueChange={(val: string) => {
+                                setSelectedInvoiceId(val);
+                                const inv = pendingInvoices.find(i => i.id === val);
+                                if (inv) setAmount(inv.amount.toString());
+                            }}
+                            placeholder={pendingInvoices.length > 0 ? "Select an invoice to pay" : "No pending invoices found"}
+                            disabled={!selectedUnitId || pendingInvoices.length === 0}
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -281,6 +336,6 @@ export function PaymentDialog({
                     </DialogFooter>
                 </form>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }
