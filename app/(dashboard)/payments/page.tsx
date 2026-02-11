@@ -26,7 +26,9 @@ import type { Payment, Building, Unit } from '@/types/models';
 import { formatCurrency, formatDate, formatPaymentMethod } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Eye, CheckCircle, XCircle, Info, Building2 } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Info, Building2, Home, DollarSign } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import Image from 'next/image';
 
 import { useSearchParams } from 'next/navigation';
@@ -60,6 +62,7 @@ export default function PaymentsPage() {
     // Actually backend prompt says: "Al revisar un pago (GET /payments/:id), verás... allocations (Real)"
     // So we don't need to fetch extra, just use the payment object or fetch detailed if list doesn't have it.
     // The list GET usually returns light objects. Let's fetch detail on open.
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [detailedPayment, setDetailedPayment] = useState<Payment | null>(null);
 
 
@@ -190,6 +193,10 @@ export default function PaymentsPage() {
                     <h1 className="text-3xl font-bold text-foreground">Payments</h1>
                     <p className="text-muted-foreground mt-1">Manage and review payments</p>
                 </div>
+                <Button onClick={() => setIsPaymentDialogOpen(true)} className="gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Register Payment
+                </Button>
             </div>
 
             {/* Filters */}
@@ -220,18 +227,23 @@ export default function PaymentsPage() {
                             </div>
                         </div>
                     )}
-                    <div className="w-full md:w-48">
-                        <Select value={filterUnitId} onValueChange={setFilterUnitId} disabled={!isSuperAdmin && !buildingId && filterBuildingId === 'all'}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="All Units" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Units</SelectItem>
-                                {units.map((u) => (
-                                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="w-full md:w-56">
+                        <SearchableSelect
+                            options={[
+                                { value: 'all', label: 'All Units' },
+                                ...units.map(u => ({
+                                    value: u.id,
+                                    label: u.name,
+                                    icon: Home
+                                }))
+                            ]}
+                            value={filterUnitId}
+                            onValueChange={setFilterUnitId}
+                            placeholder="All Units"
+                            searchPlaceholder="Search unit..."
+                            disabled={!isSuperAdmin && !buildingId && filterBuildingId === 'all'}
+                            triggerIcon={Home}
+                        />
                     </div>
                     <div className="w-full md:w-48">
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -486,6 +498,13 @@ export default function PaymentsPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+            <PaymentDialog
+                open={isPaymentDialogOpen}
+                onOpenChange={setIsPaymentDialogOpen}
+                buildingId={buildingId}
+                buildings={buildings}
+                onSuccess={fetchData}
+            />
         </div>
     );
 }

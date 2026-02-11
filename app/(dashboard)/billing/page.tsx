@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { billingService } from '@/lib/services/billing.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
+import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,13 +19,16 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { useRouter } from 'next/navigation';
-import { Eye, Building2, Plus } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
+import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Eye, Building2, Plus, FileSpreadsheet, Home } from 'lucide-react';
 import type { Invoice, Building, Unit } from '@/types/models';
 
 export default function BillingPage() {
     const { isSuperAdmin, isBoardMember, user, buildingId } = usePermissions();
+    const { availableBuildings } = useBuildingContext();
     const router = useRouter();
 
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -32,6 +36,7 @@ export default function BillingPage() {
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+    const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
 
     // Filters
     const [filterBuildingId, setFilterBuildingId] = useState<string>('all');
@@ -39,20 +44,43 @@ export default function BillingPage() {
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
     const [filterMonth, setFilterMonth] = useState<string>('all');
+    const searchParams = useSearchParams();
+
+    // Determine active building ID for both UI and Data loading
+    const activeBuildingId = isSuperAdmin
+        ? (filterBuildingId !== 'all' ? filterBuildingId : undefined)
+        : (filterBuildingId !== 'all' ? filterBuildingId : buildingId);
+
+    // Initial filter setup from query params
+    useEffect(() => {
+        const bId = searchParams.get('building_id');
+        const uId = searchParams.get('unit_id');
+        const year = searchParams.get('year');
+        const month = searchParams.get('month');
+        const status = searchParams.get('status');
+
+        if (bId) setFilterBuildingId(bId);
+        if (uId) setFilterUnitId(uId);
+        if (year) setFilterYear(year);
+        if (month) setFilterMonth(month);
+        if (status) setFilterStatus(status);
+    }, [searchParams]);
+
+    // Sync filterBuildingId with buildingId for board members on init
+    useEffect(() => {
+        if (!isSuperAdmin && buildingId && (filterBuildingId === 'all' || !filterBuildingId)) {
+            setFilterBuildingId(buildingId);
+        }
+    }, [buildingId, isSuperAdmin, filterBuildingId]);
+
+    // Reset unit filter when building changes
+    useEffect(() => {
+        setFilterUnitId('all');
+    }, [filterBuildingId, isSuperAdmin]);
 
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
-
-            // Determine active building ID
-            let activeBuildingId = undefined;
-            if (isSuperAdmin) {
-                if (filterBuildingId && filterBuildingId !== 'all') {
-                    activeBuildingId = filterBuildingId;
-                }
-            } else {
-                activeBuildingId = buildingId;
-            }
 
             // Build query params
             const query: any = {};
@@ -85,7 +113,7 @@ export default function BillingPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [isSuperAdmin, user, filterBuildingId, filterUnitId, filterStatus, filterYear, filterMonth]);
+    }, [isSuperAdmin, activeBuildingId, filterUnitId, filterStatus, filterYear, filterMonth]);
 
     useEffect(() => {
         fetchData();
@@ -108,10 +136,20 @@ export default function BillingPage() {
                     <p className="text-muted-foreground mt-1">Manage invoices and debts</p>
                 </div>
                 {(isSuperAdmin || isBoardMember) && (
-                    <Button onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        Create Invoice
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsExcelLoaderOpen(true)}
+                            className="gap-2 border-green-600/20 text-green-600 hover:bg-green-50 hover:text-green-700"
+                        >
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Import Excel
+                        </Button>
+                        <Button onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Create Invoice
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -135,24 +173,38 @@ export default function BillingPage() {
                     )}
                     {(isBoardMember && !isSuperAdmin) && (
                         <div className="w-full md:w-64">
-                            <div className="flex items-center px-3 h-10 rounded-md border border-input bg-muted/50 text-sm text-muted-foreground">
-                                <Building2 className="mr-2 h-4 w-4" />
-                                Building Scoped
-                            </div>
+                            <Select value={filterBuildingId} onValueChange={setFilterBuildingId}>
+                                <SelectTrigger>
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                                        <SelectValue placeholder="Select Building" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableBuildings.map((b: any) => (
+                                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     )}
-                    <div className="w-full md:w-48">
-                        <Select value={filterUnitId} onValueChange={setFilterUnitId} disabled={!isSuperAdmin && !buildingId && filterBuildingId === 'all'}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="All Units" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Units</SelectItem>
-                                {units.map((u) => (
-                                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="w-full md:w-56">
+                        <SearchableSelect
+                            options={[
+                                { value: 'all', label: 'All Units' },
+                                ...units.map(u => ({
+                                    value: u.id,
+                                    label: u.name,
+                                    icon: Home
+                                }))
+                            ]}
+                            value={filterUnitId}
+                            onValueChange={setFilterUnitId}
+                            placeholder="All Units"
+                            searchPlaceholder="Search unit..."
+                            disabled={!activeBuildingId && isSuperAdmin}
+                            triggerIcon={Home}
+                        />
                     </div>
                     <div className="w-full md:w-40">
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -265,6 +317,14 @@ export default function BillingPage() {
                 open={isInvoiceDialogOpen}
                 onOpenChange={setIsInvoiceDialogOpen}
                 buildingId={isSuperAdmin ? (filterBuildingId !== 'all' ? filterBuildingId : undefined) : buildingId}
+                onSuccess={fetchData}
+            />
+
+            <ExcelInvoiceLoader
+                open={isExcelLoaderOpen}
+                onOpenChange={setIsExcelLoaderOpen}
+                buildingId={isSuperAdmin ? (filterBuildingId !== 'all' ? filterBuildingId : undefined) : buildingId}
+                buildings={buildings}
                 onSuccess={fetchData}
             />
         </div >

@@ -7,5 +7,5 @@ export default function BuildingDashboardPage() {
     const params = useParams();
     const buildingId = typeof params.id === 'string' ? params.id : undefined;
 
-    return <DashboardView buildingId={buildingId} />;
+    return <DashboardView buildingId={buildingId} showBuildingFilter={false} />;
 }

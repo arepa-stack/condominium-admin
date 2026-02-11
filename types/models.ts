@@ -6,13 +6,13 @@ export type UserStatus = 'pending' | 'active' | 'inactive' | 'rejected';
 
 export interface UserUnit {
     unit_id: string;
+    unit_name: string;
     building_id: string;
-    role: 'owner' | 'resident';
-    building_role: 'board' | 'resident' | 'owner'; // Required - determines building-level permissions
+    building_name: string;
+    building_role: string;
     is_primary: boolean;
-    // Helper fields for UI (might be enriched by frontend)
-    name?: string;
-    building_name?: string;
+    // role is likely deprecated or same as building_role now, but keeping for compatibility if existing code uses it
+    role?: 'owner' | 'resident';
 }
 
 export interface User {
@@ -60,6 +60,7 @@ export interface Invoice {
     user?: User;
     unit_id: string;
     unit?: Unit;
+    period?: string; // [NEW] Optional period string (YYYY-MM)
     created_at: string;
     updated_at: string;
 }
@@ -185,6 +186,7 @@ export interface CreateUnitDto {
 export interface BatchUnitDto {
     floors: string[];
     unitsPerFloor: string[];
+    aliquot?: number; // [NEW] Default aliquot for all units
 }
 
 export interface BillingDebtPayload {
@@ -217,4 +219,20 @@ export interface AssignUnitDto {
     unit_id: string; // Backend uses snake_case
     building_role: 'board' | 'resident' | 'owner';
     is_primary: boolean; // Backend uses snake_case
+}
+
+export interface ProposedInvoice {
+    unitName: string;
+    amount: number;
+    period: string; // Formato YYYY-MM
+    issueDate: string;
+    receiptNumber: string; // Required now
+    receipt_number?: string; // Optional field from backend preview
+    warning?: string; // Warning message from backend
+    status: 'EXISTS' | 'TO_BE_CREATED';
+}
+
+export interface PreviewInvoicesResponse {
+    invoices: ProposedInvoice[];
+    unitsToCreate: string[];
 }

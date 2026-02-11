@@ -23,7 +23,7 @@ export const usersService = {
     },
 
     async approveUser(id: string): Promise<User> {
-        const { data } = await apiClient.patch<User>(`/users/${id}`, { status: 'active' });
+        const { data } = await apiClient.post<User>(`/users/${id}/approve`);
         return data;
     },
 

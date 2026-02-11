@@ -1,4 +1,5 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://condominio.api.diangogavidia.com';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://condominio.api.diangogavidia.com';
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Condominio Admin';
 export const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true';
 

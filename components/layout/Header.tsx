@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -11,28 +13,15 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User as UserIcon } from 'lucide-react';
 import { formatUserRole } from '@/lib/utils/format';
 import { BuildingSelector } from './BuildingSelector';
-import { useEffect, useState } from 'react';
 import { buildingsService } from '@/lib/services/buildings.service';
 import type { Building } from '@/types/models';
 
 export function Header() {
     const { logout } = useAuth();
-    const { user, displayName, buildingName, isBoardMember, getBoardBuildings, isSuperAdmin } = usePermissions();
-    const [buildings, setBuildings] = useState<Building[]>([]);
-    const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all');
-
-    useEffect(() => {
-        const fetchBuildings = async () => {
-            if (isSuperAdmin || isBoardMember) {
-                const data = await buildingsService.getBuildings();
-                setBuildings(data);
-            }
-        };
-        fetchBuildings();
-    }, [isSuperAdmin, isBoardMember]);
+    const { displayName, buildingName, isBoardMember, user } = usePermissions();
 
     const getInitials = (name: string) => {
         return name
@@ -45,24 +34,21 @@ export function Header() {
 
     return (
         <header className="h-16 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between pl-16 pr-6 lg:px-8 shadow-sm">
-            {/* Building Selector for multi-building boards */}
-            {(isSuperAdmin || isBoardMember) && getBoardBuildings().length > 1 && (
-                <BuildingSelector
-                    buildings={buildings}
-                    selectedBuildingId={selectedBuildingId}
-                    onBuildingChange={setSelectedBuildingId}
-                />
-            )}
+            {/* Context breadcrumb for orientation */}
+            <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Admin Panel</span>
+                <span className="text-muted-foreground/30 px-1">/</span>
+                <span className="text-sm font-semibold truncate max-w-[150px] sm:max-w-[300px]">
+                    {buildingName || 'System Overview'}
+                </span>
+            </div>
 
-            {/* Spacer when no building selector */}
-            {(!isSuperAdmin && (!isBoardMember || getBoardBuildings().length <= 1)) && <div />}
             <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-3 hover:bg-accent/50 rounded-lg px-3 py-2 transition-all duration-200 outline-none focus:ring-2 focus:ring-primary/20">
                     <div className="text-right hidden sm:block">
                         <p className="text-sm font-medium text-foreground">{displayName}</p>
                         <p className="text-xs text-muted-foreground">
                             {user?.role && formatUserRole(user.role)}
-                            {isBoardMember && buildingName && ` • ${buildingName}`}
                         </p>
                     </div>
                     <Avatar className="h-9 w-9 border-2 border-primary/20 transition-all hover:border-primary">
@@ -80,7 +66,7 @@ export function Header() {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-border" />
                     <DropdownMenuItem className="cursor-pointer focus:bg-accent focus:text-accent-foreground">
-                        <User className="mr-2 h-4 w-4" />
+                        <UserIcon className="mr-2 h-4 w-4" />
                         Profile
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-border" />

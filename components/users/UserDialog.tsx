@@ -225,7 +225,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                     variant="outline"
                                     className="text-xs bg-background/50"
                                 >
-                                    {unit.name || unit.unit_id.slice(0, 8)}
+                                    {unit.unit_name || unit.unit_id.slice(0, 8)}
                                 </Badge>
                             ))}
                             {user.units.length > 3 && (

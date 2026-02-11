@@ -131,7 +131,7 @@ export function UnitDetailsSheet({ unit, open, onOpenChange }: UnitDetailsSheetP
                             <TabsContent value="invoices" className="mt-4 space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-sm font-medium flex items-center gap-2">
-                                        <FileText className="h-4 w-4" /> Recent Invoices
+                                        <FileText className="h-4 w-4" /> Invoices
                                     </h3>
                                     <Link href={`/billing?unit_id=${unit.id}&building_id=${unit.building_id}`} passHref>
                                         <Button variant="ghost" size="sm" className="h-8 text-xs gap-1">
@@ -143,21 +143,23 @@ export function UnitDetailsSheet({ unit, open, onOpenChange }: UnitDetailsSheetP
                                 {invoices.length === 0 ? (
                                     <p className="text-sm text-muted-foreground">No invoices found for this unit.</p>
                                 ) : (
-                                    <div className="space-y-3">
-                                        {invoices.slice(0, 5).map(inv => (
-                                            <div key={inv.id} className="flex flex-col p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <span className="font-medium text-sm">#{inv.number || inv.id.slice(0, 6)}</span>
-                                                    <Badge variant={inv.status === 'PAID' ? 'default' : 'secondary'} className={inv.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : ''}>
-                                                        {inv.status}
-                                                    </Badge>
+                                    <div className="h-[300px] w-full pr-2 overflow-y-auto">
+                                        <div className="space-y-3">
+                                            {invoices.map(inv => (
+                                                <div key={inv.id} className="flex flex-col p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <span className="font-medium text-sm">#{inv.number || inv.id.slice(0, 6)}</span>
+                                                        <Badge variant={inv.status === 'PAID' ? 'default' : 'secondary'} className={inv.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : ''}>
+                                                            {inv.status}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-sm">
+                                                        <span className="text-muted-foreground text-xs">{inv.year}-{inv.month}</span>
+                                                        <span className="font-semibold">{formatCurrency(inv.amount)}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-muted-foreground text-xs">{inv.year}-{inv.month}</span>
-                                                    <span className="font-semibold">{formatCurrency(inv.amount)}</span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </TabsContent>

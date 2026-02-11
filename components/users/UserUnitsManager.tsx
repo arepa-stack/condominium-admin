@@ -99,36 +99,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                         buildingsPromise
                     ]);
 
-                    // Enrich units with building_name and unit name
-                    const enrichedUnits = await Promise.all(
-                        units.map(async (unit) => {
-                            // Find building in the fetched list first
-                            let building = buildingsData.find(b => b.id === unit.building_id);
-
-                            // If not found (e.g. user has unit in building I don't manage), try to find name elsewhere or fetch
-                            if (!building && !isSuperAdmin) {
-                                // Try to fetch individually if allowed, or just show Unknown
-                                // Just for display purposes we might want to fetch it, but usually standard board member can't see outside their building
-                            }
-
-                            // Fetch units for this building to get unit name
-                            let unitDetails = null;
-                            try {
-                                const buildingUnits = await unitsService.getUnits(unit.building_id);
-                                unitDetails = buildingUnits.find(u => u.id === unit.unit_id);
-                            } catch (error) {
-                                // Silent fail if we can't fetch units for a building we don't manage
-                            }
-
-                            return {
-                                ...unit,
-                                building_name: building?.name || unit.building_name || 'Other Building', // Fallback to provided name or generic
-                                name: unitDetails?.name || unit.unit_id.slice(0, 8)
-                            };
-                        })
-                    );
-
-                    setUserUnits(enrichedUnits);
+                    setUserUnits(units);
                     setBuildings(buildingsData);
                 } catch (error) {
                     console.error('Failed to fetch data:', error);
@@ -165,29 +136,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
 
         try {
             const units = await usersService.getUserUnits(user.id);
-
-            // Enrich with building and unit names
-            const enrichedUnits = await Promise.all(
-                units.map(async (unit) => {
-                    const building = buildings.find(b => b.id === unit.building_id);
-
-                    let unitDetails = null;
-                    try {
-                        const buildingUnits = await unitsService.getUnits(unit.building_id);
-                        unitDetails = buildingUnits.find(u => u.id === unit.unit_id);
-                    } catch (error) {
-                        console.error(`Failed to fetch units for building ${unit.building_id}:`, error);
-                    }
-
-                    return {
-                        ...unit,
-                        building_name: building?.name || 'Unknown Building',
-                        name: unitDetails?.name || unit.unit_id.slice(0, 8)
-                    };
-                })
-            );
-
-            setUserUnits(enrichedUnits);
+            setUserUnits(units);
         } catch (error) {
             console.error('Failed to refresh user units:', error);
         }
@@ -493,7 +442,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                                     <div>
                                                                         <div className="flex items-center gap-2">
                                                                             <span className="font-medium text-sm">
-                                                                                {unit.name || unit.unit_id.slice(0, 8)}
+                                                                                {unit.unit_name || unit.unit_id.slice(0, 8)}
                                                                             </span>
                                                                             {unit.is_primary && (
                                                                                 <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
@@ -515,7 +464,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                                 <Button
                                                                     size="sm"
                                                                     variant="ghost"
-                                                                    onClick={() => handleRemoveUnit(unit.unit_id, unit.name)}
+                                                                    onClick={() => handleRemoveUnit(unit.unit_id, unit.unit_name)}
                                                                     disabled={actionLoading}
                                                                     className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
                                                                 >

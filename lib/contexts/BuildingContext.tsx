@@ -17,66 +17,64 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
     const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
     const [availableBuildings, setAvailableBuildings] = useState<Array<{ id: string; name?: string }>>([]);
 
-    // Fetch building details for board members
+    // Fetch building details based on role
     useEffect(() => {
-        const fetchBuildingDetails = async () => {
-            if (!user?.units) {
-                setAvailableBuildings([]);
-                return;
-            }
-
-            // Get unique building IDs where user is board
-            const boardBuildingIds = Array.from(new Set(
-                user.units
-                    .filter(unit => unit.building_role === 'board')
-                    .map(unit => unit.building_id)
-            ));
-
-            if (boardBuildingIds.length === 0) {
-                setAvailableBuildings([]);
-                return;
-            }
-
-            // Fetch details for each building to get the name
+        const fetchBuildings = async () => {
             try {
-                const buildingsWithNames = await Promise.all(
-                    boardBuildingIds.map(async (id) => {
-                        try {
-                            // Check if we already have the name in user units (though rare based on logs)
-                            const unitWithInfo = user.units?.find(u => u.building_id === id && u.building_name);
-                            if (unitWithInfo?.building_name) {
-                                return { id, name: unitWithInfo.building_name };
+                if (user?.role === 'admin') {
+                    // Super Admin sees all buildings
+                    const allBuildings = await buildingsService.getBuildings();
+                    setAvailableBuildings(allBuildings.map(b => ({ id: b.id, name: b.name })));
+                } else if (user?.units) {
+                    // Board Members see unique buildings where they have board role
+                    const boardBuildingsMap = new Map<string, { id: string; name?: string }>();
+                    user.units.forEach(unit => {
+                        const role = unit.building_role?.toLowerCase();
+                        if (role === 'board' && unit.building_id) {
+                            if (!boardBuildingsMap.has(unit.building_id)) {
+                                boardBuildingsMap.set(unit.building_id, {
+                                    id: unit.building_id,
+                                    name: unit.building_name
+                                });
                             }
-
-                            // Otherwise fetch from API
-                            const building = await buildingsService.getBuildingById(id);
-                            return { id, name: building.name };
-                        } catch (error) {
-                            console.error(`Failed to fetch building ${id}`, error);
-                            return { id, name: 'Unknown Building' };
                         }
-                    })
-                );
+                    });
 
-                setAvailableBuildings(buildingsWithNames);
+                    const initialList = Array.from(boardBuildingsMap.values());
+
+                    // Enrich missing names
+                    const enrichedList = await Promise.all(initialList.map(async (b) => {
+                        if (!b.name || b.name === 'Unknown Building') {
+                            try {
+                                const details = await buildingsService.getBuildingById(b.id);
+                                return { id: b.id, name: details.name };
+                            } catch (e) {
+                                return { id: b.id, name: b.name || 'Unknown Building' };
+                            }
+                        }
+                        return b;
+                    }));
+
+                    setAvailableBuildings(enrichedList);
+                } else {
+                    setAvailableBuildings([]);
+                }
             } catch (error) {
-                console.error('Failed to fetch building details', error);
-                // Fallback to IDs if fetch completely fails
-                setAvailableBuildings(boardBuildingIds.map(id => ({ id, name: 'Unknown Building' })));
+                console.error('Failed to fetch buildings for context:', error);
+                setAvailableBuildings([]);
             }
         };
 
-        fetchBuildingDetails();
+        fetchBuildings();
     }, [user]);
 
     // Auto-select first building
     useEffect(() => {
         if (!selectedBuildingId && availableBuildings.length > 0) {
-            // Try to use primary unit's building first
-            const primaryUnit = user?.units?.find(u => u.is_primary && u.building_role === 'board');
-
-            // Check if primary building is in available (fetching might strictly filter)
+            // Try to use primary unit's building first if resident/board
+            const primaryUnit = user?.units?.find(u => u.is_primary);
             const primaryId = primaryUnit?.building_id;
+
             const hasPrimaryAccess = primaryId && availableBuildings.some(b => b.id === primaryId);
 
             setSelectedBuildingId(hasPrimaryAccess ? primaryId : availableBuildings[0].id);

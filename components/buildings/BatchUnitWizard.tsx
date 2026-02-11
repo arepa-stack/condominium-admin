@@ -24,6 +24,7 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
     const [step, setStep] = useState(1);
     const [floorsCount, setFloorsCount] = useState<number>(0);
     const [unitsPerFloorObj, setUnitsPerFloorObj] = useState<string>(''); // e.g. "A, B, C"
+    const [defaultAliquot, setDefaultAliquot] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(false);
 
     // Derived states
@@ -53,7 +54,8 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
             setIsLoading(true);
             await unitsService.batchCreateUnits(buildingId, {
                 floors,
-                unitsPerFloor
+                unitsPerFloor,
+                aliquot: defaultAliquot
             });
             toast.success(`Successfully generated ${previewCount} units!`);
             onSuccess();
@@ -121,17 +123,47 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
                     )}
 
                     {step === 3 && (
-                        <div className="space-y-4 text-center py-4">
-                            <div className="text-4xl font-bold text-primary mb-2">
-                                {previewCount}
+                        <div className="space-y-6 text-center py-2">
+                            <div className="space-y-1">
+                                <div className="text-5xl font-black text-primary tracking-tighter">
+                                    {previewCount}
+                                </div>
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                                    Units to be created
+                                </p>
                             </div>
-                            <p className="text-muted-foreground">
-                                Units will be created.
-                            </p>
-                            <div className="text-sm border p-4 rounded bg-accent/20">
-                                <p>Floors: {floors.length} (1 - {floors.length})</p>
-                                <p>Units/Floor: {unitsPerFloor.join(', ')}</p>
-                                <p className="mt-2 text-xs italic">Example: 1-{unitsPerFloor[0] || 'A'} to {floors.length}-{unitsPerFloor[unitsPerFloor.length - 1] || 'Z'}</p>
+
+                            <div className="space-y-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                                <Label className="text-xs uppercase font-bold text-primary/70 tracking-wider">Default Aliquot (%)</Label>
+                                <div className="relative">
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="e.g. 2.5"
+                                        value={defaultAliquot || ''}
+                                        onChange={e => setDefaultAliquot(parseFloat(e.target.value) || 0)}
+                                        className="text-center font-bold text-lg bg-background/50 border-white/10"
+                                    />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">%</div>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground italic">
+                                    Assigning {defaultAliquot}% to {previewCount} units = {(defaultAliquot * previewCount).toFixed(2)}% total building aliquot.
+                                </p>
+                            </div>
+
+                            <div className="text-sm border border-white/5 p-5 rounded-2xl bg-white/5 space-y-2 text-left">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Floors:</span>
+                                    <span className="font-bold text-white">{floors.length} (1 - {floors.length})</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground">Units per floor:</span>
+                                    <span className="font-bold text-white italic">{unitsPerFloor.join(', ')}</span>
+                                </div>
+                                <div className="pt-2 border-t border-white/5 text-[10px] text-muted-foreground italic flex items-center gap-2">
+                                    <div className="h-1 w-1 rounded-full bg-primary" />
+                                    Example: 1-{unitsPerFloor[0] || 'A'} to {floors.length}-{unitsPerFloor[unitsPerFloor.length - 1] || 'Z'}
+                                </div>
                             </div>
                         </div>
                     )}

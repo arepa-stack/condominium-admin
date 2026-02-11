@@ -94,43 +94,7 @@ export default function UsersPage() {
 
             const [usersData, buildingsData, unitsData] = await Promise.all(promises);
 
-            // Enrich users with building and unit names
-            const enrichedUsers = await Promise.all(
-                usersData.map(async (user: User) => {
-                    if (!user.units || user.units.length === 0) {
-                        return user;
-                    }
-
-                    // Enrich each unit with building_name and unit name
-                    const enrichedUnits = await Promise.all(
-                        user.units.map(async (unit: UserUnit) => {
-                            const building = buildingsData.find((b: Building) => b.id === unit.building_id);
-
-                            // Fetch unit details to get unit name
-                            let unitDetails = null;
-                            try {
-                                const buildingUnits = await unitsService.getUnits(unit.building_id);
-                                unitDetails = buildingUnits.find(u => u.id === unit.unit_id);
-                            } catch (error) {
-                                console.error(`Failed to fetch units for building ${unit.building_id}:`, error);
-                            }
-
-                            return {
-                                ...unit,
-                                building_name: building?.name || 'Unknown Building',
-                                name: unitDetails?.name || unit.unit_id.slice(0, 8)
-                            };
-                        })
-                    );
-
-                    return {
-                        ...user,
-                        units: enrichedUnits
-                    };
-                })
-            );
-
-            setUsers(enrichedUsers);
+            setUsers(usersData);
             setBuildings(buildingsData);
             setUnits(unitsData);
         } catch (error) {
@@ -313,7 +277,7 @@ export default function UsersPage() {
                                                                 <span className="text-muted-foreground">→</span>
                                                                 <Home className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                                                                 <span className="text-foreground">
-                                                                    {unit.name || unit.unit_id.slice(0, 8)}
+                                                                    {unit.unit_name || unit.unit_id.slice(0, 8)}
                                                                 </span>
                                                                 {unit.is_primary && (
                                                                     <Badge className="text-[9px] h-4 px-1 bg-amber-500/20 text-amber-300 border-amber-500/30">
@@ -321,7 +285,7 @@ export default function UsersPage() {
                                                                     </Badge>
                                                                 )}
                                                                 <BuildingRoleBadge
-                                                                    buildingRole={unit.building_role}
+                                                                    buildingRole={unit.building_role as any}
                                                                     className="text-[9px] h-4 px-1.5"
                                                                 />
                                                             </div>
@@ -442,7 +406,7 @@ export default function UsersPage() {
                                                         <div className="flex items-center gap-2 pl-5">
                                                             <Home className="h-3 w-3 text-muted-foreground" />
                                                             <span className="text-foreground">
-                                                                {unit.name || unit.unit_id.slice(0, 8)}
+                                                                {unit.unit_name || unit.unit_id.slice(0, 8)}
                                                             </span>
                                                             {unit.is_primary && (
                                                                 <Badge className="text-[9px] h-4 px-1 bg-amber-500/20 text-amber-300 border-amber-500/30">
@@ -450,7 +414,7 @@ export default function UsersPage() {
                                                                 </Badge>
                                                             )}
                                                             <BuildingRoleBadge
-                                                                buildingRole={unit.building_role}
+                                                                buildingRole={unit.building_role as any}
                                                                 className="text-[9px] h-4 px-1.5"
                                                             />
                                                         </div>

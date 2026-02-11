@@ -17,4 +17,8 @@ export const unitsService = {
         const { data: units } = await apiClient.post<Unit[]>(`/buildings/${buildingId}/units/batch`, data);
         return units;
     },
+    async getUnitById(unitId: string): Promise<Unit> {
+        const { data } = await apiClient.get<Unit>(`/buildings/units/${unitId}`);
+        return data;
+    },
 };

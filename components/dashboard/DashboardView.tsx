@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { StatsCard } from '@/components/dashboard/StatsCard';
-import { Building2, Users, CreditCard, DollarSign, TrendingUp, ArrowLeft, Search, FileText, Plus } from 'lucide-react';
+import { Building2, Users, CreditCard, DollarSign, TrendingUp, ArrowLeft, Search, FileText, Plus, FileSpreadsheet, ArrowUpRight } from 'lucide-react';
 import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
+import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { UnitsTab } from '@/components/buildings/UnitsTab';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { usersService } from '@/lib/services/users.service';
@@ -44,6 +45,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
     const [searchPayments, setSearchPayments] = useState('');
     const [searchInvoices, setSearchInvoices] = useState('');
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+    const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
 
     // Check if user has access to this building
     useEffect(() => {
@@ -149,14 +151,21 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-                        {isFilteredView ? (currentBuildingName || buildingName || 'Building') : 'Dashboard'}
+                    <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
+                        {isFilteredView ? (currentBuildingName || buildingName || 'Building Dashboard') : 'Global Dashboard'}
                     </h1>
-                    <p className="text-muted-foreground mt-1">
-                        {isFilteredView
-                            ? 'Building specific overview'
-                            : (isSuperAdmin ? 'System-wide overview' : 'Your building overview')
-                        }
+                    <p className="text-muted-foreground mt-1 flex items-center gap-2">
+                        {isFilteredView ? (
+                            <>
+                                <Building2 className="h-4 w-4" />
+                                <span>Building Management Overview</span>
+                            </>
+                        ) : (
+                            <>
+                                <TrendingUp className="h-4 w-4" />
+                                <span>{isSuperAdmin ? 'System-wide Administration' : 'Account Overview'}</span>
+                            </>
+                        )}
                     </p>
                 </div>
                 {isFilteredView && isSuperAdmin && showBuildingFilter && (
@@ -302,15 +311,35 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                         <Card className="border-border/50 bg-card">
                             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0 pb-2">
                                 <div className="space-y-1">
-                                    <CardTitle className="text-foreground">Recent Invoices</CardTitle>
+                                    <div className="flex items-center gap-2">
+                                        <CardTitle className="text-foreground">Recent Invoices</CardTitle>
+                                        {effectiveBuildingId && (
+                                            <Link href={`/billing?building_id=${effectiveBuildingId}`} passHref>
+                                                <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 px-2">
+                                                    View All <ArrowUpRight className="h-3 w-3" />
+                                                </Button>
+                                            </Link>
+                                        )}
+                                    </div>
                                     <p className="text-xs text-muted-foreground font-normal">Manage building debts</p>
                                 </div>
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
                                     {(isSuperAdmin || user?.role === 'board') && (
-                                        <Button size="sm" onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2 w-full sm:w-auto">
-                                            <Plus className="h-4 w-4" />
-                                            Create Invoice
-                                        </Button>
+                                        <div className="flex gap-2 w-full sm:w-auto">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setIsExcelLoaderOpen(true)}
+                                                className="gap-2 border-green-600/20 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                            >
+                                                <FileSpreadsheet className="h-4 w-4" />
+                                                Import Excel
+                                            </Button>
+                                            <Button size="sm" onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2 w-full sm:w-auto">
+                                                <Plus className="h-4 w-4" />
+                                                Create Invoice
+                                            </Button>
+                                        </div>
                                     )}
                                     <div className="relative w-full sm:w-64">
                                         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -445,7 +474,13 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
 
                     {/* Units Tab */}
                     <TabsContent value="units" className="space-y-4">
-                        {effectiveBuildingId && <UnitsTab buildingId={effectiveBuildingId} />}
+                        {effectiveBuildingId && (
+                            <UnitsTab
+                                buildingId={effectiveBuildingId}
+                                invoices={invoices}
+                                users={users}
+                            />
+                        )}
                     </TabsContent>
                 </Tabs>
             ) : (
@@ -507,6 +542,14 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                 open={isInvoiceDialogOpen}
                 onOpenChange={setIsInvoiceDialogOpen}
                 buildingId={effectiveBuildingId as string}
+                onSuccess={fetchData}
+            />
+
+            <ExcelInvoiceLoader
+                open={isExcelLoaderOpen}
+                onOpenChange={setIsExcelLoaderOpen}
+                buildingId={effectiveBuildingId as string}
+                buildings={buildings}
                 onSuccess={fetchData}
             />
         </div>

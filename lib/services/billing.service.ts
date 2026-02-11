@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api/client';
-import type { Invoice, InvoicePayment, UnitBalance, BillingDebtPayload } from '@/types/models';
+import type { Invoice, InvoicePayment, UnitBalance, BillingDebtPayload, ProposedInvoice, PreviewInvoicesResponse } from '@/types/models';
 
 export const billingService = {
 
@@ -38,6 +38,23 @@ export const billingService = {
 
     async loadDebt(payload: BillingDebtPayload): Promise<Invoice> {
         const { data } = await apiClient.post<Invoice>('/billing/debt', payload);
+        return data;
+    },
+
+    async previewInvoices(building_id: string, file: File): Promise<PreviewInvoicesResponse> {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data } = await apiClient.post<PreviewInvoicesResponse>(`/billing/invoices/preview`, formData, {
+            params: { building_id },
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return data;
+    },
+
+    async confirmInvoices(building_id: string, invoices: ProposedInvoice[]): Promise<{ success: boolean }> {
+        const { data } = await apiClient.post<{ success: boolean }>(`/billing/invoices/confirm`, { invoices }, {
+            params: { building_id }
+        });
         return data;
     },
 };

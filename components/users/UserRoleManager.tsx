@@ -99,7 +99,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                 building_role: 'board',
                 is_primary: unit.is_primary
             });
-            toast.success(`${user.name} promoted to Board for ${unit.name || 'unit'}`);
+            toast.success(`${user.name} promoted to Board for ${unit.unit_name || 'unit'}`);
 
             // Refresh units list
             const updatedUnits = await usersService.getUserUnits(user.id);
@@ -130,7 +130,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                 building_role: 'resident',
                 is_primary: unit.is_primary
             });
-            toast.success(`${user.name} demoted to Resident for ${unit.name || 'unit'}`);
+            toast.success(`${user.name} demoted to Resident for ${unit.unit_name || 'unit'}`);
 
             // Refresh units list
             const updatedUnits = await usersService.getUserUnits(user.id);
@@ -243,7 +243,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                             <div>
                                                                 <div className="flex items-center gap-2">
                                                                     <p className="font-medium text-sm">
-                                                                        {unit.name || unit.unit_id.slice(0, 8)}
+                                                                        {unit.unit_name || unit.unit_id.slice(0, 8)}
                                                                     </p>
                                                                     {unit.is_primary && (
                                                                         <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">

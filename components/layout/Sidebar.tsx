@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
     LayoutDashboard,
     Users,
     Building2,
+    Home,
     CreditCard,
     FileText,
     LogOut,
@@ -29,6 +30,7 @@ import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'board'] },
     { name: 'Buildings', href: '/buildings', icon: Building2, roles: ['admin'] },
+    { name: 'Units', href: '/units', icon: Home, roles: ['admin', 'board'] },
     { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'board'] },
     { name: 'Billing', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
     { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['admin', 'board'] },
@@ -36,15 +38,34 @@ const navigation = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const params = useParams();
     const { logout } = useAuth();
+    const router = useRouter();
     const { user, isSuperAdmin, isBoardMember, displayName } = usePermissions();
     const { selectedBuildingId, setSelectedBuildingId, availableBuildings } = useBuildingContext();
     const [open, setOpen] = useState(false);
 
-    // Filter navigation based on user role
-    const filteredNavigation = navigation.filter(item =>
-        user && item.roles.includes(user.role)
-    );
+    const buildingId = params?.id as string;
+
+    // Filter navigation based on user role and adjust hrefs for contextual routing
+    const filteredNavigation = navigation
+        .filter(item => user && item.roles.includes(user.role))
+        .map(item => {
+            // Dashboard is handled specifically: /dashboard is global, /buildings/[id]/dashboard is contextual
+            if (item.href === '/dashboard') {
+                return buildingId
+                    ? { ...item, href: `/buildings/${buildingId}/dashboard` }
+                    : item;
+            }
+
+            // Other functional pages: if in building context, use contextual route
+            const contextualPages = ['/units', '/users', '/billing', '/payments'];
+            if (buildingId && contextualPages.includes(item.href)) {
+                return { ...item, href: `/buildings/${buildingId}${item.href}` };
+            }
+
+            return item;
+        });
 
     const SidebarContent = () => (
         <div className="flex bg-card/50 h-full flex-col justify-between py-6 backdrop-blur-xl border-r border-white/5">
@@ -58,16 +79,27 @@ export function Sidebar() {
                     </span>
                 </div>
 
-                {/* Building Selector for Board Members */}
-                {isBoardMember && !isSuperAdmin && availableBuildings.length > 0 && (
+                {/* Building Selector for Management Roles */}
+                {(isSuperAdmin || isBoardMember) && availableBuildings.length > 0 && (
                     <div className="px-2 mb-8">
                         {availableBuildings.length > 1 ? (
                             <Select
                                 value={selectedBuildingId || ''}
-                                onValueChange={setSelectedBuildingId}
+                                onValueChange={(id) => {
+                                    setSelectedBuildingId(id);
+                                    // If we are in a building context, we might want to redirect to the same page for the new building
+                                    if (pathname.includes('/buildings/')) {
+                                        const parts = pathname.split('/');
+                                        const action = parts[parts.length - 1];
+                                        router.push(`/buildings/${id}/${action}`);
+                                    }
+                                }}
                             >
-                                <SelectTrigger className="w-full bg-background/50 border-white/10 text-xs font-medium uppercase tracking-wider h-8">
-                                    <SelectValue placeholder="Select Building" />
+                                <SelectTrigger className="w-full bg-background/50 border-white/10 text-xs font-medium uppercase tracking-wider h-10 shadow-sm hover:bg-background transition-colors">
+                                    <div className="flex items-center gap-2 truncate">
+                                        <Building2 className="h-4 w-4 text-primary shrink-0" />
+                                        <SelectValue placeholder="Select Building" />
+                                    </div>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {availableBuildings.map(building => (
@@ -78,9 +110,12 @@ export function Sidebar() {
                                 </SelectContent>
                             </Select>
                         ) : (
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
-                                {availableBuildings[0].name || 'Unknown Building'}
-                            </p>
+                            <div className="px-3 py-2 bg-primary/5 rounded-lg border border-primary/20 flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-primary" />
+                                <span className="text-xs font-semibold text-primary uppercase tracking-wider truncate">
+                                    {availableBuildings[0].name || 'Unknown Building'}
+                                </span>
+                            </div>
                         )}
                     </div>
                 )}

@@ -4,11 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Crown, User } from 'lucide-react';
 
 interface BuildingRoleBadgeProps {
-    buildingRole: 'board' | 'resident' | 'owner';
+    buildingRole: string;
     className?: string;
 }
 
 export function BuildingRoleBadge({ buildingRole, className = '' }: BuildingRoleBadgeProps) {
+    const role = buildingRole?.toLowerCase() as 'board' | 'resident' | 'owner';
+
     const roleConfig = {
         board: {
             icon: Crown,
@@ -27,7 +29,7 @@ export function BuildingRoleBadge({ buildingRole, className = '' }: BuildingRole
         },
     };
 
-    const config = roleConfig[buildingRole];
+    const config = roleConfig[role] || roleConfig.resident;
     const Icon = config.icon;
 
     return (

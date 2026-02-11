@@ -1,24 +1,30 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Wand2, User as UserIcon } from 'lucide-react';
+import { Plus, Wand2, User as UserIcon, DollarSign, AlertTriangle, AlertCircle } from 'lucide-react';
 import { unitsService } from '@/lib/services/units.service';
 import { usersService } from '@/lib/services/users.service';
-import type { Unit, User } from '@/types/models';
+import { billingService } from '@/lib/services/billing.service';
+import type { Unit, User, Invoice } from '@/types/models';
 import { toast } from 'sonner';
 import { CreateUnitDialog } from './CreateUnitDialog';
 import { BatchUnitWizard } from './BatchUnitWizard';
 import { UnitDetailsSheet } from './UnitDetailsSheet';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/utils/format';
 
 interface UnitsTabProps {
     buildingId: string;
+    invoices?: Invoice[];
+    users?: User[];
 }
 
-export function UnitsTab({ buildingId }: UnitsTabProps) {
+export function UnitsTab({ buildingId, invoices: initialInvoices, users: initialUsers }: UnitsTabProps) {
     const [units, setUnits] = useState<Unit[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [users, setUsers] = useState<User[]>(initialUsers || []);
+    const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>(initialInvoices?.filter(i => i.status === 'PENDING') || []);
+    const [isLoading, setIsLoading] = useState(!initialInvoices || !initialUsers);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isBatchOpen, setIsBatchOpen] = useState(false);
     const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -26,12 +32,20 @@ export function UnitsTab({ buildingId }: UnitsTabProps) {
     const fetchData = async () => {
         try {
             setIsLoading(true);
-            const [unitsData, usersData] = await Promise.all([
-                unitsService.getUnits(buildingId),
-                usersService.getUsers({ building_id: buildingId })
-            ]);
-            setUnits(unitsData);
-            setUsers(usersData);
+            const promises: any[] = [unitsService.getUnits(buildingId)];
+
+            if (!initialUsers) {
+                promises.push(usersService.getUsers({ building_id: buildingId }));
+            }
+            if (!initialInvoices) {
+                promises.push(billingService.getInvoices({ building_id: buildingId, status: 'PENDING' }));
+            }
+
+            const results = await Promise.all(promises);
+            setUnits(results[0]);
+            if (!initialUsers) setUsers(results[1]);
+            if (!initialInvoices) setPendingInvoices(results[initialUsers ? 1 : 2]);
+
         } catch (error) {
             console.error(error);
             toast.error('Failed to fetch units data');
@@ -44,7 +58,35 @@ export function UnitsTab({ buildingId }: UnitsTabProps) {
         if (buildingId) {
             fetchData();
         }
-    }, [buildingId]);
+    }, [buildingId, initialInvoices, initialUsers]);
+
+    // Map debt to units for display
+    const unitDebts = useMemo(() => {
+        const debtMap = new Map<string, number>();
+
+        pendingInvoices.forEach(inv => {
+            // Robust matching: Try ID first, then name
+            let targetUnitId = inv.unit_id;
+
+            // If inv.unit_id doesn't match a unit ID, maybe it's the unit name?
+            if (!units.some(u => u.id === targetUnitId)) {
+                const matchedByName = units.find(u =>
+                    u.name === inv.unit?.name ||
+                    u.name === inv.unit_id
+                );
+                if (matchedByName) {
+                    targetUnitId = matchedByName.id;
+                }
+            }
+
+            if (targetUnitId) {
+                const currentDebt = debtMap.get(targetUnitId) || 0;
+                const remaining = inv.amount - (inv.paid_amount || 0);
+                debtMap.set(targetUnitId, currentDebt + remaining);
+            }
+        });
+        return debtMap;
+    }, [pendingInvoices, units]);
 
     // Helper to find resident for a unit
     const getUnitResident = (unit: Unit) => {
@@ -77,20 +119,22 @@ export function UnitsTab({ buildingId }: UnitsTabProps) {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Floor</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Current Resident</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Aliquot (%)</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Debt</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">Loading units...</td>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Loading units...</td>
                                     </tr>
                                 ) : units.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">No units found. Create one or use the generator!</td>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">No units found. Create one or use the generator!</td>
                                     </tr>
                                 ) : (
                                     units.map((unit) => {
                                         const resident = getUnitResident(unit);
+                                        const debt = unitDebts.get(unit.id) || 0;
                                         return (
                                             <tr
                                                 key={unit.id}
@@ -98,7 +142,14 @@ export function UnitsTab({ buildingId }: UnitsTabProps) {
                                                 onClick={() => setSelectedUnit(unit)}
                                             >
                                                 <td className="px-6 py-4 font-medium text-primary">{unit.name}</td>
-                                                <td className="px-6 py-4">{unit.floor}</td>
+                                                <td className="px-6 py-4">
+                                                    {unit.floor || (
+                                                        <span className="text-red-400 font-bold flex items-center gap-1">
+                                                            <AlertCircle className="h-3 w-3" />
+                                                            N/A
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     {resident ? (
                                                         <div className="flex items-center gap-2">
@@ -111,7 +162,29 @@ export function UnitsTab({ buildingId }: UnitsTabProps) {
                                                         <span className="text-muted-foreground text-sm italic">Vacant</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">{unit.aliquot}%</td>
+                                                <td className="px-6 py-4">
+                                                    {unit.aliquot > 0 ? (
+                                                        <span>{unit.aliquot}%</span>
+                                                    ) : (
+                                                        <span className="text-yellow-500 font-bold flex items-center gap-1">
+                                                            <AlertTriangle className="h-3 w-3" />
+                                                            0%
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={cn(
+                                                            "font-bold text-sm",
+                                                            debt > 0 ? "text-red-500" : "text-emerald-500"
+                                                        )}>
+                                                            {formatCurrency(debt)}
+                                                        </span>
+                                                        {debt > 0 && (
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" title="Payment pending" />
+                                                        )}
+                                                    </div>
+                                                </td>
                                             </tr>
                                         );
                                     })
