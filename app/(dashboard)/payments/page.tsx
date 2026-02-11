@@ -84,14 +84,10 @@ export default function PaymentsPage() {
             }
 
             const query: Record<string, string> = {};
-            if (userIdParam) {
-                query.user_id = userIdParam;
-                if (filterYear) query.year = filterYear;
-            } else {
-                if (activeBuildingId) query.building_id = activeBuildingId;
-                if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
-                if (filterYear) query.year = filterYear;
-            }
+            if (activeBuildingId) query.building_id = activeBuildingId;
+            if (userIdParam) query.user_id = userIdParam;
+            if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
+            if (filterYear) query.year = filterYear;
 
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
             if (filterPeriod) query.period = filterPeriod;

@@ -260,7 +260,17 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                         {filteredUsers.map((user) => (
                                             <div
                                                 key={user.id}
-                                                onClick={() => router.push(`/payments?user_id=${user.id}`)}
+                                                onClick={() => {
+                                                    const unitId = user.unit_id || (user.units && user.units.length > 0 ? user.units[0].unit_id : null);
+                                                    if (effectiveBuildingId && unitId) {
+                                                        router.push(`/buildings/${effectiveBuildingId}/units/${unitId}`);
+                                                    } else {
+                                                        const basePath = effectiveBuildingId
+                                                            ? `/buildings/${effectiveBuildingId}/payments`
+                                                            : '/payments';
+                                                        router.push(`${basePath}?user_id=${user.id}`);
+                                                    }
+                                                }}
                                                 className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg transition-all duration-200 cursor-pointer gap-4 sm:gap-0 ${user.role === 'board'
                                                     ? 'bg-primary/5 border-primary/20 shadow-sm hover:shadow-md'
                                                     : 'border-border/50 hover:bg-accent/50 hover:shadow-md'

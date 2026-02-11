@@ -31,12 +31,14 @@ import { Eye, CheckCircle, XCircle, Info, Home, DollarSign, Loader2 } from 'luci
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import Image from 'next/image';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 export default function BuildingPaymentsPage() {
     const { isSuperAdmin, isBoardMember, user } = usePermissions();
     const params = useParams();
+    const searchParams = useSearchParams();
     const buildingId = params.id as string;
+    const userIdParam = searchParams.get('user_id');
 
     const [payments, setPayments] = useState<Payment[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
@@ -70,6 +72,7 @@ export default function BuildingPaymentsPage() {
                 year: filterYear
             };
 
+            if (userIdParam) query.user_id = userIdParam;
             if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
             if (filterPeriod) query.period = filterPeriod;
@@ -79,7 +82,12 @@ export default function BuildingPaymentsPage() {
                 unitsService.getUnits(buildingId)
             ]);
 
-            setPayments(paymentsData);
+            let filteredResults = paymentsData;
+            if (userIdParam) {
+                filteredResults = paymentsData.filter((p: Payment) => p.user_id === userIdParam);
+            }
+
+            setPayments(filteredResults);
             setUnits(unitsData);
         } catch (error) {
             console.error('Failed to fetch data:', error);
@@ -87,7 +95,7 @@ export default function BuildingPaymentsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [buildingId, filterUnitId, filterStatus, filterPeriod, filterYear]);
+    }, [buildingId, filterUnitId, filterStatus, filterPeriod, filterYear, userIdParam]);
 
     useEffect(() => {
         fetchData();
