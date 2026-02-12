@@ -380,12 +380,23 @@ export default function PaymentsPage() {
 
             {/* Proof Dialog */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
+                <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto bg-card border-white/10">
+                    <div className="flex items-center justify-between">
                         <DialogTitle>Payment Proof</DialogTitle>
-                    </DialogHeader>
+                        {proofUrl && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-white/10 hover:bg-white/5"
+                                onClick={() => window.open(proofUrl, '_blank')}
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                                Download / Open Original
+                            </Button>
+                        )}
+                    </div>
                     {proofUrl && (
-                        <div className="relative w-full h-[600px]">
+                        <div className="relative w-full h-[75vh] min-h-[400px]">
                             <Image
                                 src={proofUrl}
                                 alt="Payment Proof"

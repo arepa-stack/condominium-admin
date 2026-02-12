@@ -20,7 +20,9 @@ import {
     CreditCard,
     Calendar,
     ArrowUpRight,
-    Loader2
+    Loader2,
+    Download,
+    ExternalLink
 } from 'lucide-react';
 import { billingService } from '@/lib/services/billing.service';
 import { paymentsService } from '@/lib/services/payments.service';
@@ -347,12 +349,23 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
 
             {/* Proof Modal */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-3xl bg-card border-white/10 backdrop-blur-2xl p-6">
-                    <DialogHeader>
+                <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl p-6">
+                    <div className="flex items-center justify-between gap-4 mb-2">
                         <DialogTitle className="text-white">Payment Proof</DialogTitle>
-                    </DialogHeader>
+                        {proofUrl && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-white/10 hover:bg-white/5 text-white"
+                                onClick={() => window.open(proofUrl, '_blank')}
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                                Open Full Size
+                            </Button>
+                        )}
+                    </div>
                     {proofUrl && (
-                        <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/5 shadow-2xl mt-4">
+                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl mt-4">
                             <Image
                                 src={proofUrl}
                                 alt="Payment Proof"

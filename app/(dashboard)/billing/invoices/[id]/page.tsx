@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, Eye, Info, Building as BuildingIcon, Hash } from 'lucide-react';
+import { ArrowLeft, Eye, Info, Building as BuildingIcon, Hash, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -271,12 +271,23 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
 
             {/* Proof Dialog */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-3xl bg-card border-white/10 backdrop-blur-2xl">
-                    <DialogHeader>
+                <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl">
+                    <div className="flex items-center justify-between gap-4 mb-2">
                         <DialogTitle className="text-white">Payment Proof</DialogTitle>
-                    </DialogHeader>
+                        {proofUrl && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-white/10 hover:bg-white/5 text-white"
+                                onClick={() => window.open(proofUrl, '_blank')}
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                                Open Full Size
+                            </Button>
+                        )}
+                    </div>
                     {proofUrl && (
-                        <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/5 shadow-2xl">
+                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl">
                             <Image
                                 src={proofUrl}
                                 alt="Payment Proof"

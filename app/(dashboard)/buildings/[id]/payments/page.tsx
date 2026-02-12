@@ -339,12 +339,23 @@ export default function BuildingPaymentsPage() {
 
             {/* Proof Dialog */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-3xl bg-card border-white/10 backdrop-blur-2xl">
-                    <DialogHeader>
+                <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl">
+                    <div className="flex items-center justify-between gap-4 mb-2">
                         <DialogTitle className="text-white">Payment Proof</DialogTitle>
-                    </DialogHeader>
+                        {proofUrl && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-white/10 hover:bg-white/5 text-white"
+                                onClick={() => window.open(proofUrl, '_blank')}
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                                Download / Open
+                            </Button>
+                        )}
+                    </div>
                     {proofUrl && (
-                        <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-white/5 shadow-2xl">
+                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl">
                             <Image
                                 src={proofUrl}
                                 alt="Payment Proof"
