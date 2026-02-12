@@ -21,7 +21,8 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const fetchBuildings = async () => {
             try {
-                if ((user?.role as any) === 'admin' || (user?.role as any) === 'superadmin') {
+                const userRole = (user?.role as string || '').toLowerCase();
+                if (userRole === 'admin' || userRole === 'superadmin') {
                     // Admins see all buildings
                     const allBuildings = await buildingsService.getBuildings();
                     setAvailableBuildings(allBuildings.map(b => ({ id: b.id, name: b.name })));
@@ -30,7 +31,7 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
                     const boardBuildingsMap = new Map<string, { id: string; name?: string }>();
 
                     user.buildingRoles.forEach(br => {
-                        if (br.role === 'board') {
+                        if (br.role?.toLowerCase() === 'board') {
                             boardBuildingsMap.set(br.building_id, {
                                 id: br.building_id,
                                 name: 'Loading...'
@@ -55,7 +56,7 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
                     }));
 
                     setAvailableBuildings(enrichedList);
-                } else if (user?.role === 'board') {
+                } else if (user?.role?.toLowerCase() === 'board') {
                     // Fallback for legacy board members who don't have buildingRoles populated yet
                     const buildingId = (user as any).building_id;
                     const buildingName = (user as any).building_name || (user as any).building?.name;
@@ -86,7 +87,8 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
     // Auto-select first building
     useEffect(() => {
         // SuperAdmins should start in "Global Mode" (null)
-        if (user?.role === 'admin') return;
+        const userRole = (user?.role as string || '').toLowerCase();
+        if (userRole === 'admin' || userRole === 'superadmin') return;
 
         if (!selectedBuildingId && availableBuildings.length > 0) {
             // Try to use primary unit's building first if resident/board

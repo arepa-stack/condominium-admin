@@ -59,6 +59,17 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
         try {
             setIsLoading(true);
 
+            // Security: If not a super admin, we MUST have a building filter.
+            // If it's missing, it means we are in a transition state or no building is assigned.
+            if (!isSuperAdmin && !effectiveBuildingId) {
+                setBuildings([]);
+                setUsers([]);
+                setPayments([]);
+                setInvoices([]);
+                setIsLoading(false);
+                return;
+            }
+
             // Prepare filters
             const query: any = effectiveBuildingId ? { building_id: effectiveBuildingId } : {};
 
@@ -142,7 +153,6 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
         searchPayments === '' ||
         payment.amount.toString().includes(searchPayments) ||
         payment.method.toLowerCase().includes(searchPayments.toLowerCase()) ||
-        payment.period?.toLowerCase().includes(searchPayments.toLowerCase()) ||
         payment.user?.name.toLowerCase().includes(searchPayments.toLowerCase())
     );
 
@@ -268,11 +278,13 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                 key={user.id}
                                                 onClick={() => {
                                                     const unitId = user.unit_id || (user.units && user.units.length > 0 ? user.units[0].unit_id : null);
-                                                    if (effectiveBuildingId && unitId) {
-                                                        router.push(`/buildings/${effectiveBuildingId}/units/${unitId}`);
+                                                    const bId = effectiveBuildingId || (user.units && user.units.length > 0 ? user.units[0].building_id : null);
+
+                                                    if (bId && unitId) {
+                                                        router.push(`/buildings/${bId}/units/${unitId}`);
                                                     } else {
-                                                        const basePath = effectiveBuildingId
-                                                            ? `/buildings/${effectiveBuildingId}/payments`
+                                                        const basePath = bId
+                                                            ? `/buildings/${bId}/payments`
                                                             : '/payments';
                                                         router.push(`${basePath}?user_id=${user.id}`);
                                                     }
@@ -451,7 +463,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                         Payment #{payment.id.slice(0, 8)}
                                                     </p>
                                                     <p className="text-sm text-muted-foreground">
-                                                        {payment.period} • {payment.method}
+                                                        {formatDate(payment.payment_date)} • {payment.method}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
                                                         By: {payment.user?.name || 'Unknown'}
@@ -520,7 +532,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                 Payment #{payment.id.slice(0, 8)}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                                {payment.period} • {payment.method}
+                                                {formatDate(payment.payment_date)} • {payment.method}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-4 justify-between sm:justify-end">

@@ -26,7 +26,8 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-        const isAuthEndpoint = error.config?.url?.includes('/auth/me');
+        const url = error.config?.url || '';
+        const isAuthEndpoint = url.includes('/auth/me') || url.includes('/users/me');
 
         if (error.response?.status === 401 && isAuthEndpoint) {
             // Only force logout if the core session check fails

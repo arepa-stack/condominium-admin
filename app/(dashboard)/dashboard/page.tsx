@@ -19,5 +19,15 @@ export default function DashboardPage() {
         }
     }, [isSuperAdmin, buildingIdParam, buildingId, router]);
 
+    // If we are not super admin and not on a specific building view,
+    // we should not show the DashboardView at all (it will either redirect or show nothing/loading)
+    if (!isSuperAdmin && !buildingIdParam) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
     return <DashboardView buildingId={buildingIdParam || undefined} showBuildingFilter={!!buildingIdParam} />;
 }

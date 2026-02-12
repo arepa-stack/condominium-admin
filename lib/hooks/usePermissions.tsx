@@ -7,7 +7,8 @@ export function usePermissions() {
     const { user } = useAuth();
     const { selectedBuildingId, availableBuildings } = useBuildingContext();
 
-    const isSuperAdmin = user?.role === 'admin';
+    const userRole = (user?.role as string || '').toLowerCase();
+    const isSuperAdmin = userRole === 'admin' || userRole === 'superadmin';
 
     // Get all buildings where user has board role
     const getBoardBuildings = (): string[] => {
@@ -30,7 +31,7 @@ export function usePermissions() {
         // First check in the new buildingRoles array
         if (user?.buildingRoles && user.buildingRoles.length > 0) {
             return user.buildingRoles.some(
-                br => br.building_id === checkId && br.role === 'board'
+                br => br.building_id === checkId && br.role?.toLowerCase() === 'board'
             );
         }
 
@@ -45,8 +46,8 @@ export function usePermissions() {
     };
 
     // Legacy support
-    const isBoardMember = user?.role === 'board';
-    const isResident = user?.role === 'resident';
+    const isBoardMember = userRole === 'board';
+    const isResident = userRole === 'resident';
 
     // Current Building ID from Context or Fallback
     const buildingId = selectedBuildingId || (isSuperAdmin ? undefined : user?.building_id);
