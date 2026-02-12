@@ -40,9 +40,7 @@ export function usePermissions() {
         const legacyBuildingId = (user as any).building_id;
         if (isBoardMember && legacyBuildingId === checkId) return true;
 
-        return user?.units?.some(
-            (unit: any) => unit.building_id === checkId && unit.building_role === 'board'
-        ) ?? false;
+        return false;
     };
 
     // Legacy support

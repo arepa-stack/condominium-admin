@@ -285,7 +285,7 @@ export default function UsersPage() {
                                                                     </Badge>
                                                                 )}
                                                                 <BuildingRoleBadge
-                                                                    buildingRole={unit.building_role as any}
+                                                                    buildingRole={user.buildingRoles?.find(br => br.building_id === unit.building_id)?.role || 'resident'}
                                                                     className="text-[9px] h-4 px-1.5"
                                                                 />
                                                             </div>
@@ -414,7 +414,7 @@ export default function UsersPage() {
                                                                 </Badge>
                                                             )}
                                                             <BuildingRoleBadge
-                                                                buildingRole={unit.building_role as any}
+                                                                buildingRole={user.buildingRoles?.find(br => br.building_id === unit.building_id)?.role || 'resident'}
                                                                 className="text-[9px] h-4 px-1.5"
                                                             />
                                                         </div>
