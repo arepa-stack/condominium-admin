@@ -21,41 +21,56 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const fetchBuildings = async () => {
             try {
-                if (user?.role === 'admin') {
-                    // Super Admin sees all buildings
+                if ((user?.role as any) === 'admin' || (user?.role as any) === 'superadmin') {
+                    // Admins see all buildings
                     const allBuildings = await buildingsService.getBuildings();
                     setAvailableBuildings(allBuildings.map(b => ({ id: b.id, name: b.name })));
-                } else if (user?.units) {
-                    // Board Members see unique buildings where they have board role
+                } else if (user?.buildingRoles && user.buildingRoles.length > 0) {
+                    // Non-admins see buildings where they have a 'board' role
                     const boardBuildingsMap = new Map<string, { id: string; name?: string }>();
-                    user.units.forEach(unit => {
-                        const role = unit.building_role?.toLowerCase();
-                        if (role === 'board' && unit.building_id) {
-                            if (!boardBuildingsMap.has(unit.building_id)) {
-                                boardBuildingsMap.set(unit.building_id, {
-                                    id: unit.building_id,
-                                    name: unit.building_name
-                                });
-                            }
+
+                    user.buildingRoles.forEach(br => {
+                        if (br.role === 'board') {
+                            boardBuildingsMap.set(br.building_id, {
+                                id: br.building_id,
+                                name: 'Loading...'
+                            });
                         }
                     });
 
                     const initialList = Array.from(boardBuildingsMap.values());
 
-                    // Enrich missing names
+                    // Enrich names
                     const enrichedList = await Promise.all(initialList.map(async (b) => {
-                        if (!b.name || b.name === 'Unknown Building') {
+                        let name = user.units?.find(u => u.building_id === b.id)?.building_name;
+                        if (!name || name === 'Unknown Building') {
                             try {
                                 const details = await buildingsService.getBuildingById(b.id);
-                                return { id: b.id, name: details.name };
+                                name = details.name;
                             } catch (e) {
-                                return { id: b.id, name: b.name || 'Unknown Building' };
+                                name = 'Unknown Building';
                             }
                         }
-                        return b;
+                        return { id: b.id, name };
                     }));
 
                     setAvailableBuildings(enrichedList);
+                } else if (user?.role === 'board') {
+                    // Fallback for legacy board members who don't have buildingRoles populated yet
+                    const buildingId = (user as any).building_id;
+                    const buildingName = (user as any).building_name || (user as any).building?.name;
+
+                    if (buildingId) {
+                        setAvailableBuildings([{ id: buildingId, name: buildingName || 'My Building' }]);
+                    } else if (user.units && user.units.length > 0) {
+                        // Fallback to units if building_id is missing but units exist
+                        const fromUnits = user.units.map(u => ({ id: u.building_id, name: u.building_name }));
+                        // Unique by ID
+                        const unique = Array.from(new Map(fromUnits.map(item => [item.id, item])).values());
+                        setAvailableBuildings(unique);
+                    } else {
+                        setAvailableBuildings([]);
+                    }
                 } else {
                     setAvailableBuildings([]);
                 }

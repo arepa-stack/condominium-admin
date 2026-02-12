@@ -160,7 +160,6 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
             // POST /users/:id/units
             await usersService.assignOrUpdateUnit(user.id, {
                 unit_id: selectedUnit,
-                building_role: selectedRole,
                 is_primary: isPrimary || userUnits.length === 0 // First unit is primary
             });
 
@@ -210,28 +209,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
         }
     };
 
-    const getRoleBadge = (role: string) => {
-        switch (role) {
-            case 'board':
-                return {
-                    className: 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border-purple-500/30',
-                    icon: Crown,
-                    label: 'Board'
-                };
-            case 'owner':
-                return {
-                    className: 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border-amber-500/30',
-                    icon: Crown,
-                    label: 'Owner'
-                };
-            default:
-                return {
-                    className: 'bg-muted/50 text-muted-foreground border-border/50',
-                    icon: UserIcon,
-                    label: 'Resident'
-                };
-        }
-    };
+    // Role badge helper is no longer needed here as roles are detached from units
 
     // Group units by building for better organization
     const unitsByBuilding = userUnits.reduce((acc, unit) => {
@@ -311,35 +289,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                 </Select>
                             </div>
 
-                            {/* Role Selector */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Role in Building</label>
-                                <Select value={selectedRole} onValueChange={(v: any) => setSelectedRole(v)}>
-                                    <SelectTrigger className="bg-background/50">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="resident">
-                                            <div className="flex items-center gap-2">
-                                                <UserIcon className="h-3 w-3" />
-                                                Resident
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="board">
-                                            <div className="flex items-center gap-2">
-                                                <Crown className="h-3 w-3 text-purple-400" />
-                                                Board Member
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="owner">
-                                            <div className="flex items-center gap-2">
-                                                <Crown className="h-3 w-3 text-amber-400" />
-                                                Owner
-                                            </div>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {/* Role Selector Removed as roles are now detached from units */}
 
                             {/* Primary Checkbox */}
                             <div className="space-y-2 flex items-end">
@@ -427,8 +377,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                 {/* Units */}
                                                 <div className="space-y-2">
                                                     {units.map(unit => {
-                                                        const roleBadge = getRoleBadge(unit.building_role);
-                                                        const RoleIcon = roleBadge.icon;
+                                                        const isPrimary = unit.is_primary;
 
                                                         return (
                                                             <div
@@ -451,13 +400,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
-                                                                        <Badge
-                                                                            variant="outline"
-                                                                            className={`text-xs mt-1 ${roleBadge.className}`}
-                                                                        >
-                                                                            <RoleIcon className="h-3 w-3 mr-1" />
-                                                                            {roleBadge.label}
-                                                                        </Badge>
+                                                                        {/* Role Badge removed as roles are now detached from units */}
                                                                     </div>
                                                                 </div>
 
@@ -490,7 +433,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                     <div className="text-primary mt-0.5">ℹ️</div>
                     <div className="space-y-1">
                         <p><strong className="text-foreground">Primary Unit:</strong> The main unit associated with the user's account.</p>
-                        <p><strong className="text-foreground">Building Role:</strong> Determines the user's permissions within each building.</p>
+                        <p><strong className="text-foreground">Building Role:</strong> Building roles are managed separately to allow for independence from unit associations.</p>
                     </div>
                 </div>
             </DialogContent>

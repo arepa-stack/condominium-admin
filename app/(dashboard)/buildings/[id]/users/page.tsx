@@ -219,22 +219,25 @@ export default function BuildingUsersPage() {
                                                     <div className="flex flex-wrap gap-2 max-w-md">
                                                         {user.units
                                                             .filter(u => u.building_id === buildingId)
-                                                            .map((unit) => (
-                                                                <div
-                                                                    key={`${unit.building_id}-${unit.unit_id}`}
-                                                                    className="flex items-center gap-2 text-[10px] p-1.5 rounded-lg bg-black/20 border border-white/5"
-                                                                >
-                                                                    <Home className="h-3 w-3 text-primary flex-shrink-0" />
-                                                                    <span className="text-white font-medium">
-                                                                        {unit.unit_name || unit.unit_id.slice(0, 8)}
-                                                                    </span>
-                                                                    {unit.is_primary && <Badge className="text-[8px] h-3.5 px-1 bg-amber-500/20 text-amber-400 border-amber-500/20">★</Badge>}
-                                                                    <BuildingRoleBadge
-                                                                        buildingRole={unit.building_role as any}
-                                                                        className="text-[8px] h-3.5 px-1.5"
-                                                                    />
-                                                                </div>
-                                                            ))}
+                                                            .map((unit) => {
+                                                                const userBuildingRole = user.buildingRoles?.find(br => br.building_id === buildingId)?.role || 'resident';
+                                                                return (
+                                                                    <div
+                                                                        key={`${unit.building_id}-${unit.unit_id}`}
+                                                                        className="flex items-center gap-2 text-[10px] p-1.5 rounded-lg bg-black/20 border border-white/5"
+                                                                    >
+                                                                        <Home className="h-3 w-3 text-primary flex-shrink-0" />
+                                                                        <span className="text-white font-medium">
+                                                                            {unit.unit_name || unit.unit_id.slice(0, 8)}
+                                                                        </span>
+                                                                        {unit.is_primary && <Badge className="text-[8px] h-3.5 px-1 bg-amber-500/20 text-amber-400 border-amber-500/20">★</Badge>}
+                                                                        <BuildingRoleBadge
+                                                                            buildingRole={userBuildingRole as any}
+                                                                            className="text-[8px] h-3.5 px-1.5"
+                                                                        />
+                                                                    </div>
+                                                                );
+                                                            })}
                                                     </div>
                                                 ) : (
                                                     <span className="text-xs text-muted-foreground italic">No units</span>

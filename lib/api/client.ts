@@ -26,8 +26,10 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-        if (error.response?.status === 401) {
-            // Unauthorized - clear token and redirect to login
+        const isAuthEndpoint = error.config?.url?.includes('/auth/me');
+
+        if (error.response?.status === 401 && isAuthEndpoint) {
+            // Only force logout if the core session check fails
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             if (typeof window !== 'undefined') {

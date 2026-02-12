@@ -60,4 +60,15 @@ export const usersService = {
     async removeUnit(userId: string, unitId: string): Promise<void> {
         await apiClient.delete(`/users/${userId}/units/${unitId}`);
     },
+
+    // Building Roles Management
+    async updateBuildingRole(userId: string, buildingId: string, role: string): Promise<User> {
+        // Assuming we update the user with the new role array
+        // In a real implementation, this might be a specific endpoint like POST /users/:id/roles
+        const { data } = await apiClient.post<User>(`/users/${userId}/roles`, {
+            building_id: buildingId,
+            role: role
+        });
+        return data;
+    },
 };

@@ -21,7 +21,23 @@ export function usePermissions() {
 
         // If no ID provided, check current selected building
         const checkId = id || selectedBuildingId;
-        if (!checkId) return false;
+        if (!checkId) {
+            // If we are board member and have no selected building, 
+            // maybe we can still perform some board actions if we only have one building?
+            return isBoardMember;
+        }
+
+        // First check in the new buildingRoles array
+        if (user?.buildingRoles && user.buildingRoles.length > 0) {
+            return user.buildingRoles.some(
+                br => br.building_id === checkId && br.role === 'board'
+            );
+        }
+
+        // Fallback for legacy support: check if global building_id matches 
+        // OR if the user is board member and we are in their primary building context
+        const legacyBuildingId = (user as any).building_id;
+        if (isBoardMember && legacyBuildingId === checkId) return true;
 
         return user?.units?.some(
             (unit: any) => unit.building_id === checkId && unit.building_role === 'board'

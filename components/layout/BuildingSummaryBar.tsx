@@ -24,16 +24,21 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
     const [isStatsLoading, setIsStatsLoading] = useState(true);
 
     useEffect(() => {
+        const controller = new AbortController();
+        const signal = controller.signal;
+
         const fetchBuildingInfo = async () => {
             if (!buildingId) return;
             try {
                 setIsBuildingLoading(true);
                 const data = await buildingsService.getBuildingById(buildingId);
+                if (signal.aborted) return;
                 setBuilding(data);
             } catch (error) {
+                if (error instanceof Error && error.name === 'AbortError') return;
                 console.error('Failed to fetch building info:', error);
             } finally {
-                setIsBuildingLoading(false);
+                if (!signal.aborted) setIsBuildingLoading(false);
             }
         };
 
@@ -46,6 +51,8 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                     paymentsService.getAdminPayments({ building_id: buildingId, status: 'PENDING' })
                 ]);
 
+                if (signal.aborted) return;
+
                 const debt = (invoices || []).reduce((acc, inv) => acc + (Number(inv.amount || 0) - Number(inv.paid_amount || 0)), 0);
                 setStats({
                     totalDebt: debt,
@@ -53,14 +60,17 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                     solvencyRate: 0
                 });
             } catch (error) {
+                if (error instanceof Error && error.name === 'AbortError') return;
                 console.error('Failed to fetch building stats:', error);
             } finally {
-                setIsStatsLoading(false);
+                if (!signal.aborted) setIsStatsLoading(false);
             }
         };
 
         fetchBuildingInfo();
         fetchStats();
+
+        return () => controller.abort();
     }, [buildingId]);
 
     if (!building && !isBuildingLoading) return null;

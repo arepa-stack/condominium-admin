@@ -14,12 +14,12 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usePermissions } from '@/lib/hooks/usePermissions';
+import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { usersService } from '@/lib/services/users.service';
 import { toast } from 'sonner';
 import { Crown, ArrowUp, ArrowDown, User as UserIcon, Building2, Loader2, Home } from 'lucide-react';
-import type { User, UserUnit } from '@/types/models';
-import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { buildingsService } from '@/lib/services/buildings.service';
+import type { User, UserUnit } from '@/types/models';
 
 interface UserRoleManagerProps {
     open: boolean;
@@ -31,121 +31,87 @@ interface UserRoleManagerProps {
 export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRoleManagerProps) {
     const { isSuperAdmin, isBoardInBuilding } = usePermissions();
     const { availableBuildings } = useBuildingContext();
-    const [loadingUnitId, setLoadingUnitId] = useState<string | null>(null);
-    const [userUnits, setUserUnits] = useState<UserUnit[]>([]);
+    const [loadingBuildingId, setLoadingBuildingId] = useState<string | null>(null);
+    const [userBuildingRoles, setUserBuildingRoles] = useState<{ building_id: string; role: string; building_name: string }[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Fetch user's units when dialog opens
+    // Fetch user's roles and buildings when dialog opens
     useEffect(() => {
-        const fetchUserUnits = async () => {
+        const fetchRoles = async () => {
             if (open && user) {
                 setLoading(true);
                 try {
-                    // GET /users/:id/units
-                    const units = await usersService.getUserUnits(user.id);
+                    // Extract buildings from units and roles
+                    const buildingsFromUnits = user.units?.map(u => u.building_id) || [];
+                    const buildingsFromRoles = user.buildingRoles?.map(br => br.building_id) || [];
+                    const allBuildingIds = Array.from(new Set([...buildingsFromUnits, ...buildingsFromRoles]));
 
-                    // Enrich with building names
-                    const enrichedUnits = await Promise.all(
-                        units.map(async (unit) => {
-                            // Try to find in available context first (much faster)
-                            let buildingName = availableBuildings.find(b => b.id === unit.building_id)?.name;
+                    // Enrich with building names and current roles
+                    const enrichedRoles = await Promise.all(
+                        allBuildingIds.map(async (buildingId) => {
+                            const role = user.buildingRoles?.find(br => br.building_id === buildingId)?.role || 'resident';
 
-                            // If not found and user has permission (or just to display correctly), try fetch
+                            let buildingName = availableBuildings.find(b => b.id === buildingId)?.name;
                             if (!buildingName) {
                                 try {
-                                    const building = await buildingsService.getBuildingById(unit.building_id);
+                                    const building = await buildingsService.getBuildingById(buildingId);
                                     buildingName = building.name;
-                                } catch (e) {
-                                    // Silent fail
-                                }
+                                } catch (e) { }
                             }
 
                             return {
-                                ...unit,
-                                building_name: buildingName || unit.building_name || 'Unknown Building'
+                                building_id: buildingId,
+                                role,
+                                building_name: buildingName || 'Unknown Building'
                             };
                         })
                     );
 
-                    setUserUnits(enrichedUnits);
+                    setUserBuildingRoles(enrichedRoles);
                 } catch (error) {
-                    console.error('Failed to fetch user units:', error);
-                    // Fallback to user.units if API fails
-                    setUserUnits(user.units || []);
+                    console.error('Failed to fetch roles:', error);
                 } finally {
                     setLoading(false);
                 }
             }
         };
-        fetchUserUnits();
+        fetchRoles();
     }, [open, user, availableBuildings]);
 
     if (!user) return null;
 
-    const handlePromoteToBoard = async (unit: UserUnit) => {
-        if (!unit.unit_id) return;
+    const handleRoleUpdate = async (buildingId: string, role: string) => {
+        if (!user) return;
 
         // Permission check
-        if (!isSuperAdmin && !isBoardInBuilding(unit.building_id)) {
+        if (!isSuperAdmin && !isBoardInBuilding(buildingId)) {
             toast.error('You do not have permission to manage this building');
             return;
         }
 
         try {
-            setLoadingUnitId(unit.unit_id);
-            // POST /users/:id/units - Updates existing unit's building_role
-            await usersService.assignOrUpdateUnit(user.id, {
-                unit_id: unit.unit_id,
-                building_role: 'board',
-                is_primary: unit.is_primary
-            });
-            toast.success(`${user.name} promoted to Board for ${unit.unit_name || 'unit'}`);
+            setLoadingBuildingId(buildingId);
+            await usersService.updateBuildingRole(user.id, buildingId, role);
+            toast.success(`${user.name} role updated to ${role} for ${userBuildingRoles.find(r => r.building_id === buildingId)?.building_name || 'building'}`);
 
-            // Refresh units list
-            const updatedUnits = await usersService.getUserUnits(user.id);
-            setUserUnits(updatedUnits);
+            // Update local state
+            setUserBuildingRoles(prev => prev.map(r =>
+                r.building_id === buildingId ? { ...r, role } : r
+            ));
+
             onSuccess();
         } catch (error) {
-            console.error('Failed to promote user:', error);
-            toast.error('Failed to promote user to Board');
+            console.error('Failed to update role:', error);
+            toast.error('Failed to update building role');
         } finally {
-            setLoadingUnitId(null);
+            setLoadingBuildingId(null);
         }
     };
 
-    const handleDemoteToResident = async (unit: UserUnit) => {
-        if (!unit.unit_id) return;
-
-        // Permission check
-        if (!isSuperAdmin && !isBoardInBuilding(unit.building_id)) {
-            toast.error('You do not have permission to manage this building');
-            return;
-        }
-
-        try {
-            setLoadingUnitId(unit.unit_id);
-            // POST /users/:id/units - Updates existing unit's building_role
-            await usersService.assignOrUpdateUnit(user.id, {
-                unit_id: unit.unit_id,
-                building_role: 'resident',
-                is_primary: unit.is_primary
-            });
-            toast.success(`${user.name} demoted to Resident for ${unit.unit_name || 'unit'}`);
-
-            // Refresh units list
-            const updatedUnits = await usersService.getUserUnits(user.id);
-            setUserUnits(updatedUnits);
-            onSuccess();
-        } catch (error) {
-            console.error('Failed to demote user:', error);
-            toast.error('Failed to demote user to Resident');
-        } finally {
-            setLoadingUnitId(null);
-        }
-    };
+    // handleDemoteToResident is merged into handleRoleUpdate
 
     // Group units by building
-    const unitsByBuilding = userUnits.reduce((acc, unit) => {
+    const unitsByBuilding = (user.units || []).reduce((acc: Record<string, UserUnit[]>, unit: UserUnit) => {
         const buildingId = unit.building_id || 'unknown';
         if (!acc[buildingId]) {
             acc[buildingId] = [];
@@ -194,115 +160,85 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                     <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
-                ) : userUnits.length === 0 ? (
+                ) : userBuildingRoles.length === 0 ? (
                     <div className="text-center py-8 space-y-3">
                         <div className="flex justify-center">
                             <div className="rounded-full bg-primary/10 p-4">
-                                <Home className="h-8 w-8 text-primary" />
+                                <Building2 className="h-8 w-8 text-primary" />
                             </div>
                         </div>
                         <p className="text-muted-foreground">
-                            This user has no units assigned yet
+                            This user has no associations with any building
                         </p>
                         <p className="text-sm text-muted-foreground">
-                            Assign units first before managing building roles
+                            Assign units or roles first
                         </p>
                     </div>
                 ) : (
                     <ScrollArea className="max-h-[500px] pr-4">
                         <div className="space-y-4">
-                            {Object.entries(unitsByBuilding).map(([buildingId, units]) => {
-                                const buildingName = units[0]?.building_name || 'Unknown Building';
-                                const canManage = isSuperAdmin || isBoardInBuilding(buildingId);
+                            {userBuildingRoles.map((br) => {
+                                const canManage = isSuperAdmin || isBoardInBuilding(br.building_id);
+                                const roleBadge = getBuildingRoleBadge(br.role);
+                                const RoleIcon = roleBadge.icon;
+                                const isLoading = loadingBuildingId === br.building_id;
 
                                 return (
-                                    <div key={buildingId} className="space-y-3">
-                                        <div className="flex items-center gap-2 pb-2">
-                                            <Building2 className="h-4 w-4 text-primary" />
-                                            <h3 className="font-semibold text-sm text-foreground">{buildingName}</h3>
-                                            <Badge variant="outline" className="text-xs">
-                                                {units.length} {units.length === 1 ? 'unit' : 'units'}
-                                            </Badge>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            {units.map((unit) => {
-                                                const roleBadge = getBuildingRoleBadge(unit.building_role);
-                                                const RoleIcon = roleBadge.icon;
-                                                const isLoading = loadingUnitId === unit.unit_id;
-
-                                                return (
-                                                    <div
-                                                        key={unit.unit_id}
-                                                        className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-background/30 hover:bg-background/50 transition-colors"
+                                    <div key={br.building_id} className="space-y-3 border-b border-border/50 pb-4 last:border-0 last:pb-0">
+                                        <div className="flex items-center justify-between p-3 rounded-lg bg-background/30 hover:bg-background/50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 rounded-full bg-primary/10">
+                                                    <Building2 className="h-5 w-5 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-sm text-foreground">{br.building_name}</h3>
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`text-xs mt-1 ${roleBadge.className}`}
                                                     >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="p-2 rounded-full bg-primary/10">
-                                                                <Home className="h-4 w-4 text-primary" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className="font-medium text-sm">
-                                                                        {unit.unit_name || unit.unit_id.slice(0, 8)}
-                                                                    </p>
-                                                                    {unit.is_primary && (
-                                                                        <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                                                                            Primary
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className={`text-xs mt-1 ${roleBadge.className}`}
-                                                                >
-                                                                    <RoleIcon className="h-3 w-3 mr-1" />
-                                                                    {roleBadge.label}
-                                                                </Badge>
-                                                            </div>
-                                                        </div>
+                                                        <RoleIcon className="h-3 w-3 mr-1" />
+                                                        {roleBadge.label}
+                                                    </Badge>
+                                                </div>
+                                            </div>
 
-                                                        <div className="flex items-center gap-2">
-                                                            {unit.building_role !== 'board' && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    onClick={() => handlePromoteToBoard(unit)}
-                                                                    disabled={!canManage || isLoading}
-                                                                    className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/30"
-                                                                >
-                                                                    {isLoading ? (
-                                                                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                                                                    ) : (
-                                                                        <ArrowUp className="h-4 w-4 mr-1" />
-                                                                    )}
-                                                                    Promote to Board
-                                                                </Button>
-                                                            )}
-                                                            {unit.building_role === 'board' && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => handleDemoteToResident(unit)}
-                                                                    disabled={!canManage || isLoading}
-                                                                    className="border-muted-foreground/30 hover:bg-muted/50"
-                                                                >
-                                                                    {isLoading ? (
-                                                                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                                                                    ) : (
-                                                                        <ArrowDown className="h-4 w-4 mr-1" />
-                                                                    )}
-                                                                    Demote to Resident
-                                                                </Button>
-                                                            )}
-                                                            {!canManage && (
-                                                                <p className="text-xs text-amber-400/80">No permission</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                            <div className="flex items-center gap-2">
+                                                {br.role !== 'board' && (
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleRoleUpdate(br.building_id, 'board')}
+                                                        disabled={!canManage || isLoading}
+                                                        className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/30"
+                                                    >
+                                                        {isLoading ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                                        ) : (
+                                                            <ArrowUp className="h-4 w-4 mr-1" />
+                                                        )}
+                                                        Promote to Board
+                                                    </Button>
+                                                )}
+                                                {((user?.role as string) === 'admin' || (user?.role as string) === 'superadmin') && br.role === 'board' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleRoleUpdate(br.building_id, 'resident')}
+                                                        disabled={!canManage || isLoading}
+                                                        className="border-muted-foreground/30 hover:bg-muted/50"
+                                                    >
+                                                        {isLoading ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                                        ) : (
+                                                            <ArrowDown className="h-4 w-4 mr-1" />
+                                                        )}
+                                                        Demote to Resident
+                                                    </Button>
+                                                )}
+                                                {!canManage && (
+                                                    <p className="text-xs text-amber-400/80 font-medium">No permission</p>
+                                                )}
+                                            </div>
                                         </div>
-
-                                        <Separator className="bg-border/30" />
                                     </div>
                                 );
                             })}

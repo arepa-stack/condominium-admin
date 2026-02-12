@@ -55,7 +55,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
         }
     }, [effectiveBuildingId, isBoardInBuilding, router]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (signal?: AbortSignal) => {
         try {
             setIsLoading(true);
 
@@ -70,6 +70,8 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
             ];
 
             const [buildingsData, usersData, paymentsData, invoicesData] = await Promise.all(promises);
+
+            if (signal?.aborted) return;
 
             setBuildings(buildingsData);
             setUsers(usersData);
@@ -89,6 +91,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                         // Fetch directly if still missing
                         try {
                             const specificBuilding = await buildingsService.getBuildingById(effectiveBuildingId);
+                            if (signal?.aborted) return;
                             setCurrentBuildingName(specificBuilding.name);
                         } catch (e) {
                             console.error('Failed to fetch building details', e);
@@ -98,6 +101,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
             }
 
         } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') return;
             console.error('Failed to fetch dashboard data:', error);
         } finally {
             setIsLoading(false);
@@ -105,7 +109,9 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
     }, [isSuperAdmin, user, effectiveBuildingId]);
 
     useEffect(() => {
-        fetchData();
+        const controller = new AbortController();
+        fetchData(controller.signal);
+        return () => controller.abort();
     }, [fetchData]);
 
     if (isLoading) {
@@ -122,7 +128,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
 
     // Debt Calculation
     const pendingInvoices = invoices.filter(i => i.status === 'PENDING');
-    const totalDebt = pendingInvoices.reduce((sum, i) => sum + (i.amount - (i.paid_amount || 0)), 0);
+    const totalDebt = pendingInvoices.reduce((sum, i) => sum + (Number(i.amount || 0) - Number(i.paid_amount || 0)), 0);
 
     const isFilteredView = !!effectiveBuildingId;
 
