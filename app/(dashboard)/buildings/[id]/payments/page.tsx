@@ -55,8 +55,6 @@ export default function BuildingPaymentsPage() {
 
     // Approval Dialog State
     const [approvalPayment, setApprovalPayment] = useState<Payment | null>(null);
-    const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
-    const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [detailedPayment, setDetailedPayment] = useState<Payment | null>(null);
     const [paymentAllocations, setPaymentAllocations] = useState<any[]>([]);
@@ -115,9 +113,6 @@ export default function BuildingPaymentsPage() {
             ]);
             setDetailedPayment(detailed);
             setPaymentAllocations(allocations);
-            const periods = detailed.periods || (detailed.period ? [detailed.period] : []);
-            setAvailablePeriods(periods);
-            setSelectedPeriods(periods);
         } catch (e) {
             console.error("Failed to fetch payment details or allocations", e);
             // Fallback: try to just show detailed payment if allocations fail
@@ -133,22 +128,11 @@ export default function BuildingPaymentsPage() {
         }
     };
 
-    const togglePeriod = (period: string) => {
-        setSelectedPeriods(prev =>
-            prev.includes(period)
-                ? prev.filter(p => p !== period)
-                : [...prev, period]
-        );
-    };
-
     const handleConfirmApprove = async () => {
         if (!approvalPayment) return;
 
         try {
-            const isSubset = selectedPeriods.length < availablePeriods.length;
-            const periodsToSend = isSubset ? selectedPeriods : undefined;
-
-            await paymentsService.approvePayment(approvalPayment.id, undefined, periodsToSend);
+            await paymentsService.approvePayment(approvalPayment.id, undefined);
             toast.success('Payment approved successfully');
             setApprovalPayment(null);
             fetchData();
@@ -165,6 +149,7 @@ export default function BuildingPaymentsPage() {
         try {
             await paymentsService.rejectPayment(paymentId, reason);
             toast.success('Payment rejected');
+            setApprovalPayment(null);
             fetchData();
         } catch (error) {
             console.error(error);
@@ -249,9 +234,8 @@ export default function BuildingPaymentsPage() {
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">User / Unit</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Period</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ref / Method</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Proof</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Processor</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                                     <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -259,7 +243,7 @@ export default function BuildingPaymentsPage() {
                             <tbody className="divide-y divide-white/5">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                                        <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
                                             <div className="flex flex-col items-center gap-2">
                                                 <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                                                 <span>Loading payments...</span>
@@ -268,7 +252,7 @@ export default function BuildingPaymentsPage() {
                                     </tr>
                                 ) : payments.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">No payments found.</td>
+                                        <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">No payments found.</td>
                                     </tr>
                                 ) : (
                                     payments.map((payment) => (
@@ -285,11 +269,9 @@ export default function BuildingPaymentsPage() {
                                                 <span className="text-xs text-muted-foreground">
                                                     {(() => {
                                                         const unitId = payment.unit_id || payment.user?.unit_id;
-                                                        // Try to find unit name in local units list
                                                         const unitName = unitId ? units.find(u => u.id === unitId)?.name : null;
-                                                        // Fallback to user's unit_name from units array if exists
                                                         const userUnitName = payment.user?.units?.find(u => u.unit_id === unitId)?.unit_name;
-                                                        const finalUnitName = unitName || userUnitName || payment.user?.unit;
+                                                        const finalUnitName = unitName || userUnitName;
                                                         return finalUnitName ? `Unit ${finalUnitName}` : '';
                                                     })()}
                                                 </span>
@@ -297,19 +279,17 @@ export default function BuildingPaymentsPage() {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-white tabular-nums">
                                                 {formatCurrency(payment.amount)}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground tabular-nums">
-                                                {payment.period || (payment.periods && payment.periods.length > 0 ? payment.periods.join(', ') : '-')}
-                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                                 <div className="text-white font-medium">{formatPaymentMethod(payment.method)}</div>
                                                 <span className="text-xs">{payment.reference}</span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                {payment.proof_url ? (
-                                                    <Button variant="ghost" size="sm" onClick={() => setProofUrl(payment.proof_url!)} className="hover:bg-primary/20 hover:text-primary">
-                                                        <Eye className="h-4 w-4 mr-2" /> View
-                                                    </Button>
-                                                ) : <span className="text-muted-foreground text-xs italic">No proof</span>}
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                {payment.processor ? (
+                                                    <div className="flex flex-col">
+                                                        <span className="text-white font-medium">{payment.processor.name}</span>
+                                                        <span className="text-[10px] tabular-nums">{payment.processed_at ? formatDate(payment.processed_at) : ''}</span>
+                                                    </div>
+                                                ) : <span className="text-xs italic">-</span>}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <Badge
@@ -400,7 +380,19 @@ export default function BuildingPaymentsPage() {
                                 </div>
                                 <div>
                                     <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider block mb-1">Method</span>
-                                    <span className="text-lg font-semibold text-white">{formatPaymentMethod(detailedPayment.method)}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg font-semibold text-white">{formatPaymentMethod(detailedPayment.method)}</span>
+                                        {detailedPayment.proof_url && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setProofUrl(detailedPayment.proof_url!)}
+                                                className="h-7 px-2 text-[10px] bg-primary/10 border-primary/20 hover:bg-primary/20 text-primary"
+                                            >
+                                                <Eye className="h-3 w-3 mr-1" /> View Proof
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -430,27 +422,26 @@ export default function BuildingPaymentsPage() {
                                 </div>
                             )}
 
-                            {availablePeriods.length > 0 && (
-                                <div className="space-y-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
-                                    <h4 className="font-bold text-sm text-white flex items-center justify-between">
-                                        <span>Indicated Periods</span>
-                                        <Badge variant="outline" className="text-[10px] uppercase border-primary/20 text-primary">Informative</Badge>
-                                    </h4>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {availablePeriods.map((period) => (
-                                            <div key={period} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
-                                                <input
-                                                    type="checkbox"
-                                                    id={period}
-                                                    checked={selectedPeriods.includes(period)}
-                                                    onChange={() => togglePeriod(period)}
-                                                    className="w-4 h-4 rounded border-white/10 bg-black/20 text-primary focus:ring-primary/20 cursor-pointer"
-                                                />
-                                                <label htmlFor={period} className="text-sm font-medium text-white cursor-pointer select-none">
-                                                    {period}
-                                                </label>
+                            {detailedPayment.status !== 'PENDING' && (
+                                <div className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/5">
+                                    <h3 className="flex items-center gap-2 font-black text-xs text-muted-foreground uppercase tracking-widest">
+                                        Processing Information
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-muted-foreground">Processor:</span>
+                                            <span className="text-white font-bold">{detailedPayment.processor?.name || 'Unknown'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-muted-foreground">Processed At:</span>
+                                            <span className="text-white tabular-nums">{detailedPayment.processed_at ? formatDate(detailedPayment.processed_at) : '-'}</span>
+                                        </div>
+                                        {detailedPayment.notes && (
+                                            <div className="pt-2 border-t border-white/5">
+                                                <span className="text-muted-foreground text-xs block mb-1">Admin Notes:</span>
+                                                <p className="text-sm text-white italic">{detailedPayment.notes}</p>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -460,9 +451,18 @@ export default function BuildingPaymentsPage() {
                     <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                         <Button variant="ghost" onClick={() => setApprovalPayment(null)} className="text-muted-foreground hover:text-white">Cancel</Button>
                         {detailedPayment?.status === 'PENDING' && (
-                            <Button onClick={handleConfirmApprove} disabled={!detailedPayment} className="shadow-lg shadow-primary/20 px-8">
-                                Approve Payment
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="destructive"
+                                    onClick={() => handleReject(detailedPayment.id)}
+                                    className="shadow-lg shadow-red-600/10"
+                                >
+                                    Reject
+                                </Button>
+                                <Button onClick={handleConfirmApprove} disabled={!detailedPayment} className="shadow-lg shadow-primary/20 px-8">
+                                    Approve Payment
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </DialogContent>

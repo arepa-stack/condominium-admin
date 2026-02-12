@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -25,7 +25,10 @@ import { unitsService } from '@/lib/services/units.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { billingService } from '@/lib/services/billing.service';
 import { toast } from 'sonner';
-import { Loader2, Upload, Building2, Home, CreditCard, Calendar, DollarSign, FileText, ReceiptText } from 'lucide-react';
+import { Loader2, Upload, Building2, Home, CreditCard, Calendar, DollarSign, FileText, ReceiptText, CheckCircle2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
+import { formatCurrency, formatPeriod } from '@/lib/utils/format';
 import type { Building, Unit, Invoice } from '@/types/models';
 
 interface PaymentDialogProps {
@@ -50,13 +53,28 @@ export function PaymentDialog({
     const [selectedBuildingId, setSelectedBuildingId] = useState<string>(buildingId || '');
     const [selectedUnitId, setSelectedUnitId] = useState<string>('');
     const [pendingInvoices, setPendingInvoices] = useState<Invoice[]>([]);
-    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
+    const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
     const [amount, setAmount] = useState<string>('');
     const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [method, setMethod] = useState<string>('TRANSFER');
     const [reference, setReference] = useState<string>('');
+    const [bank, setBank] = useState<string>('');
     const [notes, setNotes] = useState<string>('');
     const [proofFile, setProofFile] = useState<File | null>(null);
+
+    // Memoized derived data
+    const unitOptions = useMemo(() => units.map(u => ({
+        value: u.id,
+        label: u.name,
+        icon: Home
+    })), [units]);
+
+    const invoicesOptions = useMemo(() => pendingInvoices.map(inv => ({
+        id: inv.id,
+        label: inv.period ? formatPeriod(inv.period) : (inv.month ? formatPeriod(`${inv.year}-${inv.month}`) : "Balance"),
+        subLabel: `#${inv.receipt_number || inv.number || inv.id.slice(0, 6)}`,
+        amount: Number(inv.amount || 0) - Number(inv.paid_amount || 0)
+    })), [pendingInvoices]);
 
     useEffect(() => {
         if (open && buildingId) {
@@ -82,9 +100,9 @@ export function PaymentDialog({
 
     useEffect(() => {
         const fetchInvoices = async () => {
-            if (!selectedUnitId) {
+            if (!selectedUnitId || selectedUnitId === 'all') {
                 setPendingInvoices([]);
-                setSelectedInvoiceId('');
+                setSelectedInvoiceIds([]);
                 return;
             }
             try {
@@ -92,11 +110,14 @@ export function PaymentDialog({
                     unit_id: selectedUnitId,
                     status: 'PENDING'
                 });
+
                 setPendingInvoices(data);
+
                 // Auto-select if there's only one pending invoice
                 if (data.length === 1) {
-                    setSelectedInvoiceId(data[0].id);
-                    setAmount(data[0].amount.toString());
+                    setSelectedInvoiceIds([data[0].id]);
+                } else {
+                    setSelectedInvoiceIds([]);
                 }
             } catch (error) {
                 console.error("Failed to fetch pending invoices", error);
@@ -105,12 +126,31 @@ export function PaymentDialog({
         fetchInvoices();
     }, [selectedUnitId]);
 
+    // Sync amount based on selection
+    useEffect(() => {
+        const total = pendingInvoices
+            .filter(inv => selectedInvoiceIds.includes(inv.id))
+            .reduce((sum, inv) => sum + (Number(inv.amount || 0) - Number(inv.paid_amount || 0)), 0);
+
+        const nextAmount = total > 0 ? total.toFixed(2) : '';
+        if (nextAmount !== amount) {
+            setAmount(nextAmount);
+        }
+    }, [selectedInvoiceIds, pendingInvoices]);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             setProofFile(file);
         }
     };
+
+    const toggleInvoice = useCallback((id: string) => {
+        setSelectedInvoiceIds(prev => prev.includes(id)
+            ? prev.filter(i => i !== id)
+            : [...prev, id]
+        );
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -125,15 +165,26 @@ export function PaymentDialog({
             formData.append('unit_id', selectedUnitId);
             formData.append('building_id', selectedBuildingId);
             formData.append('amount', amount);
-            formData.append('payment_date', date);
+            formData.append('date', date);
             formData.append('method', method);
             formData.append('reference', reference);
+            formData.append('bank', bank);
             formData.append('notes', notes);
-            if (selectedInvoiceId) {
-                formData.append('invoice_id', selectedInvoiceId);
+
+            if (selectedInvoiceIds.length > 0) {
+                // Formatting as JSON string as per spec: [{"invoice_id": "...", "amount": 25.0}]
+                const allocations = selectedInvoiceIds.map(id => {
+                    const inv = pendingInvoices.find(i => i.id === id);
+                    return {
+                        invoice_id: id,
+                        amount: inv ? (Number(inv.amount || 0) - Number(inv.paid_amount || 0)) : 0
+                    };
+                });
+                formData.append('allocations', JSON.stringify(allocations));
             }
+
             if (proofFile) {
-                formData.append('file', proofFile);
+                formData.append('proof_image', proofFile);
             }
 
             await paymentsService.createPayment(formData);
@@ -153,11 +204,12 @@ export function PaymentDialog({
         if (!buildingId) setSelectedBuildingId('');
         setSelectedUnitId('');
         setPendingInvoices([]);
-        setSelectedInvoiceId('');
+        setSelectedInvoiceIds([]);
         setAmount('');
         setDate(new Date().toISOString().split('T')[0]);
         setMethod('TRANSFER');
         setReference('');
+        setBank('');
         setNotes('');
         setProofFile(null);
     };
@@ -207,11 +259,7 @@ export function PaymentDialog({
                                 Unit
                             </Label>
                             <SearchableSelect
-                                options={units.map(u => ({
-                                    value: u.id,
-                                    label: u.name,
-                                    icon: Home
-                                }))}
+                                options={unitOptions}
                                 value={selectedUnitId}
                                 onValueChange={setSelectedUnitId}
                                 placeholder="Select unit"
@@ -220,26 +268,50 @@ export function PaymentDialog({
                         </div>
                     </div>
 
-                    <div className="space-y-2 col-span-2">
-                        <Label className="flex items-center gap-2">
+                    <div className="space-y-3 col-span-2">
+                        <Label className="flex items-center gap-2 mb-2">
                             <ReceiptText className="h-4 w-4 text-muted-foreground" />
-                            Associate with Invoice (Optional)
+                            Select Invoices to Pay ({selectedInvoiceIds.length})
                         </Label>
-                        <SearchableSelect
-                            options={pendingInvoices.map(i => ({
-                                value: i.id,
-                                label: `${i.period || i.number || 'Invoice'} - $${i.amount}`,
-                                icon: ReceiptText
-                            }))}
-                            value={selectedInvoiceId}
-                            onValueChange={(val: string) => {
-                                setSelectedInvoiceId(val);
-                                const inv = pendingInvoices.find(i => i.id === val);
-                                if (inv) setAmount(inv.amount.toString());
-                            }}
-                            placeholder={pendingInvoices.length > 0 ? "Select an invoice to pay" : "No pending invoices found"}
-                            disabled={!selectedUnitId || pendingInvoices.length === 0}
-                        />
+
+                        <div className="space-y-2 border rounded-xl p-3 bg-white/5 max-h-[180px] overflow-y-auto custom-scrollbar">
+                            {invoicesOptions.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic text-center py-4">
+                                    {!selectedUnitId || selectedUnitId === 'all' ? "Select a unit first" : "No pending invoices found for this unit"}
+                                </p>
+                            ) : (
+                                invoicesOptions.map((inv: { id: string; label: string; subLabel: string; amount: number }) => (
+                                    <div
+                                        key={inv.id}
+                                        className={cn(
+                                            "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/10",
+                                            selectedInvoiceIds.includes(inv.id) ? "bg-primary/10 border border-primary/20" : "border border-transparent"
+                                        )}
+                                        onClick={() => toggleInvoice(inv.id)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn(
+                                                "h-4 w-4 rounded border flex items-center justify-center transition-colors",
+                                                selectedInvoiceIds.includes(inv.id) ? "bg-primary border-primary" : "border-primary/40 bg-transparent"
+                                            )}>
+                                                {selectedInvoiceIds.includes(inv.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-white uppercase tracking-tighter">
+                                                    {inv.label}
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground">{inv.subLabel}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-black text-white tabular-nums">
+                                                {formatCurrency(inv.amount)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -255,6 +327,7 @@ export function PaymentDialog({
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
                                 required
+                                className="font-bold text-lg"
                             />
                         </div>
                         <div className="space-y-2">
@@ -288,7 +361,7 @@ export function PaymentDialog({
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <Label className="flex items-center gap-2">
                                 <FileText className="h-4 w-4 text-muted-foreground" />
                                 Reference
@@ -299,6 +372,18 @@ export function PaymentDialog({
                                 onChange={(e) => setReference(e.target.value)}
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                            <ReceiptText className="h-4 w-4 text-muted-foreground" />
+                            Bank Name
+                        </Label>
+                        <Input
+                            placeholder="e.g. Banesco, Mercantil..."
+                            value={bank}
+                            onChange={(e) => setBank(e.target.value)}
+                        />
                     </div>
 
                     <div className="space-y-2">

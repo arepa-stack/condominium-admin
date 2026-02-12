@@ -66,11 +66,10 @@ export const paymentsService = {
         return data;
     },
 
-    async approvePayment(id: string, notes?: string, approved_periods?: string[]): Promise<Payment> {
+    async approvePayment(id: string, notes?: string): Promise<Payment> {
         return this.updatePaymentStatus(id, {
             status: 'APPROVED',
-            notes,
-            approved_periods
+            notes
         });
     },
 

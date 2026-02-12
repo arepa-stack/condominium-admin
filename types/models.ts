@@ -9,10 +9,8 @@ export interface UserUnit {
     unit_name: string;
     building_id: string;
     building_name: string;
-    building_role: string;
     is_primary: boolean;
-    // role is likely deprecated or same as building_role now, but keeping for compatibility if existing code uses it
-    role?: 'owner' | 'resident';
+    // building_role is moved to User.buildingRoles
 }
 
 export interface User {
@@ -25,6 +23,7 @@ export interface User {
     unit_id?: string;
     // New Swagger structure
     units?: UserUnit[];
+    buildingRoles?: { building_id: string; role: string }[];
     role: UserRole;
     status?: UserStatus;
     created_at: string;
@@ -85,13 +84,14 @@ export interface Payment {
     method: PaymentMethod;
     reference?: string;
     bank?: string;       // Added bank field
-    periods?: string[];  // Deprecated: Info only
-    period?: string;     // Legacy support
-    allocations?: Allocation[]; // [NEW] Real accounting
+    allocations?: Allocation[]; // Real accounting
     proof_url?: string;  // Full URL from backend
     status: PaymentStatus;
     notes?: string;      // Rejection reason or notes
-    unit_id?: string;    // [NEW] UUID link
+    unit_id?: string;    // UUID link
+    processed_at?: string; // [NEW] Audit information
+    processed_by?: string; // [NEW] Audit information
+    processor?: { id: string; name: string }; // [NEW] Audit information
     created_at: string;
     updated_at: string;
 }
@@ -150,6 +150,7 @@ export interface UpdateUserDto {
     unit_id?: string; // [NEW]
     building_id?: string;
     role?: UserRole;
+    buildingRoles?: { building_id: string; role: string }[];
     status?: UserStatus;
 }
 
@@ -159,6 +160,7 @@ export interface CreateUserDto {
     name: string;
     role: UserRole;
     building_id: string;
+    buildingRoles?: { building_id: string; role: string }[];
     unit?: string;
     unit_id?: string; // [NEW]
     phone?: string;
@@ -167,7 +169,6 @@ export interface CreateUserDto {
 export interface UpdatePaymentDto {
     status: PaymentStatus;
     notes?: string;
-    approved_periods?: string[]; // Optional partial approval
 }
 
 export interface Unit {
@@ -218,7 +219,6 @@ export interface UnitBalance {
 // POST /users/:id/units - Handles both create and update
 export interface AssignUnitDto {
     unit_id: string; // Backend uses snake_case
-    building_role: 'board' | 'resident' | 'owner';
     is_primary: boolean; // Backend uses snake_case
 }
 
