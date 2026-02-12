@@ -186,7 +186,7 @@ export function UnitDetailsSheet({ unit, open, onOpenChange }: UnitDetailsSheetP
                                                     <div className="flex justify-between items-start mb-2">
                                                         <div>
                                                             <p className="font-medium text-sm">
-                                                                {payment.period || formatDate(payment.payment_date)}
+                                                                Payment #{payment.id.slice(0, 8)}
                                                             </p>
                                                             <p className="text-xs text-muted-foreground">{formatDate(payment.payment_date)}</p>
                                                         </div>

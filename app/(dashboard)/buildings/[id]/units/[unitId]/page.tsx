@@ -364,7 +364,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                             <div className="flex justify-between items-start">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-black text-white uppercase tracking-tighter">
-                                                        {payment.period || formatDate(payment.payment_date)}
+                                                        Payment #{payment.id.slice(0, 8)}
                                                     </span>
                                                     <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">
                                                         {formatDate(payment.payment_date)}

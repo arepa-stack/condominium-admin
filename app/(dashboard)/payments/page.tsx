@@ -56,8 +56,6 @@ export default function PaymentsPage() {
 
     // Approval Dialog State
     const [approvalPayment, setApprovalPayment] = useState<Payment | null>(null);
-    const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
-    const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
 
     // Allocations for approval preview (if backend provides them on GET or if we simulate)
     // Actually backend prompt says: "Al revisar un pago (GET /payments/:id), verás... allocations (Real)"
@@ -139,11 +137,6 @@ export default function PaymentsPage() {
             ]);
             setDetailedPayment(detailed);
             setPaymentAllocations(allocations);
-
-            // Legacy periods support
-            const periods = detailed.periods || (detailed.period ? [detailed.period] : []);
-            setAvailablePeriods(periods);
-            setSelectedPeriods(periods);
         } catch (e) {
             console.error("Failed to fetch payment details or allocations", e);
             // Fallback
@@ -159,23 +152,12 @@ export default function PaymentsPage() {
         }
     };
 
-    const togglePeriod = (period: string) => {
-        setSelectedPeriods(prev =>
-            prev.includes(period)
-                ? prev.filter(p => p !== period)
-                : [...prev, period]
-        );
-    };
 
     const handleConfirmApprove = async () => {
         if (!approvalPayment) return;
 
         try {
-            // We pass selected periods if legacy support needs it, otherwise backend uses allocations logic
-            const isSubset = selectedPeriods.length < availablePeriods.length;
-            const periodsToSend = isSubset ? selectedPeriods : undefined;
-
-            await paymentsService.approvePayment(approvalPayment.id, undefined, periodsToSend);
+            await paymentsService.approvePayment(approvalPayment.id);
             toast.success('Payment approved successfully');
             setApprovalPayment(null);
             fetchData();
@@ -301,7 +283,7 @@ export default function PaymentsPage() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Periods (Info)</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Method</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Ref</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Proof</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
@@ -341,11 +323,10 @@ export default function PaymentsPage() {
                                                 {formatCurrency(payment.amount)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                {payment.periods ? payment.periods.join(', ') : (payment.period || '-')}
+                                                {formatPaymentMethod(payment.method)}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                {formatPaymentMethod(payment.method)} <br />
-                                                <span className="text-xs">{payment.reference}</span>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground prose dark:prose-invert">
+                                                <span className="text-xs">{payment.reference || '-'}</span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                                 {payment.proof_url ? (
@@ -471,45 +452,8 @@ export default function PaymentsPage() {
                                 </div>
                             )}
 
-                            {/* Legacy Periods Section (Info only if allocations exist, or fallback if not) */}
-                            {availablePeriods.length > 0 && (
-                                <div className={`p-3 rounded-md border ${(detailedPayment.allocations?.length || 0) > 0
-                                    ? 'bg-yellow-50/50 border-yellow-200/50 dark:bg-yellow-900/10'
-                                    : 'bg-background'
-                                    }`}>
-                                    <h4 className="font-medium text-sm mb-2 flex items-center justify-between">
-                                        <span>Indicated Periods {(detailedPayment.allocations?.length || 0) > 0 && '(Info Only)'}</span>
-                                    </h4>
-                                    <div className="grid gap-2">
-                                        {availablePeriods.map((period) => (
-                                            <div key={period} className="flex items-center space-x-2">
-                                                {/* If we have Allocations, we probably shouldn't let them edit periods as it's just info 
-                                                     But if backend still relies on legacy, we keep it. 
-                                                     Prompt says: "Mantén la visualización... como referencia visual rápida, pero aclara que es informativa."
-                                                     We keep checkboxes just in case, or maybe read-only if we are sure allocations allow backend to handle it.
-                                                     Let's keep checkboxes but maybe warn.
-                                                  */}
-                                                <input
-                                                    type="checkbox"
-                                                    id={period}
-                                                    checked={selectedPeriods.includes(period)}
-                                                    onChange={() => togglePeriod(period)}
-                                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                                />
-                                                <label
-                                                    htmlFor={period}
-                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                                >
-                                                    {period}
-                                                </label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {(!detailedPayment.allocations?.length && availablePeriods.length === 0) && (
-                                <p className="text-sm text-muted-foreground italic">No specific allocation or period info provided.</p>
+                            {(!paymentAllocations.length) && (
+                                <p className="text-sm text-muted-foreground italic">No detailed allocation info provided.</p>
                             )}
 
                         </div>
