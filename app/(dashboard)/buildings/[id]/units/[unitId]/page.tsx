@@ -321,7 +321,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                                         <span className="text-sm font-bold text-white uppercase tracking-tighter">
                                                             {formatPeriod(inv.period || `${inv.year}-${String(inv.month).padStart(2, '0')}`)}
                                                         </span>
-                                                        <span className="text-[10px] text-muted-foreground mt-0.5">Issued: {formatDate(inv.issue_date || inv.created_at)}</span>
+                                                        <span className="text-[10px] text-muted-foreground mt-0.5">Issued: {formatDate(inv.issue_date || inv.created_at || '')}</span>
                                                     </div>
                                                 </div>
 

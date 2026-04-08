@@ -193,7 +193,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-muted-foreground">Issued</span>
-                                                <span className="text-white font-medium">{formatDate(invoice.issue_date || invoice.created_at)}</span>
+                                                <span className="text-white font-medium">{formatDate(invoice.issue_date || invoice.created_at || '')}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-muted-foreground">Due Date</span>
