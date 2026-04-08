@@ -1,5 +1,8 @@
 import { apiClient } from '@/lib/api/client';
-import type { User, UpdateUserDto } from '@/types/models';
+import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
+import type { User, UpdateUserDto, CreateUserDto, AssignUnitDto, UserUnit } from '@/types/models';
+
+const P = ADMIN_API_PREFIX;
 
 export const usersService = {
     async getUsers(params?: {
@@ -8,64 +11,55 @@ export const usersService = {
         role?: string;
         status?: string;
     }): Promise<User[]> {
-        const { data } = await apiClient.get<User[]>('/users/', { params });
+        const { data } = await apiClient.get<User[]>(`${P}/users`, { params });
         return data;
     },
 
     async getUserById(id: string): Promise<User> {
-        const { data } = await apiClient.get<User>(`/users/${id}`);
+        const { data } = await apiClient.get<User>(`${P}/users/${id}`);
         return data;
     },
 
     async updateUser(id: string, updates: UpdateUserDto): Promise<User> {
-        const { data } = await apiClient.patch<User>(`/users/${id}`, updates);
+        const { data } = await apiClient.patch<User>(`${P}/users/${id}`, updates);
         return data;
     },
 
     async approveUser(id: string): Promise<User> {
-        const { data } = await apiClient.post<User>(`/users/${id}/approve`);
+        const { data } = await apiClient.post<User>(`${P}/users/${id}/approve`);
         return data;
     },
 
     async rejectUser(id: string): Promise<User> {
-        const { data } = await apiClient.patch<User>(`/users/${id}`, { status: 'rejected' });
+        const { data } = await apiClient.patch<User>(`${P}/users/${id}`, { status: 'rejected' });
         return data;
     },
 
-    async createUser(data: import('@/types/models').CreateUserDto): Promise<User> {
-        const { data: user } = await apiClient.post<User>('/users', data);
-        return user;
+    async createUser(payload: CreateUserDto): Promise<User> {
+        const { data } = await apiClient.post<User>(`${P}/users`, payload);
+        return data;
     },
 
     async deleteUser(id: string): Promise<void> {
-        await apiClient.delete(`/users/${id}`);
+        await apiClient.delete(`${P}/users/${id}`);
     },
 
-    // Unit Management
-    // POST /users/:id/units - Handles both assign new unit AND update existing unit
-    // If unit already exists for user, it updates the building_role
-    // If unit doesn't exist, it creates the assignment
-    async assignOrUpdateUnit(userId: string, payload: import('@/types/models').AssignUnitDto): Promise<{ success: boolean }> {
-        const { data } = await apiClient.post<{ success: boolean }>(`/users/${userId}/units`, payload);
+    async assignOrUpdateUnit(userId: string, payload: AssignUnitDto): Promise<{ success: boolean }> {
+        const { data } = await apiClient.post<{ success: boolean }>(`${P}/users/${userId}/units`, payload);
         return data;
     },
 
-    // GET /users/:id/units - View all units for a user
-    async getUserUnits(userId: string): Promise<import('@/types/models').UserUnit[]> {
-        const { data } = await apiClient.get<import('@/types/models').UserUnit[]>(`/users/${userId}/units`);
+    async getUserUnits(userId: string): Promise<UserUnit[]> {
+        const { data } = await apiClient.get<UserUnit[]>(`${P}/users/${userId}/units`);
         return data;
     },
 
-    // DELETE /users/:id/units/:unitId - Remove unit assignment
     async removeUnit(userId: string, unitId: string): Promise<void> {
-        await apiClient.delete(`/users/${userId}/units/${unitId}`);
+        await apiClient.delete(`${P}/users/${userId}/units/${unitId}`);
     },
 
-    // Building Roles Management
     async updateBuildingRole(userId: string, buildingId: string, role: string): Promise<User> {
-        // Assuming we update the user with the new role array
-        // In a real implementation, this might be a specific endpoint like POST /users/:id/roles
-        const { data } = await apiClient.post<User>(`/users/${userId}/roles`, {
+        const { data } = await apiClient.post<User>(`${P}/users/${userId}/roles`, {
             building_id: buildingId,
             role: role
         });
