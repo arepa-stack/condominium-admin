@@ -1,6 +1,8 @@
 export type PaymentMethod = 'PAGO_MOVIL' | 'TRANSFER' | 'CASH';
 export type PaymentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type InvoiceStatus = 'PENDING' | 'PAID' | 'CANCELLED'; // Simplified status
+export type InvoiceTag = 'NORMAL' | 'PETTY_CASH';
+export type InvoiceType = 'EXPENSE' | 'DEBT' | 'EXTRAORDINARY';
 export type UserRole = 'resident' | 'board' | 'admin';
 export type UserStatus = 'pending' | 'active' | 'inactive' | 'rejected';
 
@@ -46,23 +48,26 @@ export interface Building {
 
 export interface Invoice {
     id: string;
-    number: string;
+    number?: string;
     amount: number;
     paid_amount: number;
     status: InvoiceStatus;
-    issue_date: string;
-    due_date: string;
+    issue_date?: string;
+    due_date?: string;
     description?: string;
-    month: number;
-    year: number;
-    user_id: string;
+    tag: InvoiceTag;
+    type?: InvoiceType;
+    month?: number;
+    year?: number;
+    user_id?: string;
     user?: User;
-    unit_id: string;
-    unit: Unit;
-    period?: string; // [NEW] Optional period string (YYYY-MM)
-    receipt_number?: string; // [NEW] Backend provided number
-    created_at: string;
-    updated_at: string;
+    unit_id?: string | null;
+    unit?: Unit;
+    building_id?: string | null;
+    period?: string; // YYYY-MM
+    receipt_number?: string;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface Allocation {
@@ -236,4 +241,19 @@ export interface ProposedInvoice {
 export interface PreviewInvoicesResponse {
     invoices: ProposedInvoice[];
     unitsToCreate: string[];
+}
+
+export interface CreditLedgerEntry {
+    id: string;
+    unit_id: string;
+    amount: number;
+    reason: string;
+    reference_type?: string;
+    reference_id?: string;
+    created_at: string;
+}
+
+export interface UnitCreditResponse {
+    balance: number;
+    history: CreditLedgerEntry[];
 }

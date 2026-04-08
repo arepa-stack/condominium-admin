@@ -273,13 +273,13 @@ export default function BillingPage() {
                                         const progress = (invoice.paid_amount / invoice.amount) * 100;
                                         return (
                                             <tr key={invoice.id} className="hover:bg-accent/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{invoice.number}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{invoice.number || invoice.receipt_number || '--'}</td>
                                                 <td className="px-6 py-4 text-sm">
                                                     <div className="font-medium">{invoice.unit?.name || 'Unknown Unit'}</div>
                                                     <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {invoice.year}-{invoice.month.toString().padStart(2, '0')}
+                                                    {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                     <div>{formatCurrency(invoice.amount)}</div>
