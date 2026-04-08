@@ -1,5 +1,11 @@
 import { apiClient } from '@/lib/api/client';
-import type { Invoice, InvoicePayment, UnitBalance, BillingDebtPayload, ProposedInvoice, PreviewInvoicesResponse } from '@/types/models';
+import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
+import type {
+    Invoice, InvoicePayment, UnitBalance, BillingDebtPayload,
+    ProposedInvoice, PreviewInvoicesResponse, UnitCreditResponse, InvoiceTag
+} from '@/types/models';
+
+const P = ADMIN_API_PREFIX;
 
 export const billingService = {
 
@@ -10,47 +16,53 @@ export const billingService = {
         month?: number;
         year?: number;
         user_id?: string;
+        tag?: InvoiceTag;
     }): Promise<Invoice[]> {
-        const { data } = await apiClient.get<Invoice[]>('/billing/invoices', { params });
+        const { data } = await apiClient.get<Invoice[]>(`${P}/billing/invoices`, { params });
         return data;
     },
 
     async getInvoiceById(id: string): Promise<Invoice> {
-        const { data } = await apiClient.get<Invoice>(`/billing/invoices/${id}`);
+        const { data } = await apiClient.get<Invoice>(`${P}/billing/invoices/${id}`);
         return data;
     },
 
-    // Returns the payments with allocation info included
     async getInvoicePayments(id: string): Promise<InvoicePayment[]> {
-        const { data } = await apiClient.get<InvoicePayment[]>(`/billing/invoices/${id}/payments`);
+        const { data } = await apiClient.get<InvoicePayment[]>(`${P}/billing/invoices/${id}/payments`);
         return data;
     },
 
-    // Returns the invoices covered by a specific payment
-    async getPaymentInvoices(id: string): Promise<any[]> {
-        const { data } = await apiClient.get<any[]>(`/billing/payments/${id}/invoices`);
+    async getPaymentInvoices(id: string): Promise<Invoice[]> {
+        const { data } = await apiClient.get<Invoice[]>(`${P}/billing/payments/${id}/invoices`);
         return data;
     },
 
-    async getUnitInvoices(unitId: string): Promise<Invoice[]> {
-        const { data } = await apiClient.get<Invoice[]>(`/billing/units/${unitId}/invoices`);
+    async getUnitInvoices(unitId: string, tag?: InvoiceTag): Promise<Invoice[]> {
+        const { data } = await apiClient.get<Invoice[]>(`${P}/billing/units/${unitId}/invoices`, {
+            params: tag ? { tag } : undefined
+        });
         return data;
     },
 
     async getUnitBalance(unitId: string): Promise<UnitBalance> {
-        const { data } = await apiClient.get<UnitBalance>(`/billing/units/${unitId}/balance`);
+        const { data } = await apiClient.get<UnitBalance>(`${P}/billing/units/${unitId}/balance`);
+        return data;
+    },
+
+    async getUnitCredit(unitId: string): Promise<UnitCreditResponse> {
+        const { data } = await apiClient.get<UnitCreditResponse>(`${P}/billing/units/${unitId}/credit`);
         return data;
     },
 
     async loadDebt(payload: BillingDebtPayload): Promise<Invoice> {
-        const { data } = await apiClient.post<Invoice>('/billing/debt', payload);
+        const { data } = await apiClient.post<Invoice>(`${P}/billing/debt`, payload);
         return data;
     },
 
     async previewInvoices(building_id: string, file: File): Promise<PreviewInvoicesResponse> {
         const formData = new FormData();
         formData.append('file', file);
-        const { data } = await apiClient.post<PreviewInvoicesResponse>(`/billing/invoices/preview`, formData, {
+        const { data } = await apiClient.post<PreviewInvoicesResponse>(`${P}/billing/invoices/preview`, formData, {
             params: { building_id },
             headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -58,7 +70,7 @@ export const billingService = {
     },
 
     async confirmInvoices(building_id: string, invoices: ProposedInvoice[]): Promise<{ success: boolean }> {
-        const { data } = await apiClient.post<{ success: boolean }>(`/billing/invoices/confirm`, { invoices }, {
+        const { data } = await apiClient.post<{ success: boolean }>(`${P}/billing/invoices/confirm`, { invoices }, {
             params: { building_id }
         });
         return data;

@@ -1,5 +1,6 @@
 
 import { apiClient } from '@/lib/api/client';
+import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
 import type { AuthResponse, LoginCredentials, User } from '@/types/models';
 
 export const authService = {
@@ -64,17 +65,7 @@ export const authService = {
     },
 
     async getCurrentUser(): Promise<User> {
-        // Backend user endpoint might be /users/me or just /auth/me depending on implementation
-        // Prompt says "Unsure", but usually it's /auth/me or /users/me.
-        // Existing was /users/me. Keep it for now.
-        const { data } = await apiClient.get<User>('/users/me'); // Or /auth/me?
-        // Prompt doesn't specify "Get Current User" endpoint explicitly, but "List Users" is /users.
-        // Assuming /users/me or /auth/me exists for profile.
-        // Let's assume /auth/me is more common in new backends or keep /users/me if that was the convention.
-        // The prompt description for "Authentication Module" lists Login.
-        // It doesn't explicitly list "Get Me".
-        // I'll stick with /users/me but if it fails I might need to change it later or infer from "List Users" endpoint.
-        // Actually, often backend returns user in login.
+        const { data } = await apiClient.get<User>(`${ADMIN_API_PREFIX}/users/me`);
         return data;
     },
 
