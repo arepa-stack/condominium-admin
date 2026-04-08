@@ -65,10 +65,8 @@ La aplicación sigue un patrón de renderizado del lado del cliente usando Next.
                  │  HTTPS / Bearer JWT
                  ▼
 ┌─────────────────────────────────────────────────────┐
-│          API Backend (Bun + ElysiaJS)               │
-│       API REST con Autenticación JWT                │
-│  Rutas públicas: /auth, /buildings (GET)            │
-│  Rutas admin:    /api/v1/admin/*                    │
+│              API Backend (Bun + ElysiaJS)            │
+│         (ver docs/condominium-api-v2.md)            │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -364,89 +362,24 @@ El cliente Axios está configurado con:
 - **Interceptor de auth**: Adjunta automáticamente el token Bearer desde localStorage
 - **Interceptor de errores**: Transforma errores de la API en mensajes amigables para el usuario, maneja 401 en endpoints de auth
 
-### Estructura de Rutas de la API
-El backend organiza los endpoints en tres niveles:
-- **Rutas Públicas** (sin prefijo): `/auth/login`, `GET /buildings`, `GET /buildings/{id}/units` — no requieren autenticación o son de lectura pública.
-- **Rutas APK** (`/api/v1/app/`): Exclusivas para la aplicación móvil de residentes. No usadas por el panel admin.
-- **Rutas Admin** (`/api/v1/admin/`): Exclusivas para el panel de administración (Board y Admin). Todas las operaciones de gestión pasan por aquí.
+### Estructura de Rutas
+El panel admin consume endpoints organizados en dos niveles:
+- **Rutas Públicas** (sin prefijo): `POST /auth/login`, `GET /buildings`, `GET /buildings/{id}/units` — lectura pública, sin autenticación.
+- **Rutas Admin** (`/api/v1/admin/`): Todas las operaciones de gestión (usuarios, pagos, facturación, edificios write, unidades write).
 
-### Referencia Completa de Endpoints de la API
+Los endpoints exactos y sus parámetros están documentados en `docs/condominium-api-v2.md`.
 
-#### Autenticación (Rutas Públicas)
-| Método | Endpoint | Descripción |
+### Servicios y sus Rutas
+Cada servicio (`lib/services/*.service.ts`) encapsula las llamadas API de su dominio. La constante `ADMIN_API_PREFIX` (`/api/v1/admin`) se usa para prefijar las rutas admin:
+
+| Servicio | Rutas Públicas | Rutas Admin |
 |---|---|---|
-| `POST` | `/auth/login` | Autenticar usuario, devuelve tokens JWT + datos del usuario |
-| `POST` | `/auth/register` | Registrar una nueva cuenta de usuario |
-
-#### Usuarios (Rutas Admin — `/api/v1/admin/users`)
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/api/v1/admin/users/me` | Obtener perfil del usuario autenticado actual |
-| `GET` | `/api/v1/admin/users` | Listar todos los usuarios (filtrable por building_id, unit_id, role, status) |
-| `GET` | `/api/v1/admin/users/{id}` | Obtener un usuario específico por ID |
-| `PATCH` | `/api/v1/admin/users/{id}` | Actualizar usuario (nombre, teléfono, rol, estado, buildingRoles) |
-| `POST` | `/api/v1/admin/users/{id}/approve` | Aprobar el registro pendiente de un usuario |
-| `POST` | `/api/v1/admin/users` | Crear usuario (solo Admin) |
-| `DELETE` | `/api/v1/admin/users/{id}` | Eliminar un usuario (solo Admin) |
-| `GET` | `/api/v1/admin/users/{id}/units` | Obtener todas las unidades asignadas a un usuario |
-| `POST` | `/api/v1/admin/users/{id}/units` | Asignar o actualizar una unidad para un usuario |
-| `DELETE` | `/api/v1/admin/users/{id}/units/{unitId}` | Eliminar la asignación de una unidad de un usuario |
-| `POST` | `/api/v1/admin/users/{id}/roles` | Actualizar el rol de un usuario en un edificio específico |
-
-#### Edificios (Rutas mixtas — lectura pública, escritura admin)
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/buildings` | Listar todos los edificios (pública) |
-| `GET` | `/buildings/{id}` | Obtener detalles de un edificio por ID (pública) |
-| `POST` | `/api/v1/admin/buildings` | Crear un nuevo edificio |
-| `PATCH` | `/api/v1/admin/buildings/{id}` | Actualizar un edificio |
-| `DELETE` | `/api/v1/admin/buildings/{id}` | Eliminar un edificio |
-
-#### Unidades (Rutas mixtas — lectura pública, escritura admin)
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/buildings/{id}/units` | Listar todas las unidades de un edificio (pública) |
-| `GET` | `/buildings/units/{id}` | Obtener una unidad específica por ID (pública) |
-| `POST` | `/api/v1/admin/buildings/{id}/units` | Crear una unidad individual en un edificio |
-| `POST` | `/api/v1/admin/buildings/{id}/units/batch` | Creación masiva de unidades (por pisos y unidades por piso) |
-
-#### Pagos (Rutas Admin — `/api/v1/admin/payments`)
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/api/v1/admin/payments` | Listar los pagos propios del usuario (filtrable) |
-| `GET` | `/api/v1/admin/payments/{id}` | Obtener detalles de un pago por ID |
-| `POST` | `/api/v1/admin/payments` | Crear un pago (multipart/form-data para subir comprobante) |
-| `GET` | `/api/v1/admin/payments/admin/payments` | Admin: listar todos los pagos (filtrable por building_id, status, period, year, unit_id) |
-| `PATCH` | `/api/v1/admin/payments/admin/payments/{id}` | Admin: actualizar estado del pago (aprobar/rechazar) |
-| `GET` | `/api/v1/admin/payments/summary` | Obtener resumen de pagos con estado de solvencia |
-
-#### Facturación (Rutas Admin — `/api/v1/admin/billing`)
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/api/v1/admin/billing/invoices` | Listar facturas (filtrable por building_id, unit_id, status, month, year, user_id, **tag**) |
-| `GET` | `/api/v1/admin/billing/invoices/{id}` | Obtener detalles de una factura |
-| `GET` | `/api/v1/admin/billing/invoices/{id}/payments` | Obtener pagos asignados a una factura específica |
-| `POST` | `/api/v1/admin/billing/invoices/preview` | Vista previa de facturas desde carga de Excel (multipart/form-data) |
-| `POST` | `/api/v1/admin/billing/invoices/confirm` | Confirmar y crear las facturas previsualizadas |
-| `GET` | `/api/v1/admin/billing/payments/{id}/invoices` | Obtener facturas cubiertas por un pago específico |
-| `GET` | `/api/v1/admin/billing/units/{id}/invoices` | Obtener facturas de una unidad (filtrable por **tag**: NORMAL, PETTY_CASH) |
-| `GET` | `/api/v1/admin/billing/units/{id}/balance` | Obtener resumen de saldo de una unidad (deuda total, facturas pendientes) |
-| `GET` | `/api/v1/admin/billing/units/{id}/credit` | Obtener crédito/saldo a favor de una unidad |
-| `POST` | `/api/v1/admin/billing/debt` | Cargar/crear una deuda para una unidad |
-
-#### Caja Chica (Backend disponible, aún no integrado en el Frontend)
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/api/v1/admin/petty-cash/funds/{buildingId}` | Obtener saldo de caja chica de un edificio |
-| `GET` | `/api/v1/admin/petty-cash/funds/{buildingId}/transactions` | Historial de transacciones (filtros: type, category, page, limit) |
-| `POST` | `/api/v1/admin/petty-cash/funds/{buildingId}/transactions` | Crear transacción (INCOME o EXPENSE) |
-| `GET` | `/api/v1/admin/petty-cash/funds/{buildingId}/assessments` | Preview de excedente y distribución por unidad |
-| `POST` | `/api/v1/admin/petty-cash/funds/{buildingId}/assessments` | Generar facturas de cobro por excedente a cada unidad |
-
-#### Salud del Sistema
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/health` | Verificación de salud del backend |
+| `auth.service.ts` | `POST /auth/login` | `GET /users/me` |
+| `buildings.service.ts` | `GET /buildings`, `GET /buildings/{id}` | `POST`, `PATCH`, `DELETE /buildings` |
+| `units.service.ts` | `GET /buildings/{id}/units`, `GET /buildings/units/{id}` | `POST /buildings/{id}/units`, `POST /buildings/{id}/units/batch` |
+| `users.service.ts` | — | Todas las operaciones CRUD de usuarios |
+| `payments.service.ts` | — | Todas las operaciones de pagos |
+| `billing.service.ts` | — | Invoices, balance, crédito, deuda, preview/confirm Excel |
 
 ---
 
