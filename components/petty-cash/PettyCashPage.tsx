@@ -121,8 +121,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     >
                         Caja chica
                     </h1>
-                    <p className="mt-1 text-muted-foreground">
-                        Saldo, movimientos e ingresos/egresos del fondo
+                    <p className="mt-1 text-muted-foreground text-sm">
+                        Saldo y movimientos del fondo del edificio
                     </p>
                 </div>
                 {canEdit && (

@@ -8,7 +8,7 @@ export const usersService = {
         role?: string;
         status?: string;
     }): Promise<User[]> {
-        const { data } = await apiClient.get<User[]>('/users/', { params });
+        const { data } = await apiClient.get<User[]>('/users', { params });
         return data;
     },
 
