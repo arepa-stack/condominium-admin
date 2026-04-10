@@ -34,8 +34,7 @@ const navigation = [
     { name: 'Units', href: '/units', icon: Home, roles: ['admin', 'board'] },
     { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'board'] },
     { name: 'Billing', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
-    { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['admin', 'board'] },
-    { name: 'Caja Chica', href: '/petty-cash', icon: Wallet, roles: ['admin', 'board'] },
+    { name: 'Finanzas', href: '/finances', icon: Wallet, roles: ['admin', 'board'] },
 ];
 
 export function Sidebar() {
@@ -67,7 +66,7 @@ export function Sidebar() {
             }
 
             // Other functional pages: if in building context, use contextual route
-            const contextualPages = ['/units', '/users', '/billing', '/payments'];
+            const contextualPages = ['/units', '/users', '/billing', '/finances'];
             const activeBuildingId = buildingId || selectedBuildingId;
             if (activeBuildingId && contextualPages.includes(item.href)) {
                 return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
@@ -119,7 +118,7 @@ export function Sidebar() {
                                         router.push(`/buildings/${id}/${action}`);
                                     } else {
                                         // Global page to contextual page if applicable
-                                        const contextualPages = ['units', 'users', 'billing', 'payments', 'petty-cash'];
+                                        const contextualPages = ['units', 'users', 'billing', 'finances'];
                                         const currentAction = pathname.replace('/', '');
                                         if (contextualPages.includes(currentAction)) {
                                             router.push(`/buildings/${id}/${currentAction}`);
