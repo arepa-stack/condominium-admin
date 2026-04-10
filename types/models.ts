@@ -237,3 +237,40 @@ export interface PreviewInvoicesResponse {
     invoices: ProposedInvoice[];
     unitsToCreate: string[];
 }
+
+/** Petty cash (caja chica) — aligned with OpenAPI Petty Cash tag */
+export type PettyCashTransactionType = 'INCOME' | 'EXPENSE';
+
+export interface PettyCashBalance {
+    id: string;
+    building_id: string;
+    current_balance: number;
+    currency: string;
+    updated_at: string;
+}
+
+export interface PettyCashTransaction {
+    id: string;
+    fund_id: string;
+    type: string;
+    amount: number;
+    description: string;
+    category: string | null;
+    created_by: string;
+    evidence_url: string | null;
+    created_at: string | null;
+}
+
+export interface CreatePettyCashIncomeDto {
+    building_id: string;
+    amount: number | string;
+    description: string;
+}
+
+export interface CreatePettyCashExpenseDto {
+    building_id: string;
+    amount: number | string;
+    description: string;
+    category: string;
+    evidence_image?: File | null;
+}

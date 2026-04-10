@@ -12,6 +12,7 @@ import {
     FileText,
     LogOut,
     Menu,
+    Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -34,6 +35,7 @@ const navigation = [
     { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'board'] },
     { name: 'Billing', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
     { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['admin', 'board'] },
+    { name: 'Caja Chica', href: '/petty-cash', icon: Wallet, roles: ['admin', 'board'] },
 ];
 
 export function Sidebar() {
@@ -117,7 +119,7 @@ export function Sidebar() {
                                         router.push(`/buildings/${id}/${action}`);
                                     } else {
                                         // Global page to contextual page if applicable
-                                        const contextualPages = ['units', 'users', 'billing', 'payments'];
+                                        const contextualPages = ['units', 'users', 'billing', 'payments', 'petty-cash'];
                                         const currentAction = pathname.replace('/', '');
                                         if (contextualPages.includes(currentAction)) {
                                             router.push(`/buildings/${id}/${currentAction}`);
