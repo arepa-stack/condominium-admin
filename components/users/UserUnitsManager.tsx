@@ -160,6 +160,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
             // POST /users/:id/units
             await usersService.assignOrUpdateUnit(user.id, {
                 unit_id: selectedUnit,
+                building_id: selectedBuilding,
                 is_primary: isPrimary || userUnits.length === 0 // First unit is primary
             });
 
