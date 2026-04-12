@@ -122,6 +122,7 @@ export default function BillingPage() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'PAID': return 'bg-green-500 hover:bg-green-600';
+            case 'PARTIAL': return 'bg-amber-500 hover:bg-amber-600';
             case 'PENDING': return 'bg-yellow-500 hover:bg-yellow-600'; // Make sure text is readable if using standard badge
             case 'CANCELLED': return 'bg-gray-500 hover:bg-gray-600';
             default: return 'bg-gray-500';
@@ -214,6 +215,7 @@ export default function BillingPage() {
                             <SelectContent>
                                 <SelectItem value="all">All Statuses</SelectItem>
                                 <SelectItem value="PENDING">Pending</SelectItem>
+                                <SelectItem value="PARTIAL">Partial</SelectItem>
                                 <SelectItem value="PAID">Paid</SelectItem>
                                 <SelectItem value="CANCELLED">Cancelled</SelectItem>
                             </SelectContent>
@@ -227,6 +229,7 @@ export default function BillingPage() {
                             <SelectContent>
                                 <SelectItem value="2024">2024</SelectItem>
                                 <SelectItem value="2025">2025</SelectItem>
+                                <SelectItem value="2026">2026</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -273,13 +276,13 @@ export default function BillingPage() {
                                         const progress = (invoice.paid_amount / invoice.amount) * 100;
                                         return (
                                             <tr key={invoice.id} className="hover:bg-accent/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{invoice.number}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{invoice.number || invoice.receipt_number || '--'}</td>
                                                 <td className="px-6 py-4 text-sm">
                                                     <div className="font-medium">{invoice.unit?.name || 'Unknown Unit'}</div>
                                                     <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {invoice.year}-{invoice.month.toString().padStart(2, '0')}
+                                                    {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                     <div>{formatCurrency(invoice.amount)}</div>

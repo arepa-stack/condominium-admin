@@ -106,11 +106,13 @@ export function PaymentDialog({
                 return;
             }
             try {
-                const data = await billingService.getInvoices({
-                    unit_id: selectedUnitId,
-                    status: 'PENDING'
-                });
+                // Parallel fetch for PENDING and PARTIAL invoices
+                const [pending, partial] = await Promise.all([
+                    billingService.getInvoices({ unit_id: selectedUnitId, status: 'PENDING' }),
+                    billingService.getInvoices({ unit_id: selectedUnitId, status: 'PARTIAL' })
+                ]);
 
+                const data = [...pending, ...partial];
                 setPendingInvoices(data);
 
                 // Auto-select if there's only one pending invoice
