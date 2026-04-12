@@ -23,12 +23,15 @@ import type {
     PettyCashBalance,
     PettyCashTransaction,
     PettyCashTransactionType,
+    PettyCashAssessmentPreview,
+    PettyCashTransparency,
 } from '@/types/models';
 import { formatDate, formatMoney } from '@/lib/utils/format';
 import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
 import { toast } from 'sonner';
-import { ArrowDownCircle, ArrowUpCircle, Eye } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Eye, AlertTriangle, TrendingUp, Users, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import Image from 'next/image';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
@@ -44,7 +47,10 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
 
     const [balance, setBalance] = useState<PettyCashBalance | null>(null);
     const [transactions, setTransactions] = useState<PettyCashTransaction[]>([]);
+    const [assessmentPreview, setAssessmentPreview] = useState<PettyCashAssessmentPreview | null>(null);
+    const [transparency, setTransparency] = useState<PettyCashTransparency | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isGenerating, setIsGenerating] = useState(false);
     const [filterType, setFilterType] = useState<string>('all');
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [page, setPage] = useState(0);
@@ -66,7 +72,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         if (!buildingId) return;
         try {
             setIsLoading(true);
-            const [bal, history] = await Promise.all([
+            const [bal, history, preview, trans] = await Promise.all([
                 pettyCashService.getBalance(buildingId),
                 pettyCashService.getHistory(buildingId, {
                     type: filterType !== 'all' ? filterType : undefined,
@@ -74,14 +80,19 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     page,
                     limit: pageSize,
                 }),
+                pettyCashService.getAssessmentPreview(buildingId),
+                pettyCashService.getTransparency(buildingId),
             ]);
             setBalance(bal);
             setTransactions(history);
+            setAssessmentPreview(preview);
+            setTransparency(trans);
         } catch (e) {
             console.error(e);
             toast.error('No se pudo cargar la caja chica');
             setBalance(null);
             setTransactions([]);
+            setAssessmentPreview(null);
         } finally {
             setIsLoading(false);
         }
@@ -94,6 +105,21 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const openDialog = (type: PettyCashTransactionType) => {
         setDialogType(type);
         setDialogOpen(true);
+    };
+
+    const handleGenerateAssessments = async () => {
+        if (!confirm('¿Seguro que deseas generar los recibos de reposición de la caja chica? Esta acción emitirá cuentas por cobrar a los residentes.')) return;
+        setIsGenerating(true);
+        try {
+            const resp = await pettyCashService.generateAssessments(buildingId);
+            toast.success(`Se generaron ${resp.invoices_created} recibos de reposición correctamente`);
+            await fetchAll();
+        } catch (e) {
+            console.error(e);
+            toast.error('Error al generar los recibos');
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const formatTxAmount = (t: PettyCashTransaction) => {
@@ -143,11 +169,97 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 )}
             </div>
 
-            <BalanceCard
-                balance={balance}
-                isLoading={isLoading}
-                onRefresh={fetchAll}
-            />
+            {assessmentPreview && assessmentPreview.pending_to_assess > 0 && canEdit && (
+                <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-center gap-3">
+                            <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                            <div>
+                                <h3 className="font-semibold text-white">Sobregiro detectado para reponer</h3>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Faltan {formatMoney(assessmentPreview.pending_to_assess, balance?.currency ?? 'USD')} de reponer. 
+                                    ({assessmentPreview.units.length} unidades pendientes por montos variables).
+                                </p>
+                            </div>
+                        </div>
+                        <Button 
+                            variant="destructive" 
+                            disabled={isGenerating}
+                            onClick={handleGenerateAssessments}
+                            className="whitespace-nowrap"
+                        >
+                            {isGenerating ? 'Generando...' : 'Generar Recibos de Reposición'}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            <div className="grid gap-6 md:grid-cols-2">
+                <BalanceCard
+                    balance={balance}
+                    isLoading={isLoading}
+                    onRefresh={fetchAll}
+                />
+                
+                {/* Transparency Summary View */}
+                <Card className={`p-4 flex flex-col justify-center ${cardClass}`}>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Recaudación de Reposición</h3>
+                        </div>
+                        <span className="text-2xl font-black text-white">{transparency?.collection_percentage || 0}%</span>
+                    </div>
+                    <Progress value={transparency?.collection_percentage || 0} className="h-4" />
+                    <div className="mt-3 flex justify-between items-center text-[10px] text-muted-foreground uppercase font-black">
+                        <span>Recaudado: {formatMoney(transparency?.total_collected || 0, balance?.currency ?? 'USD')}</span>
+                        <span>Meta: {formatMoney(transparency?.total_to_collect || 0, balance?.currency ?? 'USD')}</span>
+                    </div>
+                </Card>
+            </div>
+
+            {/* Transparency Details */}
+            {transparency && transparency.units.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" />
+                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Estatus de Reposición por Unidad</h2>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {transparency.units.map(u => {
+                            const progress = (u.covered_amount / u.expected_amount) * 100;
+                            return (
+                                <Card key={u.unit_id} className="p-3 bg-white/5 border-white/5 relative overflow-hidden group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-muted-foreground uppercase font-bold">Unidad</span>
+                                            <span className="text-sm text-white font-black">{u.unit_name}</span>
+                                        </div>
+                                        {u.status === 'PAID' ? (
+                                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <Badge className={u.status === 'PARTIAL' ? 'bg-amber-500/20 text-amber-500 border-amber-500/30' : 'bg-destructive/20 text-destructive border-destructive/30'}>
+                                                {u.status}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-[9px] text-muted-foreground mb-1">
+                                            <span>Cobertura</span>
+                                            <span>{Math.round(progress)}%</span>
+                                        </div>
+                                        <Progress value={progress} className="h-1.5" indicatorClassName={u.status === 'PAID' ? 'bg-green-500' : u.status === 'PARTIAL' ? 'bg-amber-500' : 'bg-primary'} />
+                                        <div className="flex justify-between text-[10px] text-white font-medium mt-1">
+                                            <span>{formatMoney(u.covered_amount, balance?.currency ?? 'USD')}</span>
+                                            <span className="text-muted-foreground">/ {formatMoney(u.expected_amount, balance?.currency ?? 'USD')}</span>
+                                        </div>
+                                    </div>
+                                </Card>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
 
             <Card className={`p-4 ${cardClass}`}>
                 <div className="flex flex-wrap gap-4">
@@ -279,7 +391,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                                             size="sm"
                                                             className="gap-1"
                                                             onClick={() =>
-                                                                setEvidenceUrl(t.evidence_url)
+                                                                setEvidenceUrl(t.evidence_url || null)
                                                             }
                                                         >
                                                             <Eye className="h-4 w-4" />

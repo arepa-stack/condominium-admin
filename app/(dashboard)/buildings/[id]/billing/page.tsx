@@ -210,13 +210,13 @@ export default function BuildingBillingPage() {
                                                     setIsDetailsOpen(true);
                                                 }}
                                             >
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{invoice.number}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{invoice.number || invoice.receipt_number || '--'}</td>
                                                 <td className="px-6 py-4 text-sm">
                                                     <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{invoice.unit?.name || 'Unknown Unit'}</div>
                                                     <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground tabular-nums">
-                                                    {invoice.year}-{invoice.month.toString().padStart(2, '0')}
+                                                    {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm tabular-nums">
                                                     <div className="font-semibold text-white">{formatCurrency(invoice.amount)}</div>
