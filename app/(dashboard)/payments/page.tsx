@@ -27,7 +27,7 @@ import type { Payment, Building, Unit } from '@/types/models';
 import { formatCurrency, formatDate, formatPaymentMethod, formatPeriod } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Eye, CheckCircle, XCircle, Info, Building2, Home, DollarSign, Loader2 } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Info, Building2, Home, DollarSign, Loader2, RotateCcw } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import Image from 'next/image';
@@ -181,6 +181,20 @@ export default function PaymentsPage() {
         }
     };
 
+    const handleReverse = async (paymentId: string) => {
+        const reason = prompt('Reason for reversal:');
+        if (reason === null) return;
+
+        try {
+            await paymentsService.reversePayment(paymentId, reason);
+            toast.success('Payment reversed successfully');
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to reverse payment');
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -261,6 +275,7 @@ export default function PaymentsPage() {
                             <SelectContent>
                                 <SelectItem value="2024">2024</SelectItem>
                                 <SelectItem value="2025">2025</SelectItem>
+                                <SelectItem value="2026">2026</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -351,7 +366,7 @@ export default function PaymentsPage() {
                                                     <div className="flex gap-2">
                                                         <Button
                                                             size="sm"
-                                                            onClick={() => openApprovalDialog(payment)}
+                                                            onClick={(e) => { e.stopPropagation(); openApprovalDialog(payment); }}
                                                             className="bg-green-600 hover:bg-green-700 text-white h-8 w-8 p-0"
                                                             title="Approve"
                                                         >
@@ -360,13 +375,24 @@ export default function PaymentsPage() {
                                                         <Button
                                                             size="sm"
                                                             variant="destructive"
-                                                            onClick={() => handleReject(payment.id)}
+                                                            onClick={(e) => { e.stopPropagation(); handleReject(payment.id); }}
                                                             className="h-8 w-8 p-0"
                                                             title="Reject"
                                                         >
                                                             <XCircle className="h-4 w-4" />
                                                         </Button>
                                                     </div>
+                                                )}
+                                                {payment.status === 'APPROVED' && (isSuperAdmin || isBoardMember) && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={(e) => { e.stopPropagation(); handleReverse(payment.id); }}
+                                                        className="h-8 w-8 p-0 border-orange-500/50 text-orange-500 hover:bg-orange-500/10"
+                                                        title="Reverse Payment"
+                                                    >
+                                                        <RotateCcw className="h-4 w-4" />
+                                                    </Button>
                                                 )}
                                             </td>
                                         </tr>

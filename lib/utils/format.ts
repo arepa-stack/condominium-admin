@@ -11,6 +11,20 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
+ * Formats an amount with a specific ISO 4217 currency code (falls back to USD if invalid).
+ */
+export function formatMoney(amount: number, currencyCode = 'USD'): string {
+    try {
+        return new Intl.NumberFormat('es-VE', {
+            style: 'currency',
+            currency: currencyCode.length === 3 ? currencyCode : 'USD',
+        }).format(amount);
+    } catch {
+        return formatCurrency(amount);
+    }
+}
+
+/**
  * Formats a date string to a human-readable format
  */
 export function formatDate(date: string | Date, format = 'MMM dd, yyyy'): string {

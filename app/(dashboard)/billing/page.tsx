@@ -122,6 +122,7 @@ export default function BillingPage() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'PAID': return 'bg-green-500 hover:bg-green-600';
+            case 'PARTIAL': return 'bg-amber-500 hover:bg-amber-600';
             case 'PENDING': return 'bg-yellow-500 hover:bg-yellow-600'; // Make sure text is readable if using standard badge
             case 'CANCELLED': return 'bg-gray-500 hover:bg-gray-600';
             default: return 'bg-gray-500';
@@ -214,6 +215,7 @@ export default function BillingPage() {
                             <SelectContent>
                                 <SelectItem value="all">All Statuses</SelectItem>
                                 <SelectItem value="PENDING">Pending</SelectItem>
+                                <SelectItem value="PARTIAL">Partial</SelectItem>
                                 <SelectItem value="PAID">Paid</SelectItem>
                                 <SelectItem value="CANCELLED">Cancelled</SelectItem>
                             </SelectContent>
@@ -227,6 +229,7 @@ export default function BillingPage() {
                             <SelectContent>
                                 <SelectItem value="2024">2024</SelectItem>
                                 <SelectItem value="2025">2025</SelectItem>
+                                <SelectItem value="2026">2026</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

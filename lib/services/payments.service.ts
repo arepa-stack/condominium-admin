@@ -79,4 +79,11 @@ export const paymentsService = {
             notes
         });
     },
+
+    async reversePayment(id: string, reason: string): Promise<{ success: boolean }> {
+        const { data } = await apiClient.post<{ success: boolean }>(`${P}/payments/admin/payments/${id}/reverse`, {
+            reason
+        });
+        return data;
+    },
 };
