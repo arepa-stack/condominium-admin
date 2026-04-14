@@ -42,15 +42,18 @@ export const pettyCashService = {
     },
 
     async registerIncome(payload: CreatePettyCashIncomeDto): Promise<PettyCashTransaction> {
+        const fd = new FormData();
+        fd.append('type', 'INCOME');
+        fd.append('amount', String(payload.amount));
+        fd.append('description', payload.description);
+
         const { data } = await apiClient.post<PettyCashTransaction>(
             `${P}/petty-cash/funds/${payload.building_id}/transactions`,
+            fd,
             {
-                description: payload.description,
-                amount:
-                    typeof payload.amount === 'string'
-                        ? Number(payload.amount)
-                        : payload.amount,
-                type: 'INCOME',
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
             }
         );
         return {
@@ -101,9 +104,13 @@ export const pettyCashService = {
         return data;
     },
 
-    async getTransparency(buildingId: string): Promise<PettyCashTransparency> {
+    async getTransparency(
+        buildingId: string,
+        period: string
+    ): Promise<PettyCashTransparency> {
         const { data } = await apiClient.get<PettyCashTransparency>(
-            `${P}/petty-cash/funds/${buildingId}/transparency`
+            `${P}/petty-cash/funds/${buildingId}/transparency`,
+            { params: { period } }
         );
         return data;
     },
