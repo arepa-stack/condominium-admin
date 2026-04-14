@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { BalanceCard } from '@/components/petty-cash/BalanceCard';
 import { TransactionDialog } from '@/components/petty-cash/TransactionDialog';
+import { AssessmentPreviewDialog } from '@/components/petty-cash/AssessmentPreviewDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,6 +36,11 @@ import { Progress } from '@/components/ui/progress';
 import Image from 'next/image';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 
+function currentPeriod(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 interface PettyCashPageProps {
     buildingId: string;
     /** Darker styling when rendered inside building context */
@@ -59,6 +65,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogType, setDialogType] = useState<PettyCashTransactionType>('INCOME');
     const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
+    const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
 
     const isBuildingVariant = variant === 'building';
     const cardClass = isBuildingVariant
@@ -81,7 +88,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     limit: pageSize,
                 }),
                 pettyCashService.getAssessmentPreview(buildingId),
-                pettyCashService.getTransparency(buildingId),
+                pettyCashService.getTransparency(buildingId, currentPeriod()),
             ]);
             setBalance(bal);
             setTransactions(history);
@@ -108,11 +115,11 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     };
 
     const handleGenerateAssessments = async () => {
-        if (!confirm('¿Seguro que deseas generar los recibos de reposición de la caja chica? Esta acción emitirá cuentas por cobrar a los residentes.')) return;
         setIsGenerating(true);
         try {
             const resp = await pettyCashService.generateAssessments(buildingId);
             toast.success(`Se generaron ${resp.invoices_created} recibos de reposición correctamente`);
+            setAssessmentDialogOpen(false);
             await fetchAll();
         } catch (e) {
             console.error(e);
@@ -182,13 +189,13 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                 </p>
                             </div>
                         </div>
-                        <Button 
-                            variant="destructive" 
+                        <Button
+                            variant="destructive"
                             disabled={isGenerating}
-                            onClick={handleGenerateAssessments}
+                            onClick={() => setAssessmentDialogOpen(true)}
                             className="whitespace-nowrap"
                         >
-                            {isGenerating ? 'Generando...' : 'Generar Recibos de Reposición'}
+                            Generar Recibos de Reposición
                         </Button>
                     </div>
                 </div>
@@ -440,6 +447,15 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 transactionType={dialogType}
                 buildingId={buildingId}
                 onSuccess={fetchAll}
+            />
+
+            <AssessmentPreviewDialog
+                open={assessmentDialogOpen}
+                onOpenChange={setAssessmentDialogOpen}
+                preview={assessmentPreview}
+                currency={balance?.currency ?? 'USD'}
+                isGenerating={isGenerating}
+                onConfirm={handleGenerateAssessments}
             />
 
             <Dialog open={!!evidenceUrl} onOpenChange={(o) => !o && setEvidenceUrl(null)}>
