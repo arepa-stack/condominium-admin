@@ -228,6 +228,7 @@ export interface UnitBalance {
 // POST /users/:id/units - Handles both create and update
 export interface AssignUnitDto {
   unit_id: string; // Backend uses snake_case
+  building_id: string; // Backend uses snake_case
   is_primary: boolean; // Backend uses snake_case
 }
 
