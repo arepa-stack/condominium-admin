@@ -42,13 +42,13 @@ import type { Unit, Building } from '@/types/models';
 // Schema defined outside component to avoid re-creation
 const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
     building_id: z.string().optional(),
-    unit_id: z.string().min(1, 'Unit is required'),
-    amount: z.string().min(1, 'Amount is required'),
-    period: z.string().regex(/^\d{4}-\d{2}$/, 'Period must be in YYYY-MM format'),
-    description: z.string().min(3, 'Description must be at least 3 characters'),
+    unit_id: z.string().min(1, 'La unidad es obligatoria'),
+    amount: z.string().min(1, 'El monto es obligatorio'),
+    period: z.string().regex(/^\d{4}-\d{2}$/, 'El período debe estar en formato AAAA-MM'),
+    description: z.string().min(3, 'La descripción debe tener al menos 3 caracteres'),
     due_date: z.string().optional(),
 }).refine(data => !needsBuildingSelector || (data.building_id && data.building_id.length > 0), {
-    message: "Building is required",
+    message: "El edificio es obligatorio",
     path: ["building_id"],
 });
 
@@ -103,7 +103,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                     setBuildings(data);
                 } catch (error) {
                     console.error('Failed to fetch buildings', error);
-                    toast.error('Failed to load buildings');
+                    toast.error('Error al cargar los edificios');
                 } finally {
                     setIsLoadingBuildings(false);
                 }
@@ -122,7 +122,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                     setUnits(data);
                 } catch (error) {
                     console.error('Failed to fetch units', error);
-                    toast.error('Failed to load units');
+                    toast.error('Error al cargar las unidades');
                     setUnits([]);
                 } finally {
                     setIsLoadingUnits(false);
@@ -143,7 +143,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
         try {
             // Check building_id if admin
             if (needsBuildingSelector && !values.building_id) {
-                toast.error('Please select a building');
+                toast.error('Seleccioná un edificio');
                 return;
             }
 
@@ -157,13 +157,13 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
             };
 
             await billingService.loadDebt(payload);
-            toast.success('Invoice created successfully');
+            toast.success('Factura creada correctamente');
             onSuccess();
             onOpenChange(false);
             form.reset();
         } catch (error: any) {
             console.error('Failed to create invoice', error);
-            toast.error(error.response?.data?.message || 'Failed to create invoice');
+            toast.error(error.response?.data?.message || 'Error al crear la factura');
         }
     };
 
@@ -173,10 +173,10 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
                         <FileText className="h-5 w-5 text-emerald-400" />
-                        Create New Invoice
+                        Crear nueva factura
                     </DialogTitle>
                     <DialogDescription>
-                        Load a new debt to a specific unit for the selected period.
+                        Cargá una nueva deuda a una unidad específica para el período seleccionado.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -191,7 +191,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                     <FormItem>
                                         <FormLabel className="flex items-center gap-2">
                                             <Building2 className="h-4 w-4 text-muted-foreground" />
-                                            Building <span className="text-destructive">*</span>
+                                            Edificio <span className="text-destructive">*</span>
                                         </FormLabel>
                                         <Select
                                             onValueChange={field.onChange}
@@ -200,7 +200,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                         >
                                             <FormControl>
                                                 <SelectTrigger className="bg-background/50 border-border/50">
-                                                    <SelectValue placeholder={isLoadingBuildings ? "Loading buildings..." : "Select building"} />
+                                                    <SelectValue placeholder={isLoadingBuildings ? "Cargando edificios..." : "Seleccionar edificio"} />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -215,7 +215,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                             </SelectContent>
                                         </Select>
                                         <FormDescription className="text-xs">
-                                            Select the building that contains the unit
+                                            Elegí el edificio que contiene la unidad
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -231,7 +231,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 <FormItem>
                                     <FormLabel className="flex items-center gap-2">
                                         <Home className="h-4 w-4 text-muted-foreground" />
-                                        Unit <span className="text-destructive">*</span>
+                                        Unidad <span className="text-destructive">*</span>
                                     </FormLabel>
                                     <Select
                                         disabled={!selectedBuildingId || !!initialUnitId || isLoadingUnits}
@@ -242,22 +242,22 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                             <SelectTrigger className="bg-background/50 border-border/50">
                                                 <SelectValue placeholder={
                                                     !selectedBuildingId
-                                                        ? "Select building first"
+                                                        ? "Primero seleccioná un edificio"
                                                         : isLoadingUnits
-                                                            ? "Loading units..."
-                                                            : "Select a unit"
+                                                            ? "Cargando unidades..."
+                                                            : "Seleccioná una unidad"
                                                 } />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
                                             {units.length === 0 ? (
-                                                <SelectItem value="none" disabled>No units found</SelectItem>
+                                                <SelectItem value="none" disabled>No se encontraron unidades</SelectItem>
                                             ) : (
                                                 units.map((unit) => (
                                                     <SelectItem key={unit.id} value={unit.id}>
                                                         <div className="flex items-center gap-2">
                                                             <Home className="h-4 w-4 text-primary" />
-                                                            {unit.name} {unit.floor ? `(Floor ${unit.floor})` : ''}
+                                                            {unit.name} {unit.floor ? `(Piso ${unit.floor})` : ''}
                                                         </div>
                                                     </SelectItem>
                                                 ))
@@ -277,7 +277,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 <FormItem>
                                     <FormLabel className="flex items-center gap-2">
                                         <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                        Amount <span className="text-destructive">*</span>
+                                        Monto <span className="text-destructive">*</span>
                                     </FormLabel>
                                     <FormControl>
                                         <Input
@@ -302,7 +302,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                     <FormItem>
                                         <FormLabel className="flex items-center gap-2">
                                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                                            Period <span className="text-destructive">*</span>
+                                            Período <span className="text-destructive">*</span>
                                         </FormLabel>
                                         <FormControl>
                                             <Input
@@ -311,7 +311,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                                 className="bg-background/50 border-border/50 focus:border-primary transition-colors"
                                             />
                                         </FormControl>
-                                        <FormDescription className="text-xs">YYYY-MM</FormDescription>
+                                        <FormDescription className="text-xs">AAAA-MM</FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -323,7 +323,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 name="due_date"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Due Date (Optional)</FormLabel>
+                                        <FormLabel>Vencimiento (opcional)</FormLabel>
                                         <FormControl>
                                             <Input
                                                 type="date"
@@ -343,10 +343,10 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                             name="description"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Description <span className="text-destructive">*</span></FormLabel>
+                                    <FormLabel>Descripción <span className="text-destructive">*</span></FormLabel>
                                     <FormControl>
                                         <Input
-                                            placeholder="Monthly maintenance fee"
+                                            placeholder="Expensas mensuales"
                                             {...field}
                                             className="bg-background/50 border-border/50 focus:border-primary transition-colors"
                                         />
@@ -363,14 +363,14 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 onClick={() => onOpenChange(false)}
                                 className="border-border/50"
                             >
-                                Cancel
+                                Cancelar
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={form.formState.isSubmitting}
                                 className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30"
                             >
-                                {form.formState.isSubmitting ? 'Creating...' : 'Create Invoice'}
+                                {form.formState.isSubmitting ? 'Creando...' : 'Crear factura'}
                             </Button>
                         </DialogFooter>
                     </form>

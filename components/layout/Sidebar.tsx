@@ -28,11 +28,11 @@ import {
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 
 const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'board'] },
-    { name: 'Buildings', href: '/buildings', icon: Building2, roles: ['admin'] },
-    { name: 'Units', href: '/units', icon: Home, roles: ['admin', 'board'] },
-    { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'board'] },
-    { name: 'Billing', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
+    { name: 'Panel', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'board'] },
+    { name: 'Edificios', href: '/buildings', icon: Building2, roles: ['admin'] },
+    { name: 'Unidades', href: '/units', icon: Home, roles: ['admin', 'board'] },
+    { name: 'Usuarios', href: '/users', icon: Users, roles: ['admin', 'board'] },
+    { name: 'Facturación', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
     { name: 'Finanzas', href: '/finances', icon: Wallet, roles: ['admin', 'board'] },
 ];
 
@@ -75,20 +75,21 @@ export function Sidebar() {
         });
 
     const renderSidebarContent = () => (
-        <div className="flex bg-card/50 h-full flex-col justify-between py-6 backdrop-blur-xl border-r border-white/5">
+        <div className="flex h-full flex-col justify-between py-6 bg-sidebar">
             <div className="px-4">
-                <div className="flex items-center gap-2 px-2 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                {/* Brand */}
+                <div className="flex items-center gap-3 px-2 mb-2">
+                    <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center border border-primary/20">
                         <Building2 className="w-5 h-5 text-primary" />
                     </div>
-                    <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+                    <span className="text-lg font-bold tracking-tight text-foreground">
                         Condominio
                     </span>
                 </div>
 
                 {/* Building Selector for Management Roles */}
                 {(isSuperAdmin || isBoardMember) && availableBuildings.length > 0 && (
-                    <div className="px-2 mb-8">
+                    <div className="px-2 mb-6">
                         {availableBuildings.length > 1 ? (
                             <Select
                                 value={selectedBuildingId || 'all'}
@@ -125,46 +126,46 @@ export function Sidebar() {
                                     }
                                 }}
                             >
-                                <SelectTrigger className="w-full bg-background/50 border-white/10 text-xs font-medium uppercase tracking-wider h-10 shadow-sm hover:bg-background transition-colors">
+                                <SelectTrigger className="w-full bg-sidebar-accent/50 border-border/50 text-xs font-medium uppercase tracking-wider h-9">
                                     <div className="flex items-center gap-2 truncate">
-                                        <Building2 className="h-4 w-4 text-primary shrink-0" />
-                                        <SelectValue placeholder="Select Building" />
+                                        <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                                        <SelectValue placeholder="Seleccionar edificio" />
                                     </div>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {isSuperAdmin && (
-                                        <SelectItem value="all" className="font-bold text-primary">
+                                        <SelectItem value="all" className="font-semibold text-primary">
                                             <div className="flex items-center gap-2">
                                                 <LayoutDashboard className="h-4 w-4" />
-                                                Global Overview
+                                                Vista global
                                             </div>
                                         </SelectItem>
                                     )}
                                     {availableBuildings.map(building => (
                                         <SelectItem key={building.id} value={building.id}>
-                                            {building.name || 'Unknown Building'}
+                                            {building.name || 'Edificio sin nombre'}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         ) : (
-                            <div className="px-3 py-2 bg-primary/5 rounded-lg border border-primary/20 flex items-center gap-2">
-                                <Building2 className="h-4 w-4 text-primary" />
+                            <div className="px-3 py-2 bg-primary/5 rounded-lg border border-primary/15 flex items-center gap-2">
+                                <Building2 className="h-3.5 w-3.5 text-primary" />
                                 <span className="text-xs font-semibold text-primary uppercase tracking-wider truncate">
-                                    {availableBuildings[0].name || 'Unknown Building'}
+                                    {availableBuildings[0].name || 'Edificio sin nombre'}
                                 </span>
                             </div>
                         )}
                     </div>
                 )}
 
-                <nav className="space-y-1">
+                <nav className="space-y-0.5">
                     {filteredNavigation.map((item) => {
                         let isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
                         // Special case: "Buildings" should only be active on the buildings list page, 
                         // not while inside a specific building's context
-                        if (item.name === 'Buildings') {
+                        if (item.name === 'Edificios') {
                             isActive = pathname === '/buildings' || pathname === '/buildings/';
                         }
                         return (
@@ -173,38 +174,43 @@ export function Sidebar() {
                                 href={item.href}
                                 onClick={() => setOpen(false)}
                                 className={cn(
-                                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                                    'group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                                     isActive
-                                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 translate-x-1'
-                                        : 'text-muted-foreground hover:bg-white/5 hover:text-foreground hover:translate-x-1'
+                                        ? 'bg-primary/10 text-primary border border-primary/15'
+                                        : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
                                 )}
                             >
-                                <item.icon className={cn("h-5 w-5", isActive ? "text-primary-foreground" : "text-muted-foreground/70")} />
+                                <item.icon className={cn(
+                                    "h-[18px] w-[18px] transition-colors",
+                                    isActive ? "text-primary" : "text-muted-foreground/60 group-hover:text-foreground/70"
+                                )} />
                                 {item.name}
                             </Link>
                         );
                     })}
                 </nav>
             </div>
-            <div className="px-4">
-                <div className="bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-xl p-4 mb-4 border border-white/5">
+
+            {/* User Profile */}
+            <div className="px-4 space-y-3">
+                <div className="rounded-lg p-3 border border-border/50 bg-sidebar-accent/30">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-white/5 text-primary font-bold">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center border border-primary/15 text-primary font-semibold text-sm">
                             {displayName[0]?.toUpperCase() || 'U'}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate text-foreground">{displayName}</p>
+                            <p className="text-sm font-medium truncate text-foreground">{displayName}</p>
                             <p className="text-xs text-muted-foreground truncate capitalize">{user?.role}</p>
                         </div>
                     </div>
                 </div>
                 <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 hover:bg-red-500/10 hover:text-red-500 text-muted-foreground"
+                    className="w-full justify-start gap-3 hover:bg-destructive/10 hover:text-destructive text-muted-foreground text-sm"
                     onClick={logout}
                 >
-                    <LogOut className="h-5 w-5" />
-                    Sign Out
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesión
                 </Button>
             </div>
         </div>
@@ -219,13 +225,13 @@ export function Sidebar() {
                         <Menu className="h-6 w-6" />
                     </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="p-0 border-r-border/50 w-72">
+                <SheetContent side="left" className="p-0 border-r-border/30 w-72">
                     {renderSidebarContent()}
                 </SheetContent>
             </Sheet>
 
             {/* Desktop Sidebar */}
-            <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col bg-background/50 backdrop-blur-xl z-20">
+            <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col border-r border-border/30 z-20">
                 {renderSidebarContent()}
             </div>
         </>
