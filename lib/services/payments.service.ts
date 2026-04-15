@@ -53,11 +53,9 @@ export const paymentsService = {
     },
 
     async createPayment(formData: FormData): Promise<Payment> {
-        const { data } = await apiClient.post<Payment>(`${P}/payments`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-        });
+        // No establecer Content-Type manualmente: el interceptor quita el default JSON para que
+        // el boundary multipart se genere correctamente.
+        const { data } = await apiClient.post<Payment>(`${P}/payments`, formData);
         return data;
     },
 

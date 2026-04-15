@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildingsService } from '@/lib/services/buildings.service';
 import type { Building } from '@/types/models';
@@ -42,6 +43,7 @@ interface BuildingDialogProps {
 }
 
 export function BuildingDialog({ open, onOpenChange, building, onSuccess }: BuildingDialogProps) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const form = useForm<BuildingFormData>({
         resolver: zodResolver(buildingSchema),
         defaultValues: {
@@ -68,12 +70,17 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
     }, [building, form]);
 
     const onSubmit = async (data: BuildingFormData) => {
+        const payload = {
+            ...data,
+            rif: data.rif?.trim() ? data.rif.trim() : undefined,
+        };
+        setIsSubmitting(true);
         try {
             if (building) {
-                await buildingsService.updateBuilding(building.id, data);
+                await buildingsService.updateBuilding(building.id, payload);
                 toast.success('Edificio actualizado correctamente');
             } else {
-                await buildingsService.createBuilding(data);
+                await buildingsService.createBuilding(payload);
                 toast.success('Edificio creado correctamente');
             }
             onSuccess();
@@ -81,6 +88,8 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
         } catch (error) {
             console.error(error);
             toast.error('Error al guardar el edificio');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -135,7 +144,10 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">Guardar cambios</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar cambios
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>

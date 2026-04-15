@@ -15,6 +15,15 @@ apiClient.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        // FormData: no fijar Content-Type para que el navegador agregue el boundary multipart
+        if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+            const h = config.headers;
+            if (h && typeof (h as { delete?: (k: string) => void }).delete === 'function') {
+                (h as { delete: (k: string) => void }).delete('Content-Type');
+            } else if (h && typeof h === 'object') {
+                delete (h as Record<string, unknown>)['Content-Type'];
+            }
+        }
         return config;
     },
     (error) => {

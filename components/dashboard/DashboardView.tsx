@@ -30,6 +30,7 @@ interface DashboardViewProps {
 export function DashboardView({ buildingId, showBuildingFilter = false }: DashboardViewProps) {
     const { isSuperAdmin, user, buildingId: permissionsBuildingId, buildingName, isBoardInBuilding } = usePermissions();
     const router = useRouter();
+    const userBuildingName = user?.building_name;
 
     const effectiveBuildingId = buildingId || (!isSuperAdmin ? permissionsBuildingId : undefined);
 
@@ -91,8 +92,8 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
 
             if (effectiveBuildingId) {
                 // Try to find in profile first
-                if (!isSuperAdmin && user?.building_name) {
-                    setCurrentBuildingName(user.building_name);
+                if (!isSuperAdmin && userBuildingName) {
+                    setCurrentBuildingName(userBuildingName);
                 } else {
                     // Check if we have it in buildingsData (Super Admin list)
                     const b = buildingsData.find(b => b.id === effectiveBuildingId);
@@ -117,7 +118,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
         } finally {
             setIsLoading(false);
         }
-    }, [isSuperAdmin, user, effectiveBuildingId]);
+    }, [isSuperAdmin, userBuildingName, effectiveBuildingId]);
 
     useEffect(() => {
         const controller = new AbortController();
