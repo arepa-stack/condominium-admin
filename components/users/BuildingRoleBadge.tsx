@@ -14,33 +14,33 @@ export function BuildingRoleBadge({ buildingRole, className = '' }: BuildingRole
         switch (normalizedRole) {
             case 'board':
                 return {
-                    icon: Crown, // Re-added icon
-                    label: '🏛️ Board',
-                    className: 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border-purple-500/30 hover:from-purple-500/30 hover:to-indigo-500/30'
+                    icon: Crown,
+                    label: '🏛️ Directiva',
+                    className: 'bg-chart-2/15 text-chart-2 border-chart-2/30 hover:bg-chart-2/25'
                 };
             case 'owner':
                 return {
-                    icon: Crown, // Re-added icon
-                    label: '👑 Owner',
-                    className: 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border-amber-500/30 hover:from-amber-500/30 hover:to-yellow-500/30'
+                    icon: Crown,
+                    label: '👑 Propietario',
+                    className: 'bg-chart-2/15 text-chart-2 border-chart-2/30 hover:bg-chart-2/25'
                 };
             case 'auditor':
                 return {
-                    icon: Search, // Icon for auditor
+                    icon: Search,
                     label: '🔍 Auditor',
-                    className: 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 border-blue-500/30 hover:from-blue-500/30 hover:to-cyan-500/30'
+                    className: 'bg-chart-3/15 text-chart-3 border-chart-3/30 hover:bg-chart-3/25'
                 };
             case 'admin-local':
                 return {
-                    icon: Building2, // Icon for admin-local
+                    icon: Building2,
                     label: '🏢 Admin Local',
-                    className: 'bg-gradient-to-r from-indigo-500/20 to-violet-500/20 text-indigo-300 border-indigo-500/30 hover:from-indigo-500/30 hover:to-violet-500/30'
+                    className: 'bg-primary/15 text-primary border-primary/30 hover:bg-primary/25'
                 };
-            default: // Default to resident
+            default: // Resident
                 return {
-                    icon: User, // Re-added icon
-                    label: '👤 Resident',
-                    className: 'bg-muted/50 text-muted-foreground border-border/50 hover:bg-muted/70'
+                    icon: User,
+                    label: '👤 Residente',
+                    className: 'bg-chart-1/15 text-chart-1 border-chart-1/30 hover:bg-chart-1/25'
                 };
         }
     };

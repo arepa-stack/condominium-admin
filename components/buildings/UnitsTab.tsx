@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Wand2, User as UserIcon, DollarSign, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { Plus, Wand2, User as UserIcon, AlertTriangle, AlertCircle, Home } from 'lucide-react';
 import { unitsService } from '@/lib/services/units.service';
 import { usersService } from '@/lib/services/users.service';
 import { billingService } from '@/lib/services/billing.service';
@@ -11,7 +13,6 @@ import { toast } from 'sonner';
 import { CreateUnitDialog } from './CreateUnitDialog';
 import { BatchUnitWizard } from './BatchUnitWizard';
 import { UnitDetailsSheet } from './UnitDetailsSheet';
-import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils/format';
 
 interface UnitsTabProps {
@@ -48,7 +49,7 @@ export function UnitsTab({ buildingId, invoices: initialInvoices, users: initial
 
         } catch (error) {
             console.error(error);
-            toast.error('Failed to fetch units data');
+            toast.error('Error al cargar los datos de las unidades');
         } finally {
             setIsLoading(false);
         }
@@ -96,104 +97,100 @@ export function UnitsTab({ buildingId, invoices: initialInvoices, users: initial
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Units ({units.length})</h3>
+                <h3 className="text-lg font-medium">Unidades ({units.length})</h3>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setIsCreateOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Add Unit
+                        Agregar unidad
                     </Button>
                     <Button onClick={() => setIsBatchOpen(true)} className="bg-primary">
                         <Wand2 className="mr-2 h-4 w-4" />
-                        Auto-Generate
+                        Auto-generar
                     </Button>
                 </div>
             </div>
 
-            <Card>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-muted/50 border-b">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Unit Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Floor</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Current Resident</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Aliquot (%)</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Debt</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/50">
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Loading units...</td>
-                                    </tr>
-                                ) : units.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">No units found. Create one or use the generator!</td>
-                                    </tr>
-                                ) : (
-                                    units.map((unit) => {
-                                        const resident = getUnitResident(unit);
-                                        const debt = unitDebts.get(unit.id) || 0;
-                                        return (
-                                            <tr
-                                                key={unit.id}
-                                                className="hover:bg-accent/50 cursor-pointer transition-colors"
-                                                onClick={() => setSelectedUnit(unit)}
-                                            >
-                                                <td className="px-6 py-4 font-medium text-primary">{unit.name}</td>
-                                                <td className="px-6 py-4">
-                                                    {unit.floor || (
-                                                        <span className="text-red-400 font-bold flex items-center gap-1">
-                                                            <AlertCircle className="h-3 w-3" />
-                                                            N/A
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {resident ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
-                                                                <UserIcon className="h-3 w-3" />
-                                                            </div>
-                                                            <span className="text-sm font-medium">{resident.name}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-muted-foreground text-sm italic">Vacant</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {unit.aliquot > 0 ? (
-                                                        <span>{unit.aliquot}%</span>
-                                                    ) : (
-                                                        <span className="text-yellow-500 font-bold flex items-center gap-1">
-                                                            <AlertTriangle className="h-3 w-3" />
-                                                            0%
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className={cn(
-                                                            "font-bold text-sm",
-                                                            debt > 0 ? "text-red-500" : "text-emerald-500"
-                                                        )}>
-                                                            {formatCurrency(debt)}
-                                                        </span>
-                                                        {debt > 0 && (
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" title="Payment pending" />
-                                                        )}
+            {isLoading ? (
+                <TableSkeleton rows={5} columns={5} />
+            ) : (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Nombre</TableHead>
+                            <TableHead>Piso</TableHead>
+                            <TableHead>Residente actual</TableHead>
+                            <TableHead>Alícuota (%)</TableHead>
+                            <TableHead>Deuda</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {units.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="p-0">
+                                    <EmptyState icon={Home} message="No hay unidades. Creá una o usá el generador." variant="inline" />
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            units.map((unit) => {
+                                const resident = getUnitResident(unit);
+                                const debt = unitDebts.get(unit.id) || 0;
+                                return (
+                                    <TableRow
+                                        key={unit.id}
+                                        className="cursor-pointer"
+                                        onClick={() => setSelectedUnit(unit)}
+                                    >
+                                        <TableCell className="font-medium text-primary">{unit.name}</TableCell>
+                                        <TableCell>
+                                            {unit.floor || (
+                                                <span className="text-destructive font-bold flex items-center gap-1">
+                                                    <AlertCircle className="h-3 w-3" />
+                                                    N/D
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {resident ? (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                                                        <UserIcon className="h-3 w-3" />
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
+                                                    <span className="text-sm font-medium">{resident.name}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-muted-foreground text-sm italic">Vacante</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {unit.aliquot > 0 ? (
+                                                <span>{unit.aliquot}%</span>
+                                            ) : (
+                                                <span className="text-chart-2 font-bold flex items-center gap-1">
+                                                    <AlertTriangle className="h-3 w-3" />
+                                                    0%
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={cn(
+                                                    "font-bold text-sm",
+                                                    debt > 0 ? "text-destructive" : "text-chart-1"
+                                                )}>
+                                                    {formatCurrency(debt)}
+                                                </span>
+                                                {debt > 0 && (
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" title="Pago pendiente" />
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            )}
 
             <CreateUnitDialog
                 buildingId={buildingId}

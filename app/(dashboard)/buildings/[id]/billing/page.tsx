@@ -3,8 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { billingService } from '@/lib/services/billing.service';
 import { unitsService } from '@/lib/services/units.service';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -14,22 +12,25 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/skeletons';
 import { toast } from 'sonner';
-import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { formatCurrency } from '@/lib/utils/format';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { useRouter, useSearchParams, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
 import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog';
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Eye, Plus, FileSpreadsheet, Home } from 'lucide-react';
+import { Eye, Plus, FileSpreadsheet, Home, FileText } from 'lucide-react';
 import type { Invoice, Unit } from '@/types/models';
 
 export default function BuildingBillingPage() {
-    const { isSuperAdmin, isBoardMember, user } = usePermissions();
-    const router = useRouter();
+    const { isSuperAdmin, isBoardMember } = usePermissions();
     const params = useParams();
-    const searchParams = useSearchParams();
     const buildingId = params.id as string;
 
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -67,7 +68,7 @@ export default function BuildingBillingPage() {
 
         } catch (error) {
             console.error('Failed to fetch billing data:', error);
-            toast.error('Failed to load invoices');
+            toast.error('Error al cargar las facturas');
         } finally {
             setIsLoading(false);
         }
@@ -77,182 +78,163 @@ export default function BuildingBillingPage() {
         fetchData();
     }, [fetchData]);
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'PAID': return 'bg-green-500 hover:bg-green-600';
-            case 'PENDING': return 'bg-yellow-500 hover:bg-yellow-600';
-            case 'CANCELLED': return 'bg-gray-500 hover:bg-gray-600';
-            default: return 'bg-gray-500';
-        }
-    };
-
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight text-white">Billing</h1>
-                    <p className="text-muted-foreground mt-1">Manage invoices and debts for this building</p>
+                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Facturación</h1>
+                    <p className="text-muted-foreground mt-1">Gestioná facturas y deudas de este edificio</p>
                 </div>
                 {(isSuperAdmin || isBoardMember) && (
                     <div className="flex gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsExcelLoaderOpen(true)}
-                            className="gap-2 border-green-600/20 text-green-400 hover:bg-green-500/10 hover:text-green-300 backdrop-blur-sm"
+                            className="gap-2 border-chart-1/30 text-chart-1 hover:bg-chart-1/10"
                         >
                             <FileSpreadsheet className="h-4 w-4" />
-                            Import Excel
+                            Importar Excel
                         </Button>
-                        <Button onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2 shadow-lg shadow-primary/20">
+                        <Button onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2">
                             <Plus className="h-4 w-4" />
-                            Create Invoice
+                            Crear Factura
                         </Button>
                     </div>
                 )}
             </div>
 
-            {/* Filters */}
-            <Card className="p-4 border-white/5 bg-card/50 backdrop-blur-xl">
-                <div className="flex flex-wrap gap-4">
-                    <div className="w-full md:w-64">
-                        <SearchableSelect
-                            options={[
-                                { value: 'all', label: 'All Units' },
-                                ...units.map(u => ({
-                                    value: u.id,
-                                    label: u.name,
-                                    icon: Home
-                                }))
-                            ]}
-                            value={filterUnitId}
-                            onValueChange={setFilterUnitId}
-                            placeholder="All Units"
-                            searchPlaceholder="Search unit..."
-                            triggerIcon={Home}
-                        />
-                    </div>
-                    <div className="w-full md:w-40">
-                        <Select value={filterStatus} onValueChange={setFilterStatus}>
-                            <SelectTrigger className="bg-background/50 border-white/5">
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="PENDING">Pending</SelectItem>
-                                <SelectItem value="PAID">Paid</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="w-full md:w-32">
-                        <Select value={filterYear} onValueChange={setFilterYear}>
-                            <SelectTrigger className="bg-background/50 border-white/5">
-                                <SelectValue placeholder="Year" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="2024">2024</SelectItem>
-                                <SelectItem value="2025">2025</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="w-full md:w-32">
-                        <Select value={filterMonth} onValueChange={setFilterMonth}>
-                            <SelectTrigger className="bg-background/50 border-white/5">
-                                <SelectValue placeholder="Month" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Months</SelectItem>
-                                {Array.from({ length: 12 }, (_, i) => (
-                                    <SelectItem key={i + 1} value={(i + 1).toString()}>
-                                        {new Date(0, i).toLocaleString('default', { month: 'long' })}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+            <FilterBar>
+                <div className="w-full md:w-64">
+                    <SearchableSelect
+                        options={[
+                            { value: 'all', label: 'Todas las unidades' },
+                            ...units.map(u => ({
+                                value: u.id,
+                                label: u.name,
+                                icon: Home
+                            }))
+                        ]}
+                        value={filterUnitId}
+                        onValueChange={setFilterUnitId}
+                        placeholder="Todas las unidades"
+                        searchPlaceholder="Buscar unidad..."
+                        triggerIcon={Home}
+                    />
                 </div>
-            </Card>
+                <div className="w-full md:w-40">
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los estados</SelectItem>
+                            <SelectItem value="PENDING">Pendiente</SelectItem>
+                            <SelectItem value="PAID">Pagado</SelectItem>
+                            <SelectItem value="CANCELLED">Cancelado</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="w-full md:w-32">
+                    <Select value={filterYear} onValueChange={setFilterYear}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Año" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="2024">2024</SelectItem>
+                            <SelectItem value="2025">2025</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="w-full md:w-32">
+                    <Select value={filterMonth} onValueChange={setFilterMonth}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Mes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los meses</SelectItem>
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                    {new Date(0, i).toLocaleString('es', { month: 'long' })}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </FilterBar>
 
-            <Card className="border-white/5 bg-card/50 backdrop-blur-xl overflow-hidden shadow-2xl">
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-white/5 border-b border-white/5">
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Number</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unit / User</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Period</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Progress</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {isLoading ? (
-                                    <tr><td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                                            <span>Loading invoices...</span>
-                                        </div>
-                                    </td></tr>
-                                ) : invoices.length === 0 ? (
-                                    <tr><td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">No invoices found.</td></tr>
-                                ) : (
-                                    invoices.map((invoice) => {
-                                        const progress = (invoice.paid_amount / invoice.amount) * 100;
-                                        return (
-                                            <tr
-                                                key={invoice.id}
-                                                className="hover:bg-white/5 transition-colors group cursor-pointer"
-                                                onClick={() => {
-                                                    setSelectedInvoiceId(invoice.id);
-                                                    setIsDetailsOpen(true);
-                                                }}
-                                            >
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{invoice.number || invoice.receipt_number || '--'}</td>
-                                                <td className="px-6 py-4 text-sm">
-                                                    <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{invoice.unit?.name || 'Unknown Unit'}</div>
-                                                    <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground tabular-nums">
-                                                    {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm tabular-nums">
-                                                    <div className="font-semibold text-white">{formatCurrency(invoice.amount)}</div>
-                                                    {invoice.paid_amount > 0 && invoice.paid_amount < invoice.amount && (
-                                                        <div className="text-[10px] text-green-400">Paid: {formatCurrency(invoice.paid_amount)}</div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap align-middle">
-                                                    <div className="w-24">
-                                                        <Progress value={progress} className="h-1.5" />
-                                                    </div>
-                                                    <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">{Math.round(progress)}%</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <Badge className={`${getStatusColor(invoice.status)} text-white border-0 shadow-sm`}>
-                                                        {invoice.status}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                    <Button variant="ghost" size="sm" onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedInvoiceId(invoice.id);
-                                                        setIsDetailsOpen(true);
-                                                    }} className="hover:bg-primary/20 hover:text-primary">
-                                                        <Eye className="h-4 w-4 mr-2" /> View
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
+            {isLoading ? (
+                <TableSkeleton rows={5} columns={7} />
+            ) : (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Número</TableHead>
+                            <TableHead>Unidad / Usuario</TableHead>
+                            <TableHead>Período</TableHead>
+                            <TableHead>Monto</TableHead>
+                            <TableHead>Progreso</TableHead>
+                            <TableHead>Estado</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {invoices.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="p-0">
+                                    <EmptyState icon={FileText} message="No se encontraron facturas" variant="inline" />
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            invoices.map((invoice) => {
+                                const progress = (invoice.paid_amount / invoice.amount) * 100;
+                                return (
+                                    <TableRow
+                                        key={invoice.id}
+                                        className="cursor-pointer group"
+                                        onClick={() => {
+                                            setSelectedInvoiceId(invoice.id);
+                                            setIsDetailsOpen(true);
+                                        }}
+                                    >
+                                        <TableCell className="font-medium">{invoice.number || invoice.receipt_number || '--'}</TableCell>
+                                        <TableCell>
+                                            <div className="font-semibold group-hover:text-primary transition-colors">{invoice.unit?.name || 'Unidad desconocida'}</div>
+                                            <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground tabular-nums">
+                                            {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
+                                        </TableCell>
+                                        <TableCell className="tabular-nums">
+                                            <div className="font-semibold">{formatCurrency(invoice.amount)}</div>
+                                            {invoice.paid_amount > 0 && invoice.paid_amount < invoice.amount && (
+                                                <div className="text-[10px] text-chart-1">Pagado: {formatCurrency(invoice.paid_amount)}</div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="w-24">
+                                                <Progress value={progress} className="h-1.5" />
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">{Math.round(progress)}%</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <StatusBadge status={invoice.status} />
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedInvoiceId(invoice.id);
+                                                setIsDetailsOpen(true);
+                                            }}>
+                                                <Eye className="h-4 w-4 mr-2" /> Ver
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            )}
 
             <InvoiceDialog
                 open={isInvoiceDialogOpen}

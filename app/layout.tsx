@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Outfit, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
 const fontSans = Outfit({
   subsets: ["latin"],
   variable: "--font-sans",
+});
+
+const fontDisplay = DM_Serif_Display({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-display",
 });
 
 export const metadata: Metadata = {
@@ -20,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${fontSans.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${fontSans.variable} ${fontDisplay.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

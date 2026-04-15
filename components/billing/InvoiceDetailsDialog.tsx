@@ -76,7 +76,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
             setPayments(paymentsData);
         } catch (error) {
             console.error('Failed to fetch invoice details:', error);
-            toast.error('Failed to load invoice details');
+            toast.error('Error al cargar los detalles de la factura');
             onClose();
         } finally {
             setIsLoading(false);
@@ -105,7 +105,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                 const detailed = await paymentsService.getPaymentById(payment.id);
                 setDetailedPayment(detailed);
             } catch (innerError) {
-                toast.error('Could not load payment details');
+                toast.error('No se pudieron cargar los detalles del pago');
             }
         } finally {
             setIsAllocationsLoading(false);
@@ -127,13 +127,13 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
         : '--';
 
     const displayId = invoice?.receipt_number || invoice?.number || invoice?.id.slice(0, 8);
-    const title = invoice ? `Invoice #${displayId}` : 'Invoice Details';
+    const title = invoice ? `Factura #${displayId}` : 'Detalles de factura';
 
     const fallbackBuilding = invoice ? availableBuildings.find((b: any) =>
         b.id === invoice.unit?.building_id || b.id === invoice.user?.building_id
     ) : null;
 
-    const resolvedBuildingName = buildingName || fallbackBuilding?.name || 'Building details N/A';
+    const resolvedBuildingName = buildingName || fallbackBuilding?.name || 'Detalles del edificio N/D';
 
     const resolvedUnitName = unitName ||
         invoice?.unit?.name ||
@@ -143,11 +143,13 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     return (
         <>
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="max-w-2xl bg-card border-white/10 backdrop-blur-2xl shadow-2xl p-0 overflow-hidden">
+                <DialogContent className="sm:max-w-2xl bg-card border-border/30 backdrop-blur-2xl shadow-2xl p-0">
+                    <DialogTitle className="sr-only">Detalles de la factura</DialogTitle>
+                    <DialogDescription className="sr-only">Información completa de la factura con pagos aplicados y estado actual.</DialogDescription>
                     {isLoading || !invoice ? (
                         <div className="py-24 flex flex-col items-center justify-center gap-4">
                             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                            <p className="text-sm text-muted-foreground font-medium animate-pulse">Loading invoice details...</p>
+                            <p className="text-sm text-muted-foreground font-medium animate-pulse">Cargando detalles de la factura...</p>
                         </div>
                     ) : (
                         <div className="flex flex-col h-full max-h-[85vh]">
@@ -160,24 +162,24 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                                 {periodDisplay}
                                             </Badge>
                                             {isPaid && <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px] uppercase font-black">PAID</Badge>}
-                                            {isPartial && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] uppercase font-black">PARTIAL</Badge>}
+                                            {isPartial && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] uppercase font-black">PARCIAL</Badge>}
                                         </div>
                                         <h2 className="text-2xl font-black text-white tracking-tight">{title}</h2>
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
                                             <BuildingIcon className="h-3 w-3" /> {resolvedBuildingName}
-                                            <Separator orientation="vertical" className="h-3 bg-white/10" />
-                                            <Hash className="h-3 w-3" /> Unit {resolvedUnitName}
-                                        </p>
+                                            <span className="w-px h-3 bg-white/10 shrink-0" aria-hidden="true" />
+                                            <Hash className="h-3 w-3" /> Unidad {resolvedUnitName}
+                                        </span>
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Total Amount</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Monto Total</span>
                                         <span className="text-3xl font-black text-white tabular-nums">{formatCurrency(invoice.amount)}</span>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-[11px] text-white/70 font-bold uppercase tracking-tight">
-                                        <span>Payment Progress</span>
+                                        <span>Progreso del pago</span>
                                         <span>{formatCurrency(invoice.paid_amount)} / {formatCurrency(invoice.amount)}</span>
                                     </div>
                                     <Progress value={progress} className="h-2 bg-white/5" indicatorClassName={isPaid ? "bg-green-500" : isPartial ? "bg-amber-500" : "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)]"} />
@@ -190,15 +192,15 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                     <div>
                                         <h3 className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-3 flex items-center gap-2">
                                             <Calendar className="h-3 w-3 text-primary" />
-                                            Dates
+                                            Fechas
                                         </h3>
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-muted-foreground">Issued</span>
+                                                <span className="text-muted-foreground">Emitida</span>
                                                 <span className="text-white font-medium">{formatDate(invoice.issue_date || invoice.created_at || '')}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-muted-foreground">Due Date</span>
+                                                <span className="text-muted-foreground">Vencimiento</span>
                                                 <span className={`font-bold ${invoice.due_date && new Date(invoice.due_date) < new Date() && !isPaid ? 'text-red-400' : 'text-white'}`}>
                                                     {invoice.due_date ? formatDate(invoice.due_date) : '--'}
                                                 </span>
@@ -208,10 +210,10 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                     <div>
                                         <h3 className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-3 flex items-center gap-2">
                                             <Info className="h-3 w-3 text-primary" />
-                                            Description
+                                            Descripción
                                         </h3>
                                         <p className="text-xs text-white/80 italic leading-relaxed">
-                                            {invoice.description || 'Monthly maintenance fee for condominium services and common areas management.'}
+                                            {invoice.description || 'Expensas mensuales por servicios del condominio y gestión de áreas comunes.'}
                                         </p>
                                     </div>
                                 </div>
@@ -222,12 +224,12 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 <div>
                                     <h3 className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-4 flex items-center gap-2">
                                         <CreditCard className="h-4 w-4 text-primary" />
-                                        Associated Payments
+                                        Pagos asociados
                                     </h3>
                                     {payments.length === 0 ? (
                                         <div className="py-12 flex flex-col items-center justify-center bg-white/5 border border-dashed border-white/10 rounded-2xl">
                                             <Info className="h-8 w-8 text-muted-foreground/20 mb-2" />
-                                            <p className="text-xs text-muted-foreground italic">No payments recorded yet.</p>
+                                            <p className="text-xs text-muted-foreground italic">Todavía no se registraron pagos.</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
@@ -244,7 +246,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                                         <div className="flex flex-col">
                                                             <span className="text-sm font-black text-white">{formatCurrency(p.allocated_amount)}</span>
                                                             <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
-                                                                On {formatDate(p.allocated_at || p.payment_date)}
+                                                                El {formatDate(p.allocated_at || p.payment_date)}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -263,7 +265,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
 
                             <div className="p-4 bg-white/5 border-t border-white/5 flex justify-end">
                                 <Button variant="ghost" onClick={onClose} className="hover:bg-white/10 font-bold uppercase tracking-widest text-[10px]">
-                                    Close
+                                    Cerrar
                                 </Button>
                             </div>
                         </div>
@@ -273,11 +275,11 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
 
             {/* Nested Payment Details Dialog */}
             <Dialog open={isPaymentDetailsOpen} onOpenChange={setIsPaymentDetailsOpen}>
-                <DialogContent className="sm:max-w-[450px] bg-card border-white/10 backdrop-blur-2xl shadow-2xl">
+                <DialogContent className="sm:max-w-[520px] bg-card border-border/30 backdrop-blur-2xl shadow-2xl">
                     <DialogHeader>
-                        <DialogTitle className="text-white">Transaction Details</DialogTitle>
+                        <DialogTitle className="text-white">Detalles de la transacción</DialogTitle>
                         <DialogDescription className="text-muted-foreground">
-                            Complete breakdown of the payment and its allocations.
+                            Desglose completo del pago y sus imputaciones.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -289,11 +291,11 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                         <div className="py-4 space-y-6">
                             <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
                                 <div>
-                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Total Payment</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Pago Total</span>
                                     <span className="text-2xl font-black text-white tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Date</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Fecha</span>
                                     <span className="text-sm font-bold text-white">{formatDate(detailedPayment.payment_date)}</span>
                                 </div>
                             </div>
@@ -301,7 +303,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                             <div className="space-y-3 px-1">
                                 <h4 className="flex items-center gap-2 font-black text-xs text-primary uppercase tracking-widest">
                                     <Info className="h-4 w-4" />
-                                    Allocations
+                                    Imputaciones
                                 </h4>
                                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                                     {isAllocationsLoading ? (
@@ -316,8 +318,8 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                             >
                                                 <div className="flex flex-col">
                                                     <span className="text-[11px] font-bold text-white">
-                                                        Invoice #{alloc.receipt_number || alloc.number || (alloc.id === invoiceId ? displayId : alloc.id.slice(0, 8))}
-                                                        {(alloc.id === invoiceId || alloc.invoice_id === invoiceId) && <Badge className="ml-2 text-[8px] bg-primary text-primary-foreground h-4 py-0 uppercase">Current</Badge>}
+                                                        Factura #{alloc.receipt_number || alloc.number || (alloc.id === invoiceId ? displayId : alloc.id.slice(0, 8))}
+                                                        {(alloc.id === invoiceId || alloc.invoice_id === invoiceId) && <Badge className="ml-2 text-[8px] bg-primary text-primary-foreground h-4 py-0 uppercase">Actual</Badge>}
                                                     </span>
                                                     <span className="text-[9px] text-muted-foreground uppercase">
                                                         {alloc.period ? formatPeriod(alloc.period) : (alloc.year && alloc.month ? formatPeriod(`${alloc.year}-${alloc.month}`) : '--')}
@@ -329,7 +331,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                     ) : (
                                         <div className="py-8 text-center flex flex-col items-center gap-2">
                                             <Info className="h-8 w-8 text-muted-foreground/20" />
-                                            <p className="text-[11px] text-muted-foreground italic">No detailed allocations found.</p>
+                                            <p className="text-[11px] text-muted-foreground italic">No se encontraron imputaciones detalladas.</p>
                                         </div>
                                     )}
                                 </div>
@@ -341,7 +343,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                     className="w-full gap-2 border-white/10 hover:bg-white/5 transition-all"
                                     onClick={() => setProofUrl(detailedPayment.proof_url!)}
                                 >
-                                    <Eye className="h-4 w-4" /> View Full Proof
+                                    <Eye className="h-4 w-4" /> Ver comprobante completo
                                 </Button>
                             )}
                         </div>
@@ -352,8 +354,9 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
             {/* Proof Modal */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
                 <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl p-6">
+                    <DialogDescription className="sr-only">Vista previa del comprobante de pago.</DialogDescription>
                     <div className="flex items-center justify-between gap-4 mb-2">
-                        <DialogTitle className="text-white">Payment Proof</DialogTitle>
+                        <DialogTitle className="text-white">Comprobante de pago</DialogTitle>
                         {proofUrl && (
                             <Button
                                 variant="outline"
@@ -362,7 +365,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 onClick={() => window.open(proofUrl, '_blank')}
                             >
                                 <ExternalLink className="h-4 w-4" />
-                                Open Full Size
+                                Abrir en tamaño completo
                             </Button>
                         )}
                     </div>
@@ -370,7 +373,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                         <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl mt-4">
                             <Image
                                 src={proofUrl}
-                                alt="Payment Proof"
+                                alt="Comprobante de pago"
                                 fill
                                 className="object-contain"
                                 unoptimized

@@ -157,7 +157,7 @@ export function PaymentDialog({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedUnitId || !amount || !date || !method) {
-            toast.error("Please fill in all required fields");
+            toast.error("Completá todos los campos obligatorios");
             return;
         }
 
@@ -190,13 +190,13 @@ export function PaymentDialog({
             }
 
             await paymentsService.createPayment(formData);
-            toast.success("Payment registered successfully");
+            toast.success("Pago registrado correctamente");
             onOpenChange(false);
             resetForm();
             onSuccess?.();
         } catch (error) {
             console.error("Failed to register payment", error);
-            toast.error("Failed to register payment");
+            toast.error("Error al registrar el pago");
         } finally {
             setIsLoading(false);
         }
@@ -221,14 +221,14 @@ export function PaymentDialog({
             onOpenChange(val);
             if (!val) resetForm();
         }}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-primary" />
-                        Register Manual Payment
+                        Registrar pago manual
                     </DialogTitle>
                     <DialogDescription>
-                        Manually record a payment received from a resident.
+                        Registrá manualmente un pago recibido de un residente.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -237,7 +237,7 @@ export function PaymentDialog({
                         <div className="space-y-2 col-span-2 md:col-span-1">
                             <Label className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-muted-foreground" />
-                                Building
+                                Edificio
                             </Label>
                             <Select
                                 value={selectedBuildingId}
@@ -245,7 +245,7 @@ export function PaymentDialog({
                                 disabled={!!buildingId}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select building" />
+                                    <SelectValue placeholder="Seleccionar edificio" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {buildings.map(b => (
@@ -258,13 +258,13 @@ export function PaymentDialog({
                         <div className="space-y-2 col-span-2 md:col-span-1">
                             <Label className="flex items-center gap-2">
                                 <Home className="h-4 w-4 text-muted-foreground" />
-                                Unit
+                                Unidad
                             </Label>
                             <SearchableSelect
                                 options={unitOptions}
                                 value={selectedUnitId}
                                 onValueChange={setSelectedUnitId}
-                                placeholder="Select unit"
+                                placeholder="Seleccionar unidad"
                                 disabled={!selectedBuildingId}
                             />
                         </div>
@@ -273,13 +273,13 @@ export function PaymentDialog({
                     <div className="space-y-3 col-span-2">
                         <Label className="flex items-center gap-2 mb-2">
                             <ReceiptText className="h-4 w-4 text-muted-foreground" />
-                            Select Invoices to Pay ({selectedInvoiceIds.length})
+                            Seleccionar facturas a pagar ({selectedInvoiceIds.length})
                         </Label>
 
                         <div className="space-y-2 border rounded-xl p-3 bg-white/5 max-h-[180px] overflow-y-auto custom-scrollbar">
                             {invoicesOptions.length === 0 ? (
                                 <p className="text-xs text-muted-foreground italic text-center py-4">
-                                    {!selectedUnitId || selectedUnitId === 'all' ? "Select a unit first" : "No pending invoices found for this unit"}
+                                    {!selectedUnitId || selectedUnitId === 'all' ? "Primero seleccioná una unidad" : "No hay facturas pendientes para esta unidad"}
                                 </p>
                             ) : (
                                 invoicesOptions.map((inv: { id: string; label: string; subLabel: string; amount: number }) => (
@@ -320,7 +320,7 @@ export function PaymentDialog({
                         <div className="space-y-2">
                             <Label className="flex items-center gap-2">
                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                Amount
+                                Monto
                             </Label>
                             <Input
                                 type="number"
@@ -335,7 +335,7 @@ export function PaymentDialog({
                         <div className="space-y-2">
                             <Label className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                Date
+                                Fecha
                             </Label>
                             <Input
                                 type="date"
@@ -350,26 +350,26 @@ export function PaymentDialog({
                         <div className="space-y-2">
                             <Label className="flex items-center gap-2">
                                 <CreditCard className="h-4 w-4 text-muted-foreground" />
-                                Method
+                                Método
                             </Label>
                             <Select value={method} onValueChange={setMethod}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="TRANSFER">Transfer</SelectItem>
+                                    <SelectItem value="TRANSFER">Transferencia</SelectItem>
                                     <SelectItem value="PAGO_MOVIL">Pago Móvil</SelectItem>
-                                    <SelectItem value="CASH">Cash</SelectItem>
+                                    <SelectItem value="CASH">Efectivo</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-1.5">
                             <Label className="flex items-center gap-2">
                                 <FileText className="h-4 w-4 text-muted-foreground" />
-                                Reference
+                                Referencia
                             </Label>
                             <Input
-                                placeholder="Ref number"
+                                placeholder="N° de referencia"
                                 value={reference}
                                 onChange={(e) => setReference(e.target.value)}
                             />
@@ -379,19 +379,19 @@ export function PaymentDialog({
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             <ReceiptText className="h-4 w-4 text-muted-foreground" />
-                            Bank Name
+                            Nombre del banco
                         </Label>
                         <Input
-                            placeholder="e.g. Banesco, Mercantil..."
+                            placeholder="ej. Banesco, Mercantil..."
                             value={bank}
                             onChange={(e) => setBank(e.target.value)}
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Notes</Label>
+                        <Label>Notas</Label>
                         <Input
-                            placeholder="Optional notes or details"
+                            placeholder="Notas o detalles opcionales"
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                         />
@@ -400,7 +400,7 @@ export function PaymentDialog({
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             <Upload className="h-4 w-4 text-muted-foreground" />
-                            Proof of Payment (Optional)
+                            Comprobante de pago (opcional)
                         </Label>
                         <div className="flex items-center gap-2">
                             <Input
@@ -414,11 +414,11 @@ export function PaymentDialog({
 
                     <DialogFooter className="pt-4">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-                            Cancel
+                            Cancelar
                         </Button>
                         <Button type="submit" disabled={isLoading || !selectedUnitId}>
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Register Payment
+                            Registrar pago
                         </Button>
                     </DialogFooter>
                 </form>

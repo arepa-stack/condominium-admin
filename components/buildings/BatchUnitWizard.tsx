@@ -4,6 +4,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -57,7 +58,7 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
                 unitsPerFloor,
                 aliquot: defaultAliquot
             });
-            toast.success(`Successfully generated ${previewCount} units!`);
+            toast.success(`¡Se generaron ${previewCount} unidades correctamente!`);
             onSuccess();
             onClose();
             // Reset
@@ -66,7 +67,7 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
             setUnitsPerFloorObj('');
         } catch (error) {
             console.error(error);
-            toast.error('Failed to generate units. Some might already exist.');
+            toast.error('Error al generar las unidades. Algunas podrían ya existir.');
         } finally {
             setIsLoading(false);
         }
@@ -76,48 +77,49 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Batch Generate Units</DialogTitle>
+                    <DialogTitle>Generar unidades en lote</DialogTitle>
+                    <DialogDescription>Configurá pisos, letras y alícuota para crear varias unidades de una vez.</DialogDescription>
                 </DialogHeader>
 
                 <div className="py-4 space-y-4">
                     {/* Progress Indicator */}
                     <div className="flex items-center justify-between mb-4 text-sm text-muted-foreground">
-                        <span className={step === 1 ? "font-bold text-primary" : ""}>1. Floors</span>
+                        <span className={step === 1 ? "font-bold text-primary" : ""}>1. Pisos</span>
                         <span className="border-t w-8" />
-                        <span className={step === 2 ? "font-bold text-primary" : ""}>2. Letters/Numbers</span>
+                        <span className={step === 2 ? "font-bold text-primary" : ""}>2. Letras/Números</span>
                         <span className="border-t w-8" />
-                        <span className={step === 3 ? "font-bold text-primary" : ""}>3. Confirm</span>
+                        <span className={step === 3 ? "font-bold text-primary" : ""}>3. Confirmar</span>
                     </div>
 
                     {step === 1 && (
                         <div className="space-y-4">
-                            <Label>How many floors?</Label>
+                            <Label>¿Cuántos pisos?</Label>
                             <Input
                                 type="number"
                                 min="1"
-                                placeholder="e.g. 10"
+                                placeholder="ej. 10"
                                 value={floorsCount || ''}
                                 onChange={e => setFloorsCount(parseInt(e.target.value) || 0)}
                             />
                             <p className="text-xs text-muted-foreground">
-                                We will generate floors 1 to {floorsCount || 'N'}.
+                                Generaremos pisos del 1 al {floorsCount || 'N'}.
                             </p>
                         </div>
                     )}
 
                     {step === 2 && (
                         <div className="space-y-4">
-                            <Label>Units per floor (Letters or Numbers)</Label>
+                            <Label>Unidades por piso (letras o números)</Label>
                             <Input
-                                placeholder="e.g. A, B, C, D"
+                                placeholder="ej. A, B, C, D"
                                 value={unitsPerFloorObj}
                                 onChange={e => setUnitsPerFloorObj(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Separate with commas. E.g. "A, B, C" or "101, 102, 103"
+                                Separá con comas. Ej. "A, B, C" o "101, 102, 103"
                             </p>
                             <div className="bg-muted p-2 rounded text-xs">
-                                Preview: 1-{unitsPerFloor[0] || '?'}, 1-{unitsPerFloor[1] || '?'}, ...
+                                Vista previa: 1-{unitsPerFloor[0] || '?'}, 1-{unitsPerFloor[1] || '?'}, ...
                             </div>
                         </div>
                     )}
@@ -129,17 +131,17 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
                                     {previewCount}
                                 </div>
                                 <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                    Units to be created
+                                    Unidades a crear
                                 </p>
                             </div>
 
                             <div className="space-y-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                                <Label className="text-xs uppercase font-bold text-primary/70 tracking-wider">Default Aliquot (%)</Label>
+                                <Label className="text-xs uppercase font-bold text-primary/70 tracking-wider">Alícuota por defecto (%)</Label>
                                 <div className="relative">
                                     <Input
                                         type="number"
                                         step="0.01"
-                                        placeholder="e.g. 2.5"
+                                        placeholder="ej. 2.5"
                                         value={defaultAliquot || ''}
                                         onChange={e => setDefaultAliquot(parseFloat(e.target.value) || 0)}
                                         className="text-center font-bold text-lg bg-background/50 border-white/10"
@@ -147,22 +149,22 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">%</div>
                                 </div>
                                 <p className="text-[10px] text-muted-foreground italic">
-                                    Assigning {defaultAliquot}% to {previewCount} units = {(defaultAliquot * previewCount).toFixed(2)}% total building aliquot.
+                                    Asignar {defaultAliquot}% a {previewCount} unidades = {(defaultAliquot * previewCount).toFixed(2)}% de alícuota total del edificio.
                                 </p>
                             </div>
 
                             <div className="text-sm border border-white/5 p-5 rounded-2xl bg-white/5 space-y-2 text-left">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-muted-foreground">Floors:</span>
+                                    <span className="text-muted-foreground">Pisos:</span>
                                     <span className="font-bold text-white">{floors.length} (1 - {floors.length})</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-muted-foreground">Units per floor:</span>
+                                    <span className="text-muted-foreground">Unidades por piso:</span>
                                     <span className="font-bold text-white italic">{unitsPerFloor.join(', ')}</span>
                                 </div>
                                 <div className="pt-2 border-t border-white/5 text-[10px] text-muted-foreground italic flex items-center gap-2">
                                     <div className="h-1 w-1 rounded-full bg-primary" />
-                                    Example: 1-{unitsPerFloor[0] || 'A'} to {floors.length}-{unitsPerFloor[unitsPerFloor.length - 1] || 'Z'}
+                                    Ejemplo: 1-{unitsPerFloor[0] || 'A'} hasta {floors.length}-{unitsPerFloor[unitsPerFloor.length - 1] || 'Z'}
                                 </div>
                             </div>
                         </div>
@@ -175,22 +177,22 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
                         <div className="flex gap-2">
                             {step > 1 && (
                                 <Button variant="outline" onClick={handleBack} disabled={isLoading}>
-                                    Back
+                                    Atrás
                                 </Button>
                             )}
                         </div>
                         <div className="flex gap-2">
                             <Button variant="ghost" onClick={onClose} disabled={isLoading}>
-                                Cancel
+                                Cancelar
                             </Button>
                             {step < 3 ? (
                                 <Button onClick={handleNext} disabled={step === 1 ? floorsCount <= 0 : unitsPerFloor.length <= 0}>
-                                    Next
+                                    Siguiente
                                 </Button>
                             ) : (
                                 <Button onClick={handleGenerate} disabled={isLoading} className="bg-primary">
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    ⚡ Generate
+                                    ⚡ Generar
                                 </Button>
                             )}
                         </div>

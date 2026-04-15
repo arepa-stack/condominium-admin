@@ -88,7 +88,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                         // We map them to Building type structure
                         buildingsPromise = Promise.resolve(availableBuildings.map(b => ({
                             id: b.id,
-                            name: b.name || 'Unknown Building',
+                            name: b.name || 'Edificio desconocido',
                             address: '', // Mock missing fields
                             total_units: 0
                         } as Building)));
@@ -103,7 +103,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                     setBuildings(buildingsData);
                 } catch (error) {
                     console.error('Failed to fetch data:', error);
-                    toast.error('Failed to load user units');
+                    toast.error('No se pudieron cargar las unidades del usuario');
                 } finally {
                     setLoading(false);
                 }
@@ -121,7 +121,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                     setAvailableUnits(units);
                 } catch (error) {
                     console.error('Failed to fetch units:', error);
-                    toast.error('Failed to load units');
+                    toast.error('No se pudieron cargar las unidades');
                 }
             } else {
                 setAvailableUnits([]);
@@ -144,14 +144,14 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
 
     const handleAddUnit = async () => {
         if (!user || !selectedBuilding || !selectedUnit) {
-            toast.error('Please select a building and unit');
+            toast.error('Seleccioná un edificio y una unidad');
             return;
         }
 
         // Check if unit is already assigned
         const alreadyAssigned = userUnits.some(u => u.unit_id === selectedUnit);
         if (alreadyAssigned) {
-            toast.error('This unit is already assigned to this user');
+            toast.error('Esta unidad ya está asignada a este usuario');
             return;
         }
 
@@ -164,7 +164,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                 is_primary: isPrimary || userUnits.length === 0 // First unit is primary
             });
 
-            toast.success('Unit assigned successfully');
+            toast.success('Unidad asignada correctamente');
 
             // Refresh units list with enriched data
             await refreshUserUnits();
@@ -178,7 +178,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
             onSuccess();
         } catch (error: any) {
             console.error('Failed to assign unit:', error);
-            toast.error(error.response?.data?.message || 'Failed to assign unit');
+            toast.error(error.response?.data?.message || 'Error al asignar la unidad');
         } finally {
             setActionLoading(false);
         }
@@ -188,7 +188,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
         if (!user) return;
 
         const confirmed = confirm(
-            `Are you sure you want to remove "${unitName || 'this unit'}" from ${user.name}?`
+            `¿Seguro que querés quitar "${unitName || 'esta unidad'}" de ${user.name}?`
         );
         if (!confirmed) return;
 
@@ -196,7 +196,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
         try {
             // DELETE /users/:id/units/:unitId
             await usersService.removeUnit(user.id, unitId);
-            toast.success('Unit removed successfully');
+            toast.success('Unidad quitada correctamente');
 
             // Refresh units list with enriched data
             await refreshUserUnits();
@@ -204,7 +204,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
             onSuccess();
         } catch (error: any) {
             console.error('Failed to remove unit:', error);
-            toast.error(error.response?.data?.message || 'Failed to remove unit');
+            toast.error(error.response?.data?.message || 'Error al quitar la unidad');
         } finally {
             setActionLoading(false);
         }
@@ -230,10 +230,10 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
                         <Home className="h-5 w-5 text-primary" />
-                        Manage Units for {user.name}
+                        Gestionar unidades de {user.name}
                     </DialogTitle>
                     <DialogDescription>
-                        Assign or remove apartment units for this user. Each user can have multiple units across different buildings.
+                        Asigná o quitá unidades para este usuario. Cada usuario puede tener varias unidades en distintos edificios.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -242,16 +242,16 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                     <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-4">
                         <div className="flex items-center gap-2">
                             <Plus className="h-4 w-4 text-primary" />
-                            <h3 className="font-semibold">Assign New Unit</h3>
+                            <h3 className="font-semibold">Asignar nueva unidad</h3>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
                             {/* Building Selector */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Building</label>
+                                <label className="text-sm font-medium">Edificio</label>
                                 <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
                                     <SelectTrigger className="bg-background/50">
-                                        <SelectValue placeholder="Select building" />
+                                        <SelectValue placeholder="Seleccionar edificio" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {buildings.map(building => (
@@ -268,21 +268,21 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
 
                             {/* Unit Selector */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Unit</label>
+                                <label className="text-sm font-medium">Unidad</label>
                                 <Select
                                     value={selectedUnit}
                                     onValueChange={setSelectedUnit}
                                     disabled={!selectedBuilding}
                                 >
                                     <SelectTrigger className="bg-background/50">
-                                        <SelectValue placeholder={selectedBuilding ? "Select unit" : "Select building first"} />
+                                        <SelectValue placeholder={selectedBuilding ? "Seleccionar unidad" : "Primero seleccioná un edificio"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {availableUnits.map(unit => (
                                             <SelectItem key={unit.id} value={unit.id}>
                                                 <div className="flex items-center gap-2">
                                                     <Home className="h-3 w-3" />
-                                                    {unit.name} {unit.floor ? `(Floor ${unit.floor})` : ''}
+                                                    {unit.name} {unit.floor ? `(Piso ${unit.floor})` : ''}
                                                 </div>
                                             </SelectItem>
                                         ))}
@@ -306,7 +306,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
                                     >
                                         <Star className="h-3 w-3 text-amber-400" />
-                                        Primary Unit
+                                        Unidad principal
                                     </label>
                                 </div>
                             </div>
@@ -315,17 +315,17 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                         <Button
                             onClick={handleAddUnit}
                             disabled={!selectedBuilding || !selectedUnit || actionLoading}
-                            className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700"
+                            className="w-full"
                         >
                             {actionLoading ? (
                                 <>
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Assigning...
+                                    Asignando...
                                 </>
                             ) : (
                                 <>
                                     <Plus className="h-4 w-4 mr-2" />
-                                    Assign Unit
+                                    Asignar unidad
                                 </>
                             )}
                         </Button>
@@ -338,7 +338,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                         <div className="flex items-center justify-between">
                             <h3 className="font-semibold flex items-center gap-2">
                                 <Home className="h-4 w-4 text-primary" />
-                                Assigned Units ({userUnits.length})
+                                Unidades asignadas ({userUnits.length})
                             </h3>
                         </div>
 
@@ -352,17 +352,17 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                     <Home className="h-12 w-12 text-muted-foreground/50" />
                                 </div>
                                 <p className="text-muted-foreground text-sm">
-                                    No units assigned yet
+                                    Todavía no hay unidades asignadas
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Use the form above to assign units to this user
+                                    Usá el formulario de arriba para asignar unidades a este usuario
                                 </p>
                             </div>
                         ) : (
                             <ScrollArea className="max-h-[300px] pr-2">
                                 <div className="space-y-4">
                                     {Object.entries(unitsByBuilding).map(([buildingId, units]) => {
-                                        const buildingName = units[0]?.building_name || 'Unknown Building';
+                                        const buildingName = units[0]?.building_name || 'Edificio desconocido';
 
                                         return (
                                             <div key={buildingId} className="space-y-2">
@@ -371,7 +371,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                     <Building2 className="h-4 w-4 text-primary" />
                                                     <span className="font-medium text-sm">{buildingName}</span>
                                                     <Badge variant="outline" className="text-xs">
-                                                        {units.length} {units.length === 1 ? 'unit' : 'units'}
+                                                        {units.length} {units.length === 1 ? 'unidad' : 'unidades'}
                                                     </Badge>
                                                 </div>
 
@@ -397,7 +397,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                                             {unit.is_primary && (
                                                                                 <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
                                                                                     <Star className="h-3 w-3 mr-1" />
-                                                                                    Primary
+                                                                                    Principal
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
@@ -433,8 +433,8 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                 <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg p-3 text-xs text-muted-foreground">
                     <div className="text-primary mt-0.5">ℹ️</div>
                     <div className="space-y-1">
-                        <p><strong className="text-foreground">Primary Unit:</strong> The main unit associated with the user's account.</p>
-                        <p><strong className="text-foreground">Building Role:</strong> Building roles are managed separately to allow for independence from unit associations.</p>
+                        <p><strong className="text-foreground">Unidad principal:</strong> La unidad principal asociada a la cuenta del usuario.</p>
+                        <p><strong className="text-foreground">Rol en el edificio:</strong> Los roles del edificio se gestionan por separado para mantenerlos independientes de las asignaciones de unidad.</p>
                     </div>
                 </div>
             </DialogContent>
