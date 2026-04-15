@@ -35,9 +35,12 @@ import { BuildingRoleBadge } from '@/components/users/BuildingRoleBadge';
 import { formatUserRole } from '@/lib/utils/format';
 import type { User, Building, Unit } from '@/types/models';
 import { useParams } from 'next/navigation';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
+import { getErrorMessage } from '@/lib/utils/errors';
 
 export default function BuildingUsersPage() {
     const { isSuperAdmin, isBoardMember, user: currentUser } = usePermissions();
+    const { confirm, ConfirmDialog } = useConfirmDialog();
     const params = useParams();
     const buildingId = params.id as string;
 
@@ -105,14 +108,21 @@ export default function BuildingUsersPage() {
     };
 
     const handleDelete = async (userId: string) => {
-        if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
+        const ok = await confirm({
+            title: 'Eliminar usuario',
+            description: '¿Seguro que querés eliminar este usuario?',
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar',
+            variant: 'destructive',
+        });
+        if (!ok) return;
         try {
             await usersService.deleteUser(userId);
             toast.success('Usuario eliminado');
             fetchData();
         } catch (error) {
             console.error(error);
-            toast.error('Error al eliminar el usuario');
+            toast.error(getErrorMessage(error, 'Error al eliminar el usuario'));
         }
     };
 
@@ -309,6 +319,7 @@ export default function BuildingUsersPage() {
                 user={roleManagerUser}
                 onSuccess={fetchData}
             />
+            {ConfirmDialog}
         </div>
     );
 }

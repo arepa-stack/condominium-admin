@@ -7,14 +7,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     Home,
-    Building2,
     Eye,
     Search,
     MapPin,
-    Users,
     AlertCircle,
-    AlertTriangle
+    AlertTriangle,
+    Plus,
+    Wand2,
 } from 'lucide-react';
+import { CreateUnitDialog } from '@/components/buildings/CreateUnitDialog';
+import { BatchUnitWizard } from '@/components/buildings/BatchUnitWizard';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import Link from 'next/link';
@@ -22,13 +24,15 @@ import { useParams } from 'next/navigation';
 import type { Unit, Building } from '@/types/models';
 
 export default function BuildingUnitsPage() {
-    const { isSuperAdmin, user } = usePermissions();
+    const { user, canManageBuilding } = usePermissions();
     const params = useParams();
     const buildingId = params.id as string;
 
     const [units, setUnits] = useState<Unit[]>([]);
     const [building, setBuilding] = useState<Building | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isBatchOpen, setIsBatchOpen] = useState(false);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -78,6 +82,8 @@ export default function BuildingUnitsPage() {
 
 
 
+    const canCreateUnits = canManageBuilding(buildingId);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -85,6 +91,18 @@ export default function BuildingUnitsPage() {
                     <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Unidades</h1>
                     <p className="text-muted-foreground mt-1">Gestioná los detalles de las unidades de {building?.name}</p>
                 </div>
+                {canCreateUnits && (
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setIsBatchOpen(true)} className="gap-2">
+                            <Wand2 className="h-4 w-4" />
+                            Crear en lote
+                        </Button>
+                        <Button size="sm" onClick={() => setIsCreateOpen(true)} className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Agregar unidad
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Filters */}
@@ -185,8 +203,18 @@ export default function BuildingUnitsPage() {
                     })
                 )}
             </div>
-
-
+            <CreateUnitDialog
+                buildingId={buildingId}
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+                onSuccess={fetchData}
+            />
+            <BatchUnitWizard
+                buildingId={buildingId}
+                isOpen={isBatchOpen}
+                onClose={() => setIsBatchOpen(false)}
+                onSuccess={fetchData}
+            />
         </div>
     );
 }

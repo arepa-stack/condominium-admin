@@ -21,6 +21,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePermissions } from '@/lib/hooks/usePermissions';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
 import { usersService } from '@/lib/services/users.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
@@ -47,6 +48,7 @@ interface UserUnitsManagerProps {
 }
 
 export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUnitsManagerProps) {
+    const { confirm, ConfirmDialog } = useConfirmDialog();
     const { isSuperAdmin } = usePermissions();
     const { availableBuildings, selectedBuildingId: currentContextBuildingId } = useBuildingContext();
     const [userUnits, setUserUnits] = useState<UserUnit[]>([]);
@@ -187,10 +189,14 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
     const handleRemoveUnit = async (unitId: string, unitName?: string) => {
         if (!user) return;
 
-        const confirmed = confirm(
-            `¿Seguro que querés quitar "${unitName || 'esta unidad'}" de ${user.name}?`
-        );
-        if (!confirmed) return;
+        const ok = await confirm({
+            title: 'Quitar unidad',
+            description: `¿Seguro que querés quitar "${unitName || 'esta unidad'}" de ${user.name}?`,
+            confirmText: 'Quitar',
+            cancelText: 'Cancelar',
+            variant: 'destructive',
+        });
+        if (!ok) return;
 
         setActionLoading(true);
         try {
@@ -225,6 +231,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
     if (!user) return null;
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[700px] max-h-[85vh] border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
                 <DialogHeader>
@@ -439,5 +446,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                 </div>
             </DialogContent>
         </Dialog>
+        {ConfirmDialog}
+        </>
     );
 }

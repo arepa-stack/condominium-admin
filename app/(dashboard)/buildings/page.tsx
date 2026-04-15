@@ -9,10 +9,13 @@ import { Plus, Edit, Trash2, Building2 } from 'lucide-react';
 import { BuildingDialog } from '@/components/buildings/BuildingDialog';
 import type { Building } from '@/types/models';
 import { usePermissions } from '@/lib/hooks/usePermissions';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
+import { getErrorMessage } from '@/lib/utils/errors';
 import { useRouter } from 'next/navigation';
 
 export default function BuildingsPage() {
     const { isSuperAdmin, isBoardMember, user: currentUser, getBoardBuildings } = usePermissions();
+    const { confirm, ConfirmDialog } = useConfirmDialog();
     const router = useRouter();
     const [buildings, setBuildings] = useState<Building[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -71,13 +74,21 @@ export default function BuildingsPage() {
     };
 
     const handleDelete = async (buildingId: string) => {
-        if (!confirm('¿Seguro que querés eliminar este edificio? Esta acción no se puede deshacer.')) return;
+        const ok = await confirm({
+            title: 'Eliminar edificio',
+            description: '¿Seguro que querés eliminar este edificio? Esta acción no se puede deshacer.',
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar',
+            variant: 'destructive',
+        });
+        if (!ok) return;
         try {
             await buildingsService.deleteBuilding(buildingId);
             toast.success('Edificio eliminado');
             fetchBuildings();
         } catch (error) {
-            toast.error('Error al eliminar el edificio');
+            console.error(error);
+            toast.error(getErrorMessage(error, 'Error al eliminar el edificio'));
         }
     };
 
@@ -160,6 +171,7 @@ export default function BuildingsPage() {
                 building={selectedBuilding}
                 onSuccess={fetchBuildings}
             />
+            {ConfirmDialog}
         </div>
     );
 }

@@ -143,11 +143,13 @@ export interface LoginCredentials {
 export interface CreateBuildingDto {
   name: string;
   address: string;
+  rif?: string;
 }
 
 export interface UpdateBuildingDto {
   name?: string;
   address?: string;
+  rif?: string;
 }
 
 export interface UpdateUserDto {

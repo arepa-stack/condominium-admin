@@ -35,9 +35,12 @@ import { BuildingRoleBadge } from '@/components/users/BuildingRoleBadge';
 import { formatUserRole } from '@/lib/utils/format';
 import type { User, Building, Unit, UserUnit } from '@/types/models';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
+import { useConfirmDialog } from '@/lib/hooks/useConfirmDialog';
+import { getErrorMessage } from '@/lib/utils/errors';
 
 export default function UsersPage() {
     const { isSuperAdmin, isBoardMember, user: currentUser, buildingId } = usePermissions();
+    const { confirm, ConfirmDialog } = useConfirmDialog();
     const { availableBuildings } = useBuildingContext();
     const [users, setUsers] = useState<User[]>([]);
     const [buildings, setBuildings] = useState<Building[]>([]);
@@ -128,14 +131,21 @@ export default function UsersPage() {
     };
 
     const handleDelete = async (userId: string) => {
-        if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
+        const ok = await confirm({
+            title: 'Eliminar usuario',
+            description: '¿Seguro que querés eliminar este usuario?',
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar',
+            variant: 'destructive',
+        });
+        if (!ok) return;
         try {
             await usersService.deleteUser(userId);
             toast.success('Usuario eliminado');
             fetchData();
         } catch (error) {
             console.error(error);
-            toast.error('Error al eliminar el usuario');
+            toast.error(getErrorMessage(error, 'Error al eliminar el usuario'));
         }
     };
 
@@ -490,6 +500,7 @@ export default function UsersPage() {
                 user={roleManagerUser}
                 onSuccess={fetchData}
             />
+            {ConfirmDialog}
         </div>
     );
 }
