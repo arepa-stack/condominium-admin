@@ -6,6 +6,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -47,70 +48,72 @@
 }
 
 :root {
-  --radius: 1rem;
-  /* Greater roundness for modern feel */
+  --radius: 0.75rem;
 
-  /* Vibrant Color Palette - Warmer & More Engaging */
-  --background: #0a0e1a;
-  /* Deep blue-black for depth */
-  --foreground: #f8fafc;
+  /* ═══════════════════════════════════════
+     Warm Architecture Palette
+     Inspired by: residential lobbies, stone,
+     terracotta, garden courtyards, iron gates
+     ═══════════════════════════════════════ */
 
-  --card: #111827;
-  /* Rich dark gray/blue */
-  --card-foreground: #f8fafc;
+  /* Surfaces — warm slate with earthy undertones */
+  --background: #1A1D23;
+  --foreground: #F5F0EB;
 
-  --popover: #111827;
-  --popover-foreground: #f8fafc;
+  --card: #22262E;
+  --card-foreground: #F5F0EB;
 
-  /* Vibrant Gradient Primary - Purple to Indigo */
-  --primary: #6366f1;
-  /* Indigo 500 base */
-  --primary-foreground: #ffffff;
+  --popover: #22262E;
+  --popover-foreground: #F5F0EB;
 
-  /* Gradient definitions for use in components */
-  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  --gradient-info: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  /* Primary — Terracotta: warm, confident, residential */
+  --primary: #C2703E;
+  --primary-foreground: #FFFFFF;
 
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
+  /* Semantic gradients — warm tones throughout */
+  --gradient-primary: linear-gradient(135deg, #C2703E 0%, #D4915F 100%);
+  --gradient-success: linear-gradient(135deg, #6B9E7B 0%, #4E8A5E 100%);
+  --gradient-warning: linear-gradient(135deg, #D4A853 0%, #C49235 100%);
+  --gradient-danger: linear-gradient(135deg, #C25B5B 0%, #A94444 100%);
+  --gradient-info: linear-gradient(135deg, #5B8EC2 0%, #4478AB 100%);
 
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
+  --secondary: #2A2F38;
+  --secondary-foreground: #F5F0EB;
 
-  --accent: #1e293b;
-  --accent-foreground: #818cf8;
-  /* Indigo 400 */
+  --muted: #2A2F38;
+  --muted-foreground: #9CA3AB;
 
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
+  --accent: #2A2F38;
+  --accent-foreground: #D4915F;
 
-  --border: #1f2937;
-  --input: #1f2937;
-  --ring: #6366f1;
+  --destructive: #C25B5B;
+  --destructive-foreground: #FFFFFF;
 
-  /* Vibrant Chart Colors */
-  --chart-1: #10b981;
-  /* Emerald - Success */
-  --chart-2: #f59e0b;
-  /* Amber - Warning */
-  --chart-3: #3b82f6;
-  /* Blue - Info */
-  --chart-4: #ec4899;
-  /* Pink - Accent */
-  --chart-5: #8b5cf6;
-  /* Purple - Featured */
+  --border: #2E333C;
+  --input: #2E333C;
+  --ring: #C2703E;
 
-  --sidebar: #020617;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #6366f1;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #818cf8;
-  --sidebar-border: #111827;
-  --sidebar-ring: #6366f1;
+  /* Chart colors — earthy & intentional */
+  --chart-1: #6B9E7B;
+  /* Sage — Success/positive */
+  --chart-2: #D4A853;
+  /* Gold — Warning/attention */
+  --chart-3: #5B8EC2;
+  /* Steel blue — Info */
+  --chart-4: #C2703E;
+  /* Terracotta — Primary/accent */
+  --chart-5: #8B7B9E;
+  /* Muted lavender — Secondary data */
+
+  /* Sidebar — deeper, warm but recessive */
+  --sidebar: #15181D;
+  --sidebar-foreground: #F5F0EB;
+  --sidebar-primary: #C2703E;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #22262E;
+  --sidebar-accent-foreground: #D4915F;
+  --sidebar-border: #1E2229;
+  --sidebar-ring: #C2703E;
 }
 
 @layer base {
@@ -122,10 +125,10 @@
     @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
   }
 
-  /* Modern scrollbar with vibrant accent */
+  /* Warm-toned scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -133,35 +136,38 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-primary/20 rounded-full hover:bg-primary/30 transition-colors;
+    @apply bg-primary/15 rounded-full hover:bg-primary/25;
+    transition: background-color 0.2s ease;
   }
 
-  /* Smooth transitions with micro-animations */
+  /* ═══════════════════════════════════════
+     Micro-interactions — SUBTLE, not jarring
+     Professional admin tool, not a toy.
+     ═══════════════════════════════════════ */
+
   a,
   button,
   [role="button"],
   input,
   select,
   textarea {
-    @apply transition-all duration-200 ease-in-out;
+    @apply transition-colors duration-200 ease-out;
   }
 
-  /* Vibrant focus states */
+  /* Clean focus states with warm ring */
   button:focus-visible,
   a:focus-visible,
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    @apply ring-2 ring-primary ring-offset-2 ring-offset-background outline-none;
+    @apply ring-2 ring-primary/50 ring-offset-2 ring-offset-background outline-none;
   }
 
-  /* Enhanced hover effects for interactive elements */
-  button:not(:disabled):hover,
-  a:hover {
-    @apply brightness-110 scale-[1.02];
-  }
+  /* ═══════════════════════════════════════
+     Utilities — warm design tokens
+     ═══════════════════════════════════════ */
 
-  /* Gradient text utility */
+  /* Gradient text utility — warm tone */
   .gradient-text {
     background: var(--gradient-primary);
     -webkit-background-clip: text;
@@ -169,18 +175,82 @@
     background-clip: text;
   }
 
-  /* Card enhancements */
-  .card-gradient {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
-    border: 1px solid rgba(99, 102, 241, 0.2);
+  /* Card warm hover — subtle elevation shift like lifting off a desk */
+  .card-hover {
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
   }
 
-  /* Shimmer animation for loading states */
+  .card-hover:hover {
+    box-shadow:
+      0 4px 12px rgba(194, 112, 62, 0.06),
+      0 1px 3px rgba(0, 0, 0, 0.15);
+    border-color: rgba(194, 112, 62, 0.15);
+  }
+
+  /* ═══════════════════════════════════════
+     Entrance Animations — "Threshold" reveal
+     Like opening a door into a room.
+     ═══════════════════════════════════════ */
+
+  @keyframes threshold-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-threshold {
+    animation: threshold-enter 0.4s ease-out both;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out both;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.4s ease-out both;
+  }
+
+  /* Staggered entrance for grid children */
+  .stagger-children > * {
+    animation: threshold-enter 0.35s ease-out both;
+  }
+  .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+  .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+  .stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+  .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+  .stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+
+  /* Shimmer for loading states */
   @keyframes shimmer {
     0% {
       background-position: -1000px 0;
     }
-
     100% {
       background-position: 1000px 0;
     }
@@ -188,7 +258,41 @@
 
   .shimmer {
     animation: shimmer 2s infinite linear;
-    background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%);
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(194, 112, 62, 0.04) 50%,
+      transparent 100%
+    );
     background-size: 1000px 100%;
+  }
+
+  /* Skeleton loading placeholder */
+  @keyframes skeleton-pulse {
+    0%, 100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  .skeleton {
+    @apply bg-muted rounded-md;
+    animation: skeleton-pulse 1.8s ease-in-out infinite;
+  }
+
+  /* Progress bar indeterminate */
+  @keyframes progress-indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+
+  .animate-progress-indeterminate {
+    animation: progress-indeterminate 1.5s ease-in-out infinite;
   }
 }
