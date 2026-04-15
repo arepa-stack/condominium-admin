@@ -12,6 +12,7 @@ import {
     LogOut,
     Menu,
     Wallet,
+    BookUser,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -32,6 +33,7 @@ const navigation = [
     { name: 'Edificios', href: '/buildings', icon: Building2, roles: ['admin'] },
     { name: 'Unidades', href: '/units', icon: Home, roles: ['admin', 'board'] },
     { name: 'Usuarios', href: '/users', icon: Users, roles: ['admin', 'board'] },
+    { name: 'Directorio', href: '/directory', icon: BookUser, roles: ['admin', 'board', 'resident'] },
     { name: 'Facturación', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
     { name: 'Finanzas', href: '/finances', icon: Wallet, roles: ['admin', 'board'] },
 ];
@@ -65,7 +67,7 @@ export function Sidebar() {
             }
 
             // Other functional pages: if in building context, use contextual route
-            const contextualPages = ['/units', '/users', '/billing'];
+            const contextualPages = ['/units', '/users', '/directory', '/billing'];
             const activeBuildingId = buildingId || selectedBuildingId;
             if (activeBuildingId && contextualPages.includes(item.href)) {
                 return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
@@ -118,7 +120,7 @@ export function Sidebar() {
                                         router.push(`/buildings/${id}/${action}`);
                                     } else {
                                         // Global page to contextual page if applicable
-                                        const contextualPages = ['units', 'users', 'billing'];
+                                        const contextualPages = ['units', 'users', 'directory', 'billing'];
                                         const currentAction = pathname.replace('/', '');
                                         if (contextualPages.includes(currentAction)) {
                                             router.push(`/buildings/${id}/${currentAction}`);

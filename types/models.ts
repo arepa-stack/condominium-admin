@@ -315,6 +315,80 @@ export interface PettyCashAssessmentResponse {
   }[];
 }
 
+// ── Directory ──────────────────────────────────────────────────────────
+
+export interface BoardMember {
+  id: string;
+  building_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  phone?: string | null;
+  email?: string | null;
+  apartment_number?: string | null;
+  photo_url?: string | null;
+  is_active: boolean;
+  is_current_board: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateBoardMemberDto {
+  first_name: string;
+  last_name: string;
+  role: string;
+  phone?: string;
+  email?: string;
+  apartment_number?: string;
+  photo_url?: string | null;
+  is_current_board?: boolean;
+}
+
+export interface UpdateBoardMemberDto {
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+  apartment_number?: string;
+  photo_url?: string | null;
+  is_active?: boolean;
+  is_current_board?: boolean;
+}
+
+export interface Worker {
+  id: string;
+  building_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  phone?: string | null;
+  photo_url?: string | null;
+  work_schedule?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateWorkerDto {
+  first_name: string;
+  last_name: string;
+  role: string;
+  phone?: string;
+  photo_url?: string | null;
+  work_schedule?: string | null;
+}
+
+export interface UpdateWorkerDto {
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+  phone?: string;
+  photo_url?: string | null;
+  work_schedule?: string | null;
+  is_active?: boolean;
+}
+
 export interface PettyCashTransparency {
   building_id: string;
   total_to_collect: number;
