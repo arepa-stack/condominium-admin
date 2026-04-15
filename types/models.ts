@@ -173,6 +173,8 @@ export interface CreateUserDto {
   unit?: string;
   unit_id?: string; // [NEW]
   phone?: string;
+  /** Cargo en la junta si role es board (sincroniza directorio / board_members en API) */
+  board_position?: string;
 }
 
 export interface UpdatePaymentDto {
@@ -232,6 +234,10 @@ export interface AssignUnitDto {
   unit_id: string; // Backend uses snake_case
   building_id: string; // Backend uses snake_case
   is_primary: boolean; // Backend uses snake_case
+  /** Rol en el edificio al asignar unidad (ej. board → sincroniza junta) */
+  building_role?: string;
+  /** Cargo en junta si building_role es board */
+  board_position?: string;
 }
 
 export interface ProposedInvoice {
@@ -329,13 +335,17 @@ export interface BoardMember {
   photo_url?: string | null;
   is_active: boolean;
   is_current_board: boolean;
+  /** Perfil de usuario vinculado (sincronización desde usuarios/junta) */
+  profile_id?: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateBoardMemberDto {
-  first_name: string;
-  last_name: string;
+  /** Si se envía, el API puede completar nombre/contacto desde el perfil */
+  profile_id?: string;
+  first_name?: string;
+  last_name?: string;
   role: string;
   phone?: string;
   email?: string;

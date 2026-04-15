@@ -78,11 +78,20 @@ export const usersService = {
     userId: string,
     buildingId: string,
     role: string,
+    boardPosition?: string,
   ): Promise<User> {
-    const { data } = await apiClient.post<User>(`${P}/users/${userId}/roles`, {
-      building_id: buildingId,
-      role: role,
-    });
+    const body: {
+      building_id: string;
+      role: string;
+      board_position?: string;
+    } = { building_id: buildingId, role };
+    if (role === "board" && boardPosition?.trim()) {
+      body.board_position = boardPosition.trim();
+    }
+    const { data } = await apiClient.post<User>(
+      `${P}/users/${userId}/roles`,
+      body,
+    );
     return data;
   },
 };

@@ -230,6 +230,9 @@ export default function DirectoryPage() {
                                                     <h3 className="font-bold text-white truncate">{m.first_name} {m.last_name}</h3>
                                                     {!m.is_active && <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive">Inactivo</Badge>}
                                                     {m.is_current_board && m.is_active && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Actual</Badge>}
+                                                    {m.profile_id && (
+                                                        <Badge variant="secondary" className="text-[10px]">Cuenta vinculada</Badge>
+                                                    )}
                                                 </div>
                                                 <p className="text-sm text-primary font-medium">{m.role}</p>
                                                 {m.apartment_number && (

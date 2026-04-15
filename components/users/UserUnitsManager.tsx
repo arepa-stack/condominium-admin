@@ -15,6 +15,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -61,6 +62,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
     const [selectedBuilding, setSelectedBuilding] = useState<string>('');
     const [selectedUnit, setSelectedUnit] = useState<string>('');
     const [selectedRole, setSelectedRole] = useState<'resident' | 'board' | 'owner'>('resident');
+    const [boardPositionAssign, setBoardPositionAssign] = useState('Miembro de la junta');
     const [isPrimary, setIsPrimary] = useState(false);
 
     // Initialize selected building when dialog opens
@@ -159,12 +161,20 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
 
         setActionLoading(true);
         try {
-            // POST /users/:id/units
-            await usersService.assignOrUpdateUnit(user.id, {
+            const assignPayload: Parameters<typeof usersService.assignOrUpdateUnit>[1] = {
                 unit_id: selectedUnit,
                 building_id: selectedBuilding,
-                is_primary: isPrimary || userUnits.length === 0 // First unit is primary
-            });
+                is_primary: isPrimary || userUnits.length === 0,
+            };
+            if (selectedRole === 'board') {
+                assignPayload.building_role = 'board';
+                assignPayload.board_position =
+                    boardPositionAssign.trim() || 'Miembro de la junta';
+            } else if (selectedRole === 'resident') {
+                assignPayload.building_role = 'resident';
+            }
+
+            await usersService.assignOrUpdateUnit(user.id, assignPayload);
 
             toast.success('Unidad asignada correctamente');
 
@@ -175,6 +185,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
             setSelectedBuilding('');
             setSelectedUnit('');
             setSelectedRole('resident');
+            setBoardPositionAssign('Miembro de la junta');
             setIsPrimary(false);
 
             onSuccess();
@@ -297,7 +308,32 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                 </Select>
                             </div>
 
-                            {/* Role Selector Removed as roles are now detached from units */}
+                            <div className="space-y-2 col-span-2">
+                                <label className="text-sm font-medium">Rol en el edificio (al asignar)</label>
+                                <Select
+                                    value={selectedRole}
+                                    onValueChange={(v) => setSelectedRole(v as 'resident' | 'board' | 'owner')}
+                                >
+                                    <SelectTrigger className="bg-background/50">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="resident">Residente</SelectItem>
+                                        <SelectItem value="board">Junta / Directiva</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {selectedRole === 'board' && (
+                                    <div className="space-y-1 pt-1">
+                                        <label className="text-xs text-muted-foreground">Cargo en la junta</label>
+                                        <Input
+                                            value={boardPositionAssign}
+                                            onChange={(e) => setBoardPositionAssign(e.target.value)}
+                                            placeholder="Miembro de la junta"
+                                            className="bg-background/50"
+                                        />
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Primary Checkbox */}
                             <div className="space-y-2 flex items-end">
