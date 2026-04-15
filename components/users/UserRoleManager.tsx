@@ -62,7 +62,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                             return {
                                 building_id: buildingId,
                                 role,
-                                building_name: buildingName || 'Unknown Building'
+                                building_name: buildingName || 'Edificio desconocido'
                             };
                         })
                     );
@@ -85,14 +85,14 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
 
         // Permission check
         if (!isSuperAdmin && !isBoardInBuilding(buildingId)) {
-            toast.error('You do not have permission to manage this building');
+            toast.error('No tenés permisos para gestionar este edificio');
             return;
         }
 
         try {
             setLoadingBuildingId(buildingId);
             await usersService.updateBuildingRole(user.id, buildingId, role);
-            toast.success(`${user.name} role updated to ${role} for ${userBuildingRoles.find(r => r.building_id === buildingId)?.building_name || 'building'}`);
+            toast.success(`Rol de ${user.name} actualizado a ${role} en ${userBuildingRoles.find(r => r.building_id === buildingId)?.building_name || 'el edificio'}`);
 
             // Update local state
             setUserBuildingRoles(prev => prev.map(r =>
@@ -102,7 +102,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
             onSuccess();
         } catch (error) {
             console.error('Failed to update role:', error);
-            toast.error('Failed to update building role');
+            toast.error('Error al actualizar el rol del edificio');
         } finally {
             setLoadingBuildingId(null);
         }
@@ -124,21 +124,21 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
         switch (role) {
             case 'board':
                 return {
-                    className: 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border-purple-500/30',
+                    className: 'bg-chart-2/15 text-chart-2 border-chart-2/30',
                     icon: Crown,
-                    label: '🏛️ Board'
+                    label: '🏛️ Directiva'
                 };
             case 'owner':
                 return {
-                    className: 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border-amber-500/30',
+                    className: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
                     icon: Crown,
-                    label: '👑 Owner'
+                    label: '👑 Propietario'
                 };
             default:
                 return {
                     className: 'bg-muted/50 text-muted-foreground border-border/50',
                     icon: UserIcon,
-                    label: '👤 Resident'
+                    label: '👤 Residente'
                 };
         }
     };
@@ -148,11 +148,11 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
             <DialogContent className="sm:max-w-[600px] max-h-[80vh] border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
-                        <Crown className="h-5 w-5 text-purple-400" />
-                        Manage Building Roles
+                        <Crown className="h-5 w-5 text-chart-2" />
+                        Gestionar Roles del Edificio
                     </DialogTitle>
                     <DialogDescription>
-                        Promote or demote {user.name} to Board member for specific buildings
+                        Promover o degradar a {user.name} como miembro de la Directiva en edificios específicos
                     </DialogDescription>
                 </DialogHeader>
 
@@ -168,10 +168,10 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                             </div>
                         </div>
                         <p className="text-muted-foreground">
-                            This user has no associations with any building
+                            Este usuario no tiene asociaciones con ningún edificio
                         </p>
                         <p className="text-sm text-muted-foreground">
-                            Assign units or roles first
+                            Asigná unidades o roles primero
                         </p>
                     </div>
                 ) : (
@@ -208,14 +208,14 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                         size="sm"
                                                         onClick={() => handleRoleUpdate(br.building_id, 'board')}
                                                         disabled={!canManage || isLoading}
-                                                        className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/30"
+                                                        className="bg-primary hover:bg-primary/90 text-white border-0 shadow-lg shadow-primary/30"
                                                     >
                                                         {isLoading ? (
                                                             <Loader2 className="h-4 w-4 animate-spin mr-1" />
                                                         ) : (
                                                             <ArrowUp className="h-4 w-4 mr-1" />
                                                         )}
-                                                        Promote to Board
+                                                        Promover a Directiva
                                                     </Button>
                                                 )}
                                                 {((user?.role as string) === 'admin' || (user?.role as string) === 'superadmin') && br.role === 'board' && (
@@ -231,11 +231,11 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                         ) : (
                                                             <ArrowDown className="h-4 w-4 mr-1" />
                                                         )}
-                                                        Demote to Resident
+                                                        Degradar a Residente
                                                     </Button>
                                                 )}
                                                 {!canManage && (
-                                                    <p className="text-xs text-amber-400/80 font-medium">No permission</p>
+                                                    <p className="text-xs text-amber-400/80 font-medium">Sin permisos</p>
                                                 )}
                                             </div>
                                         </div>
@@ -249,8 +249,8 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                 <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg p-3 mt-2">
                     <div className="text-primary mt-0.5">ℹ️</div>
                     <div className="text-xs text-muted-foreground">
-                        <p><strong className="text-foreground">Building Role</strong> determines permissions within a specific building.</p>
-                        <p className="mt-1">Board members can manage users, approve payments, and view reports for their buildings.</p>
+                        <p><strong className="text-foreground">Rol del Edificio</strong> determina los permisos dentro de un edificio específico.</p>
+                        <p className="mt-1">Los miembros de la directiva pueden gestionar usuarios, aprobar pagos y ver reportes de sus edificios.</p>
                     </div>
                 </div>
             </DialogContent>

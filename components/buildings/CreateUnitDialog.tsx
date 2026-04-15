@@ -7,6 +7,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -23,8 +24,8 @@ import { unitsService } from '@/lib/services/units.service';
 import { toast } from 'sonner';
 
 const schema = z.object({
-    name: z.string().min(1, 'Unit name is required'),
-    floor: z.string().min(1, 'Floor is required'),
+    name: z.string().min(1, 'El nombre de la unidad es obligatorio'),
+    floor: z.string().min(1, 'El piso es obligatorio'),
     aliquot: z.any(), // Using any to bypass Zod/Resolver type mismatch during build
 });
 
@@ -53,13 +54,13 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
         try {
             setIsLoading(true);
             await unitsService.createUnit(buildingId, data);
-            toast.success('Unit created successfully');
+            toast.success('Unidad creada correctamente');
             onSuccess();
             onClose();
             form.reset();
         } catch (error) {
             console.error(error);
-            toast.error('Failed to create unit');
+            toast.error('Error al crear la unidad');
         } finally {
             setIsLoading(false);
         }
@@ -69,7 +70,8 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Add Unit</DialogTitle>
+                    <DialogTitle>Agregar unidad</DialogTitle>
+                    <DialogDescription>Completá los datos de la nueva unidad del edificio.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -78,9 +80,9 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Unit Name / Number</FormLabel>
+                                    <FormLabel>Nombre / Número de unidad</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. 1A" {...field} />
+                                        <Input placeholder="ej. 1A" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -91,9 +93,9 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
                             name="floor"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Floor</FormLabel>
+                                    <FormLabel>Piso</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. 1" {...field} />
+                                        <Input placeholder="ej. 1" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -104,9 +106,9 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
                             name="aliquot"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Aliquot (%)</FormLabel>
+                                    <FormLabel>Alícuota (%)</FormLabel>
                                     <FormControl>
-                                        <Input type="number" step="0.01" placeholder="e.g. 1.5" {...field} />
+                                        <Input type="number" step="0.01" placeholder="ej. 1.5" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -114,10 +116,10 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
                         />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={onClose}>
-                                Cancel
+                                Cancelar
                             </Button>
                             <Button type="submit" disabled={isLoading}>
-                                {isLoading ? 'Creating...' : 'Create Unit'}
+                                {isLoading ? 'Creando...' : 'Crear unidad'}
                             </Button>
                         </DialogFooter>
                     </form>

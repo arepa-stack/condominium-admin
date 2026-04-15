@@ -14,7 +14,7 @@ export default function FinancesPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">Gestión Financiera</h1>
+                <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Gestión Financiera</h1>
                 <p className="text-muted-foreground">Administra la cobranza de unidades y el fondo de caja chica.</p>
             </div>
 

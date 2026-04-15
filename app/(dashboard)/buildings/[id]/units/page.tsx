@@ -53,7 +53,7 @@ export default function BuildingUnitsPage() {
                 setUnits(unitsResult.value);
             } else {
                 console.error('[DEBUG] Failed to load units:', unitsResult.reason);
-                toast.error('Failed to load units list');
+                toast.error('Error al cargar el listado de unidades');
             }
 
             if (buildingResult.status === 'fulfilled') {
@@ -82,8 +82,8 @@ export default function BuildingUnitsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight text-white">Units</h1>
-                    <p className="text-muted-foreground mt-1">Manage and view apartment details for {building?.name}</p>
+                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Unidades</h1>
+                    <p className="text-muted-foreground mt-1">Gestioná los detalles de las unidades de {building?.name}</p>
                 </div>
             </div>
 
@@ -94,7 +94,7 @@ export default function BuildingUnitsPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input
                             type="text"
-                            placeholder="Search unit by name or floor..."
+                            placeholder="Buscar unidad por nombre o piso..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-9 pr-4 py-2 rounded-md border border-white/5 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-white placeholder:text-muted-foreground"
@@ -114,7 +114,7 @@ export default function BuildingUnitsPage() {
                 ) : filteredUnits.length === 0 ? (
                     <div className="col-span-full py-20 text-center bg-card/30 rounded-2xl border border-dashed border-white/5">
                         <Home className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
-                        <p className="text-muted-foreground">No units found</p>
+                        <p className="text-muted-foreground">No se encontraron unidades</p>
                     </div>
                 ) : (
                     filteredUnits.map((unit) => {
@@ -140,31 +140,31 @@ export default function BuildingUnitsPage() {
                                     </div>
 
                                     <h3 className="font-bold text-lg text-white mb-1">
-                                        Unit {unit.name}
+                                        Unidad {unit.name}
                                     </h3>
 
                                     <div className="space-y-1.5 mb-5">
                                         {unit.floor ? (
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                 <MapPin className="h-3.5 w-3.5 text-primary/50" />
-                                                <span>Floor {unit.floor}</span>
+                                                <span>Piso {unit.floor}</span>
                                             </div>
                                         ) : (
                                             <div className="flex items-center gap-2 text-xs text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded-full w-fit border border-red-400/20">
                                                 <AlertCircle className="h-3 w-3" />
-                                                <span>Missing Floor</span>
+                                                <span>Sin piso</span>
                                             </div>
                                         )}
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                             {unit.aliquot > 0 ? (
                                                 <>
                                                     <div className="h-1 w-1 rounded-full bg-primary/50" />
-                                                    <span>Aliquot {unit.aliquot}%</span>
+                                                    <span>Alícuota {unit.aliquot}%</span>
                                                 </>
                                             ) : (
                                                 <div className="flex items-center gap-2 text-xs text-yellow-500 font-bold bg-yellow-500/10 px-2 py-0.5 rounded-full w-fit border border-yellow-500/20">
                                                     <AlertTriangle className="h-3 w-3" />
-                                                    <span>0% Aliquot</span>
+                                                    <span>Alícuota 0%</span>
                                                 </div>
                                             )}
                                         </div>
@@ -176,7 +176,7 @@ export default function BuildingUnitsPage() {
                                             size="sm"
                                             className="w-full text-xs bg-white/5 border-white/5 hover:bg-primary/20 hover:border-primary/50 hover:text-primary transition-all duration-300"
                                         >
-                                            Configure Details
+                                            Configurar detalles
                                         </Button>
                                     </Link>
                                 </CardContent>

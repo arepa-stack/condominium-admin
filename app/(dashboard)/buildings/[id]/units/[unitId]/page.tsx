@@ -120,7 +120,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                 const detailed = await paymentsService.getPaymentById(payment.id);
                 setDetailedPayment(detailed);
             } catch (innerError) {
-                toast.error('Could not load payment details');
+                toast.error('No se pudieron cargar los detalles del pago');
                 setIsPaymentDialogOpen(false);
             }
         } finally {
@@ -146,7 +146,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
         return (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-muted-foreground animate-pulse text-sm font-medium">Loading unit details...</p>
+                <p className="text-muted-foreground animate-pulse text-sm font-medium">Cargando detalles de la unidad...</p>
             </div>
         );
     }
@@ -154,8 +154,8 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
     if (!unit) {
         return (
             <div className="text-center py-24">
-                <p className="text-muted-foreground">Unit not found.</p>
-                <Button variant="link" onClick={() => router.back()}>Go back</Button>
+                <p className="text-muted-foreground">Unidad no encontrada.</p>
+                <Button variant="link" onClick={() => router.back()}>Volver</Button>
             </div>
         );
     }
@@ -171,7 +171,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                     onClick={() => router.back()}
                 >
                     <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Units
+                    Volver a Unidades
                 </Button>
 
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -180,16 +180,16 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                             <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
                                 <Home className="h-6 w-6 text-primary" />
                             </div>
-                            <h1 className="text-4xl font-black text-white tracking-tight">Unit {unit.name}</h1>
+                            <h1 className="text-4xl font-black text-white tracking-tight">Unidad {unit.name}</h1>
                         </div>
                         <div className="flex items-center gap-4 text-muted-foreground mt-2 ml-1">
                             <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full text-xs font-semibold">
                                 <MapPin className="h-3 w-3 text-primary" />
-                                Floor {unit.floor}
+                                Piso {unit.floor}
                             </span>
                             <span className="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full text-xs font-semibold">
-                                <Percent className="h-3 w-3 text-purple-400" />
-                                Aliquot {unit.aliquot}%
+                                <Percent className="h-3 w-3 text-chart-2" />
+                                Alícuota {unit.aliquot}%
                             </span>
                         </div>
                     </div>
@@ -197,7 +197,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                     <Link href={`/buildings/${buildingId}/billing?unit_id=${unitId}`} passHref>
                         <Button className="shadow-lg shadow-primary/20 gap-2 px-6">
                             <FileText className="h-4 w-4" />
-                            Generate Statement
+                            Generar estado de cuenta
                         </Button>
                     </Link>
                 </div>
@@ -211,11 +211,11 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                             <div className="p-2 rounded-lg bg-green-500/20">
                                 <CreditCard className="w-5 h-5 text-green-400" />
                             </div>
-                            <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Total Collections</span>
+                            <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Recaudación total</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-3xl font-black text-white tabular-nums">{formatCurrency(totalPaid)}</span>
-                            <span className="text-[10px] text-muted-foreground mt-1 uppercase">Approved payments to date</span>
+                            <span className="text-[10px] text-muted-foreground mt-1 uppercase">Pagos aprobados a la fecha</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -226,11 +226,11 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                             <div className="p-2 rounded-lg bg-red-500/20">
                                 <History className="w-5 h-5 text-red-400" />
                             </div>
-                            <span className="text-xs font-bold text-red-400 uppercase tracking-widest">Outstanding Debt</span>
+                            <span className="text-xs font-bold text-red-400 uppercase tracking-widest">Deuda pendiente</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-3xl font-black text-white tabular-nums">{formatCurrency(pendingDebt)}</span>
-                            <span className="text-[10px] text-muted-foreground mt-1 uppercase">Authoritative balance</span>
+                            <span className="text-[10px] text-muted-foreground mt-1 uppercase">Saldo oficial</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -241,11 +241,11 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                             <div className="p-2 rounded-lg bg-primary/20">
                                 <Users className="w-5 h-5 text-primary" />
                             </div>
-                            <span className="text-xs font-bold text-primary uppercase tracking-widest">Residents</span>
+                            <span className="text-xs font-bold text-primary uppercase tracking-widest">Residentes</span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-3xl font-black text-white tabular-nums">{residents.length}</span>
-                            <span className="text-[10px] text-muted-foreground mt-1 uppercase">Active memberships</span>
+                            <span className="text-[10px] text-muted-foreground mt-1 uppercase">Membresías activas</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -257,15 +257,15 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                     <TabsList className="grid w-full grid-cols-3 bg-white/5 p-1 rounded-2xl h-14">
                         <TabsTrigger value="residents" className="rounded-xl font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all gap-2 h-full">
                             <Users className="h-4 w-4" />
-                            Residents
+                            Residentes
                         </TabsTrigger>
                         <TabsTrigger value="billing" className="rounded-xl font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all gap-2 h-full">
                             <FileText className="h-4 w-4" />
-                            Billing
+                            Facturación
                         </TabsTrigger>
                         <TabsTrigger value="history" className="rounded-xl font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all gap-2 h-full">
                             <History className="h-4 w-4" />
-                            Payments
+                            Pagos
                         </TabsTrigger>
                     </TabsList>
 
@@ -275,13 +275,13 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                 {residents.length === 0 ? (
                                     <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-3xl">
                                         <Users className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
-                                        <p className="text-muted-foreground text-sm font-medium">No active residents found for this unit.</p>
+                                        <p className="text-muted-foreground text-sm font-medium">No hay residentes activos en esta unidad.</p>
                                     </div>
                                 ) : (
                                     residents.map(resident => (
                                         <div key={resident.id} className="group relative p-5 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-primary/20 transition-all duration-300">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center text-primary font-black text-xl shadow-lg shadow-black/40">
+                                                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-chart-2/20 flex items-center justify-center text-primary font-black text-xl shadow-lg shadow-black/40">
                                                     {resident.name[0].toUpperCase()}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
@@ -303,7 +303,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                 {invoices.length === 0 ? (
                                     <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-3xl">
                                         <FileText className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
-                                        <p className="text-muted-foreground text-sm font-medium">No billing history available.</p>
+                                        <p className="text-muted-foreground text-sm font-medium">Sin historial de facturación.</p>
                                     </div>
                                 ) : (
                                     invoices.map(inv => (
@@ -321,7 +321,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                                         <span className="text-sm font-bold text-white uppercase tracking-tighter">
                                                             {formatPeriod(inv.period || `${inv.year}-${String(inv.month).padStart(2, '0')}`)}
                                                         </span>
-                                                        <span className="text-[10px] text-muted-foreground mt-0.5">Issued: {formatDate(inv.issue_date || inv.created_at || '')}</span>
+                                                        <span className="text-[10px] text-muted-foreground mt-0.5">Emitida: {formatDate(inv.issue_date || inv.created_at || '')}</span>
                                                     </div>
                                                 </div>
 
@@ -329,7 +329,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                                     <div className="flex flex-col text-right">
                                                         <span className="text-base font-black text-white tabular-nums">{formatCurrency(inv.amount)}</span>
                                                         {inv.paid_amount > 0 && (
-                                                            <span className="text-[10px] font-bold text-green-400">Paid: {formatCurrency(inv.paid_amount)}</span>
+                                                            <span className="text-[10px] font-bold text-green-400">Pagado: {formatCurrency(inv.paid_amount)}</span>
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-3">
@@ -354,7 +354,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                 {payments.length === 0 ? (
                                     <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-3xl">
                                         <History className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
-                                        <p className="text-muted-foreground text-sm font-medium">No approved payments found.</p>
+                                        <p className="text-muted-foreground text-sm font-medium">No se encontraron pagos aprobados.</p>
                                     </div>
                                 ) : (
                                     payments.map(payment => (
@@ -366,7 +366,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                             <div className="flex justify-between items-start">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-black text-white uppercase tracking-tighter">
-                                                        Payment #{payment.id.slice(0, 8)}
+                                                        Pago #{payment.id.slice(0, 8)}
                                                     </span>
                                                     <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">
                                                         {formatDate(payment.payment_date)}
@@ -396,7 +396,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                             {payment.user && (
                                                 <div className="flex items-center gap-2 opacity-40">
                                                     <UserIcon className="h-2.5 w-2.5" />
-                                                    <span className="text-[9px] font-bold uppercase italic">Reported by: {payment.user.name}</span>
+                                                    <span className="text-[9px] font-bold uppercase italic">Reportado por: {payment.user.name}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -412,9 +412,9 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
             <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
                 <DialogContent className="sm:max-w-[450px] bg-card border-white/10 backdrop-blur-2xl shadow-2xl">
                     <DialogHeader>
-                        <DialogTitle className="text-white">Transaction Details</DialogTitle>
+                        <DialogTitle className="text-white">Detalles de la transacción</DialogTitle>
                         <DialogDescription className="text-muted-foreground">
-                            Complete breakdown of the payment and its allocations.
+                            Desglose completo del pago y sus imputaciones.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -426,11 +426,11 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                         <div className="py-4 space-y-6">
                             <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
                                 <div>
-                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Total Payment</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Pago Total</span>
                                     <span className="text-2xl font-black text-white tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Date</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Fecha</span>
                                     <span className="text-sm font-bold text-white">{formatDate(detailedPayment.payment_date)}</span>
                                 </div>
                             </div>
@@ -438,7 +438,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                             <div className="space-y-3 px-1">
                                 <h4 className="flex items-center gap-2 font-black text-xs text-primary uppercase tracking-widest">
                                     <Info className="h-4 w-4" />
-                                    Allocations
+                                    Imputaciones
                                 </h4>
                                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                                     {isAllocationsLoading ? (
@@ -453,7 +453,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                             >
                                                 <div className="flex flex-col">
                                                     <span className="text-[11px] font-bold text-white">
-                                                        Invoice #{alloc.receipt_number || alloc.number || alloc.id.slice(0, 8)}
+                                                        Factura #{alloc.receipt_number || alloc.number || alloc.id.slice(0, 8)}
                                                     </span>
                                                     <span className="text-[9px] text-muted-foreground uppercase">
                                                         {alloc.period ? formatPeriod(alloc.period) : (alloc.year && alloc.month ? formatPeriod(`${alloc.year}-${alloc.month}`) : '--')}
@@ -465,7 +465,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                     ) : (
                                         <div className="py-8 text-center flex flex-col items-center gap-2">
                                             <Info className="h-8 w-8 text-muted-foreground/20" />
-                                            <p className="text-[11px] text-muted-foreground italic">No detailed allocations found.</p>
+                                            <p className="text-[11px] text-muted-foreground italic">No se encontraron imputaciones detalladas.</p>
                                         </div>
                                     )}
                                 </div>
@@ -477,7 +477,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                     className="w-full gap-2 border-white/10 hover:bg-white/5 transition-all"
                                     onClick={() => setProofUrl(detailedPayment.proof_url!)}
                                 >
-                                    <Eye className="h-4 w-4" /> View Full Proof
+                                    <Eye className="h-4 w-4" /> Ver comprobante completo
                                 </Button>
                             )}
                         </div>
@@ -498,8 +498,9 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
             {/* Proof Modal */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
                 <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl">
+                    <DialogDescription className="sr-only">Vista previa del comprobante de pago.</DialogDescription>
                     <div className="flex items-center justify-between gap-4 mb-2">
-                        <DialogTitle className="text-white">Payment Proof</DialogTitle>
+                        <DialogTitle className="text-white">Comprobante de pago</DialogTitle>
                         {proofUrl && (
                             <Button
                                 variant="outline"
@@ -508,7 +509,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                 onClick={() => window.open(proofUrl, '_blank')}
                             >
                                 <ExternalLink className="h-4 w-4" />
-                                Open Full Size
+                                Abrir en tamaño completo
                             </Button>
                         )}
                     </div>
@@ -516,7 +517,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                         <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl mt-4">
                             <Image
                                 src={proofUrl}
-                                alt="Payment Proof"
+                                alt="Comprobante de pago"
                                 fill
                                 className="object-contain"
                                 unoptimized

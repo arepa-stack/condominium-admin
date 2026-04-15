@@ -27,8 +27,8 @@ import { buildingsService } from '@/lib/services/buildings.service';
 import type { Building } from '@/types/models';
 
 const buildingSchema = z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
-    address: z.string().min(5, 'Address must be at least 5 characters'),
+    name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+    address: z.string().min(5, 'La dirección debe tener al menos 5 caracteres'),
     rif: z.string().optional(),
 });
 
@@ -71,26 +71,26 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
         try {
             if (building) {
                 await buildingsService.updateBuilding(building.id, data);
-                toast.success('Building updated successfully');
+                toast.success('Edificio actualizado correctamente');
             } else {
                 await buildingsService.createBuilding(data);
-                toast.success('Building created successfully');
+                toast.success('Edificio creado correctamente');
             }
             onSuccess();
             onOpenChange(false);
         } catch (error) {
             console.error(error);
-            toast.error('Failed to save building');
+            toast.error('Error al guardar el edificio');
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{building ? 'Edit Building' : 'Create Building'}</DialogTitle>
+                    <DialogTitle>{building ? 'Editar edificio' : 'Crear edificio'}</DialogTitle>
                     <DialogDescription>
-                        {building ? 'Update building details.' : 'Add a new building to the system.'}
+                        {building ? 'Actualizá los datos del edificio.' : 'Agregá un nuevo edificio al sistema.'}
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -100,9 +100,9 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Name</FormLabel>
+                                    <FormLabel>Nombre</FormLabel>
                                     <FormControl>
-                                        <Input {...field} placeholder="Residencias Example" />
+                                        <Input {...field} placeholder="Residencias Ejemplo" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -113,7 +113,7 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                             name="address"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Address</FormLabel>
+                                    <FormLabel>Dirección</FormLabel>
                                     <FormControl>
                                         <Input {...field} placeholder="Calle 123..." />
                                     </FormControl>
@@ -126,7 +126,7 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                             name="rif"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>RIF (Optional)</FormLabel>
+                                    <FormLabel>RIF (opcional)</FormLabel>
                                     <FormControl>
                                         <Input {...field} placeholder="J-12345678-9" />
                                     </FormControl>
@@ -135,7 +135,7 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">Save changes</Button>
+                            <Button type="submit">Guardar cambios</Button>
                         </DialogFooter>
                     </form>
                 </Form>

@@ -81,7 +81,7 @@ export default function UnitsPage() {
             setUnits(allUnits);
         } catch (error) {
             console.error('Failed to fetch units:', error);
-            toast.error('Failed to load units');
+            toast.error('Error al cargar las unidades');
         } finally {
             setIsLoading(false);
         }
@@ -103,8 +103,8 @@ export default function UnitsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Units</h1>
-                    <p className="text-muted-foreground mt-1">Manage and view apartment details</p>
+                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Unidades</h1>
+                    <p className="text-muted-foreground mt-1">Gestioná y consultá los detalles de los departamentos</p>
                 </div>
             </div>
 
@@ -114,7 +114,7 @@ export default function UnitsPage() {
                     <div className="w-full md:w-64">
                         <SearchableSelect
                             options={[
-                                { value: 'all', label: isSuperAdmin ? 'All Buildings' : 'My Buildings' },
+                                { value: 'all', label: isSuperAdmin ? 'Todos los edificios' : 'Mis edificios' },
                                 ...buildings.map(b => ({
                                     value: b.id,
                                     label: b.name,
@@ -123,7 +123,7 @@ export default function UnitsPage() {
                             ]}
                             value={filterBuildingId}
                             onValueChange={setFilterBuildingId}
-                            placeholder="Select Building"
+                            placeholder="Seleccionar edificio"
                             triggerIcon={Building2}
                         />
                     </div>
@@ -131,7 +131,7 @@ export default function UnitsPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input
                             type="text"
-                            placeholder="Search unit by name or floor..."
+                            placeholder="Buscar unidad por nombre o piso..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-9 pr-4 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -151,7 +151,7 @@ export default function UnitsPage() {
                 ) : filteredUnits.length === 0 ? (
                     <div className="col-span-full py-12 text-center bg-muted/10 rounded-lg border border-dashed border-border/50">
                         <Home className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-muted-foreground">No units found</p>
+                        <p className="text-muted-foreground">No se encontraron unidades</p>
                     </div>
                 ) : (
                     filteredUnits.map((unit) => {
@@ -178,18 +178,18 @@ export default function UnitsPage() {
                                     </div>
 
                                     <h3 className="font-semibold text-lg text-foreground mb-1">
-                                        Unit {unit.name}
+                                        Unidad {unit.name}
                                     </h3>
 
                                     <div className="space-y-1.5 mb-4">
                                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <Building2 className="h-3 w-3" />
-                                            <span className="truncate">{building?.name || 'Loading building...'}</span>
+                                            <span className="truncate">{building?.name || 'Cargando edificio...'}</span>
                                         </div>
                                         {unit.floor && (
                                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                 <MapPin className="h-3 w-3" />
-                                                <span>Floor {unit.floor}</span>
+                                                <span>Piso {unit.floor}</span>
                                             </div>
                                         )}
                                     </div>
@@ -198,7 +198,7 @@ export default function UnitsPage() {
                                         <div className="flex items-center gap-1.5">
                                             <Users className="h-3 w-3 text-muted-foreground" />
                                             <span className="text-[10px] text-muted-foreground uppercase font-medium">
-                                                Details
+                                                Detalles
                                             </span>
                                         </div>
                                         <Link href={`/buildings/${unit.building_id}/units/${unit.id}`}>
@@ -207,7 +207,7 @@ export default function UnitsPage() {
                                                 size="sm"
                                                 className="h-auto p-0 text-xs"
                                             >
-                                                Manage
+                                                Gestionar
                                             </Button>
                                         </Link>
                                     </div>

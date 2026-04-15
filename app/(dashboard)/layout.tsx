@@ -22,8 +22,14 @@ export default function DashboardLayout({
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center animate-pulse">
+                    <div className="w-5 h-5 rounded bg-primary/30" />
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                    <div className="h-2 w-24 skeleton rounded-full" />
+                    <div className="h-2 w-16 skeleton rounded-full" />
+                </div>
             </div>
         );
     }
@@ -37,7 +43,7 @@ export default function DashboardLayout({
             <Sidebar />
             <div className="lg:pl-72 transition-all duration-300">
                 <Header />
-                <main className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+                <main className="py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto animate-threshold">
                     {children}
                 </main>
             </div>

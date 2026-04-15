@@ -49,19 +49,19 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
 
     // Different schemas for create vs edit
     const createSchema = z.object({
-        name: z.string().min(2, 'Name must be at least 2 characters'),
-        email: z.string().email('Invalid email address'),
-        password: z.string().min(6, 'Password is required'),
+        name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+        email: z.string().email('Email inválido'),
+        password: z.string().min(6, 'La contraseña es obligatoria'),
         phone: z.string().optional(),
-        building_id: z.string().min(1, 'Building is required'),
+        building_id: z.string().min(1, 'El edificio es obligatorio'),
         unit_id: z.string().optional(),
         role: z.enum(['resident', 'board', 'admin']),
         status: z.enum(['active', 'pending', 'inactive', 'rejected']),
     });
 
     const editSchema = z.object({
-        name: z.string().min(2, 'Name must be at least 2 characters'),
-        email: z.string().email('Invalid email address'),
+        name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+        email: z.string().email('Email inválido'),
         password: z.string().optional(),
         phone: z.string().optional(),
         role: z.enum(['resident', 'board', 'admin']),
@@ -104,7 +104,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                     setUnits(fetchedUnits);
                 } catch (error) {
                     console.error('Failed to fetch units', error);
-                    toast.error('Failed to load units for selected building');
+                    toast.error('No se pudieron cargar las unidades del edificio seleccionado');
                     setUnits([]);
                 } finally {
                     setLoadingUnits(false);
@@ -158,7 +158,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 }
 
                 await usersService.updateUser(user.id, updateData);
-                toast.success('User profile updated successfully');
+                toast.success('Perfil de usuario actualizado correctamente');
             } else {
                 // POST /users - Requires building_id
                 await usersService.createUser({
@@ -170,22 +170,22 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                     unit_id: data.unit_id, // Optional
                     role: data.role,
                 });
-                toast.success('User created successfully! Use "Manage Roles" to add more units.');
+                toast.success('¡Usuario creado correctamente! Usá "Gestionar roles" para agregar más unidades.');
             }
             onSuccess();
             onOpenChange(false);
         } catch (error) {
             console.error(error);
-            toast.error(user ? 'Failed to update user' : 'Failed to create user');
+            toast.error(user ? 'Error al actualizar el usuario' : 'Error al crear el usuario');
         }
     };
 
     const getRoleBadgeColor = (role: string) => {
         switch (role) {
             case 'admin':
-                return 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border-amber-500/30';
+                return 'bg-primary/15 text-primary border-primary/30';
             case 'board':
-                return 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border-purple-500/30';
+                return 'bg-chart-2/15 text-chart-2 border-chart-2/30';
             default:
                 return 'bg-muted/50 text-muted-foreground border-border/50';
         }
@@ -193,31 +193,31 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
+            <DialogContent className="sm:max-w-[600px] border-border/50 bg-card backdrop-blur">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
                         {user ? (
                             <>
                                 <UserIcon className="h-5 w-5 text-primary" />
-                                Edit User Profile
+                                Editar perfil de usuario
                             </>
                         ) : (
                             <>
                                 <Shield className="h-5 w-5 text-primary" />
-                                Create New User
+                                Crear nuevo usuario
                             </>
                         )}
                     </DialogTitle>
                     <DialogDescription>
                         {user
-                            ? 'Update user profile information. Use "Manage Roles" to assign units and building permissions.'
-                            : 'Create a new user account. You can assign units after creation.'}
+                            ? 'Actualizá la información del perfil. Usá "Gestionar roles" para asignar unidades y permisos del edificio.'
+                            : 'Creá una cuenta de usuario. Podés asignar unidades después de la creación.'}
                     </DialogDescription>
                 </DialogHeader>
 
                 {user && user.units && user.units.length > 0 && (
                     <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 space-y-2">
-                        <p className="text-xs font-medium text-primary">Current Units ({user.units.length})</p>
+                        <p className="text-xs font-medium text-primary">Unidades actuales ({user.units.length})</p>
                         <div className="flex flex-wrap gap-1">
                             {user.units.slice(0, 3).map((unit) => (
                                 <Badge
@@ -230,12 +230,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                             ))}
                             {user.units.length > 3 && (
                                 <Badge variant="outline" className="text-xs">
-                                    +{user.units.length - 3} more
+                                    +{user.units.length - 3} más
                                 </Badge>
                             )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Use "Manage Roles" to edit unit assignments
+                            Usá "Gestionar roles" para editar las asignaciones de unidades
                         </p>
                     </div>
                 )}
@@ -249,12 +249,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                 <FormItem>
                                     <FormLabel className="flex items-center gap-2">
                                         <UserIcon className="h-4 w-4 text-muted-foreground" />
-                                        Name
+                                        Nombre
                                     </FormLabel>
                                     <FormControl>
                                         <Input
                                             {...field}
-                                            placeholder="John Doe"
+                                            placeholder="Juan Pérez"
                                             className="bg-background/50 border-border/50 focus:border-primary transition-colors"
                                         />
                                     </FormControl>
@@ -276,12 +276,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                         <Input
                                             {...field}
                                             type="email"
-                                            placeholder="john@example.com"
+                                            placeholder="juan@ejemplo.com"
                                             disabled={!!user}
                                             className="bg-background/50 border-border/50 focus:border-primary transition-colors"
                                         />
                                     </FormControl>
-                                    {user && <p className="text-[0.8rem] text-amber-400/80">⚠️ Email cannot be changed</p>}
+                                    {user && <p className="text-[0.8rem] text-amber-400/80">⚠️ El email no se puede cambiar</p>}
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -292,12 +292,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                             name="password"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{user ? 'New Password (Optional)' : 'Password'}</FormLabel>
+                                    <FormLabel>{user ? 'Nueva contraseña (opcional)' : 'Contraseña'}</FormLabel>
                                     <FormControl>
                                         <Input
                                             {...field}
                                             type="password"
-                                            placeholder={user ? 'Leave blank to keep current' : '******'}
+                                            placeholder={user ? 'Dejá en blanco para conservar la actual' : '******'}
                                             className="bg-background/50 border-border/50 focus:border-primary transition-colors"
                                         />
                                     </FormControl>
@@ -313,7 +313,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                 <FormItem>
                                     <FormLabel className="flex items-center gap-2">
                                         <Phone className="h-4 w-4 text-muted-foreground" />
-                                        Phone (Optional)
+                                        Teléfono (opcional)
                                     </FormLabel>
                                     <FormControl>
                                         <Input
@@ -337,12 +337,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                         <FormItem>
                                             <FormLabel className="flex items-center gap-2">
                                                 <Building2 className="h-4 w-4 text-muted-foreground" />
-                                                Building <span className="text-destructive">*</span>
+                                                Edificio <span className="text-destructive">*</span>
                                             </FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger className="bg-background/50 border-border/50">
-                                                        <SelectValue placeholder="Select building" />
+                                                        <SelectValue placeholder="Seleccionar edificio" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -357,7 +357,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                                 </SelectContent>
                                             </Select>
                                             <FormDescription className="text-xs">
-                                                Required for user creation
+                                                Requerido para crear el usuario
                                             </FormDescription>
                                             <FormMessage />
                                         </FormItem>
@@ -371,7 +371,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                         <FormItem>
                                             <FormLabel className="flex items-center gap-2">
                                                 <Home className="h-4 w-4 text-muted-foreground" />
-                                                Unit (Optional)
+                                                Unidad (opcional)
                                             </FormLabel>
                                             <Select
                                                 onValueChange={field.onChange}
@@ -382,10 +382,10 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                                     <SelectTrigger className="bg-background/50 border-border/50">
                                                         <SelectValue placeholder={
                                                             !selectedBuildingId
-                                                                ? "Select building first"
+                                                                ? "Primero seleccioná un edificio"
                                                                 : loadingUnits
-                                                                    ? "Loading units..."
-                                                                    : "Select unit (optional)"
+                                                                    ? "Cargando unidades..."
+                                                                    : "Seleccionar unidad (opcional)"
                                                         } />
                                                     </SelectTrigger>
                                                 </FormControl>
@@ -401,7 +401,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                                 </SelectContent>
                                             </Select>
                                             <FormDescription className="text-xs">
-                                                You can assign more units later via "Manage Roles"
+                                                Podés asignar más unidades después desde "Gestionar roles"
                                             </FormDescription>
                                             <FormMessage />
                                         </FormItem>
@@ -418,28 +418,28 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                     <FormItem>
                                         <FormLabel className="flex items-center gap-2">
                                             <Shield className="h-4 w-4 text-muted-foreground" />
-                                            Global Role
+                                            Rol global
                                         </FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger className="bg-background/50 border-border/50">
-                                                    <SelectValue placeholder="Select role" />
+                                                    <SelectValue placeholder="Seleccionar rol" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 <SelectItem value="resident">
                                                     <Badge variant="outline" className={getRoleBadgeColor('resident')}>
-                                                        Resident
+                                                        Residente
                                                     </Badge>
                                                 </SelectItem>
                                                 <SelectItem value="board">
                                                     <Badge variant="outline" className={getRoleBadgeColor('board')}>
-                                                        Board
+                                                        Junta
                                                     </Badge>
                                                 </SelectItem>
                                                 <SelectItem value="admin">
                                                     <Badge variant="outline" className={getRoleBadgeColor('admin')}>
-                                                        Admin
+                                                        Administrador
                                                     </Badge>
                                                 </SelectItem>
                                             </SelectContent>
@@ -454,18 +454,18 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                 name="status"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Status</FormLabel>
+                                        <FormLabel>Estado</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger className="bg-background/50 border-border/50">
-                                                    <SelectValue placeholder="Select status" />
+                                                    <SelectValue placeholder="Seleccionar estado" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="active">Active</SelectItem>
-                                                <SelectItem value="pending">Pending</SelectItem>
-                                                <SelectItem value="inactive">Inactive</SelectItem>
-                                                <SelectItem value="rejected">Rejected</SelectItem>
+                                                <SelectItem value="active">Activo</SelectItem>
+                                                <SelectItem value="pending">Pendiente</SelectItem>
+                                                <SelectItem value="inactive">Inactivo</SelectItem>
+                                                <SelectItem value="rejected">Rechazado</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -475,11 +475,8 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                         </div>
 
                         <DialogFooter>
-                            <Button
-                                type="submit"
-                                className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 transition-all"
-                            >
-                                {user ? 'Save Changes' : 'Create User'}
+                            <Button type="submit">
+                                {user ? 'Guardar cambios' : 'Crear usuario'}
                             </Button>
                         </DialogFooter>
                     </form>

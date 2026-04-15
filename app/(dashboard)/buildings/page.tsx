@@ -34,7 +34,7 @@ export default function BuildingsPage() {
             }
         } catch (error) {
             console.error('Failed to fetch buildings:', error);
-            toast.error('Failed to fetch buildings');
+            toast.error('Error al cargar los edificios');
         } finally {
             setIsLoading(false);
         }
@@ -71,13 +71,13 @@ export default function BuildingsPage() {
     };
 
     const handleDelete = async (buildingId: string) => {
-        if (!confirm('Are you sure you want to delete this building? This action cannot be undone.')) return;
+        if (!confirm('¿Seguro que querés eliminar este edificio? Esta acción no se puede deshacer.')) return;
         try {
             await buildingsService.deleteBuilding(buildingId);
-            toast.success('Building deleted');
+            toast.success('Edificio eliminado');
             fetchBuildings();
         } catch (error) {
-            toast.error('Failed to delete building');
+            toast.error('Error al eliminar el edificio');
         }
     };
 
@@ -85,26 +85,26 @@ export default function BuildingsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Buildings</h1>
-                    <p className="text-muted-foreground mt-1">Manage residential complexes</p>
+                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Edificios</h1>
+                    <p className="text-muted-foreground mt-1">Gestioná los complejos residenciales</p>
                 </div>
                 {isSuperAdmin && (
                     <Button onClick={handleCreate}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Building
+                        <Plus className="mr-2 h-4 w-4" /> Agregar edificio
                     </Button>
                 )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {isLoading ? (
-                    <p className="text-muted-foreground col-span-full text-center py-8">Loading buildings...</p>
+                    <p className="text-muted-foreground col-span-full text-center py-8">Cargando edificios...</p>
                 ) : buildings.length === 0 ? (
                     <Card className="col-span-full border-dashed">
                         <CardContent className="py-12 flex flex-col items-center justify-center text-center">
                             <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-                            <p className="text-lg font-medium text-foreground">No buildings found</p>
-                            <p className="text-muted-foreground mb-4">Get started by creating your first building.</p>
-                            <Button onClick={handleCreate}>Create Building</Button>
+                            <p className="text-lg font-medium text-foreground">No se encontraron edificios</p>
+                            <p className="text-muted-foreground mb-4">Empezá creando tu primer edificio.</p>
+                            <Button onClick={handleCreate}>Crear edificio</Button>
                         </CardContent>
                     </Card>
                 ) : (
@@ -142,10 +142,10 @@ export default function BuildingsPage() {
                                 </p>
                                 <div className="flex items-center justify-between pt-4 border-t border-border/50">
                                     <span className="text-sm text-muted-foreground">
-                                        {building.total_units || 0} Units
+                                        {building.total_units || 0} Unidades
                                     </span>
                                     <Button variant="outline" size="sm" onClick={() => router.push(`/buildings/${building.id}/dashboard`)}>
-                                        View Dashboard
+                                        Ver panel
                                     </Button>
                                 </div>
                             </CardContent>

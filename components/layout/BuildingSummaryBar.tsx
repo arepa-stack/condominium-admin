@@ -76,10 +76,10 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
     if (!building && !isBuildingLoading) return null;
 
     return (
-        <Card className="mb-6 bg-card/50 backdrop-blur-xl border-white/5 overflow-hidden shadow-2xl">
+        <Card className="mb-6 bg-card border-border/40 overflow-hidden">
             <div className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
+                    <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/15">
                         <Building2 className="w-6 h-6 text-primary" />
                     </div>
                     <div>
@@ -95,31 +95,31 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                 <div className="flex flex-wrap items-center gap-8 md:gap-12">
                     <div className="space-y-1">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <Wallet className="w-3 h-3 text-red-400" />
+                            <Wallet className="w-3 h-3 text-destructive" />
                             Total Debt
                         </p>
-                        <p className="text-lg font-bold text-red-500 tabular-nums">
+                        <p className="text-lg font-bold text-destructive tabular-nums">
                             {isStatsLoading ? '...' : formatCurrency(stats.totalDebt)}
                         </p>
                     </div>
 
                     <div className="space-y-1">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <Clock className="w-3 h-3 text-yellow-400" />
+                            <Clock className="w-3 h-3 text-chart-2" />
                             Pending Payments
                         </p>
-                        <p className="text-lg font-bold text-yellow-500 tabular-nums">
+                        <p className="text-lg font-bold text-chart-2 tabular-nums">
                             {isStatsLoading ? '...' : stats.pendingPayments}
                         </p>
                     </div>
 
                     <div className="space-y-1 invisible md:visible">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <CheckCircle2 className="w-3 h-3 text-green-400" />
+                            <CheckCircle2 className="w-3 h-3 text-chart-1" />
                             Quick Actions
                         </p>
                         <div className="flex gap-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500/20 border border-green-500/50" />
+                            <div className="w-2 h-2 rounded-full bg-chart-1/20 border border-chart-1/50" />
                             <div className="w-2 h-2 rounded-full bg-primary/20 border border-primary/50" />
                         </div>
                     </div>

@@ -5,8 +5,6 @@ import { billingService } from '@/lib/services/billing.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -16,14 +14,19 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/skeletons';
 import { toast } from 'sonner';
-import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { formatCurrency } from '@/lib/utils/format';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Eye, Building2, Plus, FileSpreadsheet, Home } from 'lucide-react';
+import { Eye, Building2, Plus, FileSpreadsheet, Home, FileText } from 'lucide-react';
 import type { Invoice, Building, Unit } from '@/types/models';
 
 export default function BillingPage() {
@@ -109,7 +112,7 @@ export default function BillingPage() {
 
         } catch (error) {
             console.error('Failed to fetch billing data:', error);
-            toast.error('Failed to load invoices');
+            toast.error('Error al cargar las facturas');
         } finally {
             setIsLoading(false);
         }
@@ -119,202 +122,187 @@ export default function BillingPage() {
         fetchData();
     }, [fetchData]);
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'PAID': return 'bg-green-500 hover:bg-green-600';
-            case 'PARTIAL': return 'bg-amber-500 hover:bg-amber-600';
-            case 'PENDING': return 'bg-yellow-500 hover:bg-yellow-600'; // Make sure text is readable if using standard badge
-            case 'CANCELLED': return 'bg-gray-500 hover:bg-gray-600';
-            default: return 'bg-gray-500';
-        }
-    };
-
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Billing</h1>
-                    <p className="text-muted-foreground mt-1">Manage invoices and debts</p>
+                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Facturación</h1>
+                    <p className="text-muted-foreground mt-1">Gestioná facturas y deudas</p>
                 </div>
                 {(isSuperAdmin || isBoardMember) && (
                     <div className="flex gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setIsExcelLoaderOpen(true)}
-                            className="gap-2 border-green-600/20 text-green-600 hover:bg-green-50 hover:text-green-700"
+                            className="gap-2 border-chart-1/30 text-chart-1 hover:bg-chart-1/10"
                         >
                             <FileSpreadsheet className="h-4 w-4" />
-                            Import Excel
+                            Importar Excel
                         </Button>
                         <Button onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2">
                             <Plus className="h-4 w-4" />
-                            Create Invoice
+                            Crear Factura
                         </Button>
                     </div>
                 )}
             </div>
 
-            {/* Filters */}
-            <Card className="p-4 border-border/50 bg-card">
-                <div className="flex flex-wrap gap-4">
-                    {isSuperAdmin && (
-                        <div className="w-full md:w-64">
-                            <Select value={filterBuildingId} onValueChange={setFilterBuildingId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All Buildings" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Buildings</SelectItem>
-                                    {buildings.map((b) => (
-                                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                    {(isBoardMember && !isSuperAdmin) && (
-                        <div className="w-full md:w-64">
-                            <Select value={filterBuildingId} onValueChange={setFilterBuildingId}>
-                                <SelectTrigger>
-                                    <div className="flex items-center gap-2">
-                                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                                        <SelectValue placeholder="Select Building" />
-                                    </div>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableBuildings.map((b: any) => (
-                                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                    <div className="w-full md:w-56">
-                        <SearchableSelect
-                            options={[
-                                { value: 'all', label: 'All Units' },
-                                ...units.map(u => ({
-                                    value: u.id,
-                                    label: u.name,
-                                    icon: Home
-                                }))
-                            ]}
-                            value={filterUnitId}
-                            onValueChange={setFilterUnitId}
-                            placeholder="All Units"
-                            searchPlaceholder="Search unit..."
-                            disabled={!activeBuildingId && isSuperAdmin}
-                            triggerIcon={Home}
-                        />
-                    </div>
-                    <div className="w-full md:w-40">
-                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <FilterBar>
+                {isSuperAdmin && (
+                    <div className="w-full md:w-64">
+                        <Select value={filterBuildingId} onValueChange={setFilterBuildingId}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Status" />
+                                <SelectValue placeholder="Todos los edificios" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="PENDING">Pending</SelectItem>
-                                <SelectItem value="PARTIAL">Partial</SelectItem>
-                                <SelectItem value="PAID">Paid</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="w-full md:w-32">
-                        <Select value={filterYear} onValueChange={setFilterYear}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Year" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="2024">2024</SelectItem>
-                                <SelectItem value="2025">2025</SelectItem>
-                                <SelectItem value="2026">2026</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="w-full md:w-32">
-                        <Select value={filterMonth} onValueChange={setFilterMonth}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Month" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Months</SelectItem>
-                                {Array.from({ length: 12 }, (_, i) => (
-                                    <SelectItem key={i + 1} value={(i + 1).toString()}>
-                                        {new Date(0, i).toLocaleString('default', { month: 'long' })}
-                                    </SelectItem>
+                                <SelectItem value="all">Todos los edificios</SelectItem>
+                                {buildings.map((b) => (
+                                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
-                </div>
-            </Card>
-
-            <Card className="border-border/50 bg-card">
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-muted/50 border-b border-border/50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Number</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Unit / User</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Period</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Progress</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/50 bg-card">
-                                {isLoading ? (
-                                    <tr><td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">Loading...</td></tr>
-                                ) : invoices.length === 0 ? (
-                                    <tr><td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">No invoices found.</td></tr>
-                                ) : (
-                                    invoices.map((invoice) => {
-                                        const progress = (invoice.paid_amount / invoice.amount) * 100;
-                                        return (
-                                            <tr key={invoice.id} className="hover:bg-accent/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{invoice.number || invoice.receipt_number || '--'}</td>
-                                                <td className="px-6 py-4 text-sm">
-                                                    <div className="font-medium">{invoice.unit?.name || 'Unknown Unit'}</div>
-                                                    <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                    <div>{formatCurrency(invoice.amount)}</div>
-                                                    {invoice.paid_amount > 0 && invoice.paid_amount < invoice.amount && (
-                                                        <div className="text-xs text-green-600">Paid: {formatCurrency(invoice.paid_amount)}</div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap align-middle">
-                                                    <div className="w-24">
-                                                        <Progress value={progress} className="h-2" />
-                                                    </div>
-                                                    <div className="text-[10px] text-muted-foreground mt-1 text-center">{Math.round(progress)}%</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <Badge className={`${getStatusColor(invoice.status)} text-white`}>
-                                                        {invoice.status}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/billing/invoices/${invoice.id}`)}>
-                                                        <Eye className="h-4 w-4 mr-1" /> View
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })
-                                )}
-                            </tbody>
-                        </table>
+                )}
+                {(isBoardMember && !isSuperAdmin) && (
+                    <div className="w-full md:w-64">
+                        <Select value={filterBuildingId} onValueChange={setFilterBuildingId}>
+                            <SelectTrigger>
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                                    <SelectValue placeholder="Seleccionar edificio" />
+                                </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableBuildings.map((b: any) => (
+                                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                </CardContent>
-            </Card>
+                )}
+                <div className="w-full md:w-56">
+                    <SearchableSelect
+                        options={[
+                            { value: 'all', label: 'Todas las unidades' },
+                            ...units.map(u => ({
+                                value: u.id,
+                                label: u.name,
+                                icon: Home
+                            }))
+                        ]}
+                        value={filterUnitId}
+                        onValueChange={setFilterUnitId}
+                        placeholder="Todas las unidades"
+                        searchPlaceholder="Buscar unidad..."
+                        disabled={!activeBuildingId && isSuperAdmin}
+                        triggerIcon={Home}
+                    />
+                </div>
+                <div className="w-full md:w-40">
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los estados</SelectItem>
+                            <SelectItem value="PENDING">Pendiente</SelectItem>
+                            <SelectItem value="PARTIAL">Parcial</SelectItem>
+                            <SelectItem value="PAID">Pagado</SelectItem>
+                            <SelectItem value="CANCELLED">Cancelado</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="w-full md:w-32">
+                    <Select value={filterYear} onValueChange={setFilterYear}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Año" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="2024">2024</SelectItem>
+                            <SelectItem value="2025">2025</SelectItem>
+                            <SelectItem value="2026">2026</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="w-full md:w-32">
+                    <Select value={filterMonth} onValueChange={setFilterMonth}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Mes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los meses</SelectItem>
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                    {new Date(0, i).toLocaleString('es', { month: 'long' })}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </FilterBar>
+
+            {isLoading ? (
+                <TableSkeleton rows={5} columns={7} />
+            ) : (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Número</TableHead>
+                            <TableHead>Unidad / Usuario</TableHead>
+                            <TableHead>Período</TableHead>
+                            <TableHead>Monto</TableHead>
+                            <TableHead>Progreso</TableHead>
+                            <TableHead>Estado</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {invoices.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="p-0">
+                                    <EmptyState icon={FileText} message="No se encontraron facturas" variant="inline" />
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            invoices.map((invoice) => {
+                                const progress = (invoice.paid_amount / invoice.amount) * 100;
+                                return (
+                                    <TableRow key={invoice.id}>
+                                        <TableCell className="font-medium">{invoice.number || invoice.receipt_number || '--'}</TableCell>
+                                        <TableCell>
+                                            <div className="font-medium">{invoice.unit?.name || 'Unidad desconocida'}</div>
+                                            <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div>{formatCurrency(invoice.amount)}</div>
+                                            {invoice.paid_amount > 0 && invoice.paid_amount < invoice.amount && (
+                                                <div className="text-xs text-chart-1">Pagado: {formatCurrency(invoice.paid_amount)}</div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="w-24">
+                                                <Progress value={progress} className="h-2" />
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground mt-1 text-center">{Math.round(progress)}%</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <StatusBadge status={invoice.status} />
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" onClick={() => router.push(`/billing/invoices/${invoice.id}`)}>
+                                                <Eye className="h-4 w-4 mr-1" /> Ver
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            )}
 
             <InvoiceDialog
                 open={isInvoiceDialogOpen}

@@ -31,7 +31,7 @@ export function StatsCard({
         // Animate number values
         if (typeof value === 'number') {
             let start = 0;
-            const duration = 1000;
+            const duration = 800;
             const increment = value / (duration / 16);
 
             const timer = setInterval(() => {
@@ -51,36 +51,33 @@ export function StatsCard({
     }, [value]);
 
     return (
-        <Card className={cn('group hover:shadow-xl transition-all duration-300 border-border/50 bg-card hover:bg-card/80 hover:-translate-y-2 hover:scale-105 relative overflow-hidden', className)}>
-            {/* Subtle gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-                <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">{title}</CardTitle>
-                <div className="p-2.5 bg-gradient-to-br from-primary/20 to-purple-500/20 rounded-full group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-primary/20">
-                    <Icon className="h-5 w-5 text-primary group-hover:text-purple-400 transition-colors" />
+        <Card className={cn(
+            'card-hover border-border/40 bg-card relative overflow-hidden',
+            className
+        )}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                <div className="p-2 bg-primary/8 rounded-lg">
+                    <Icon className="h-4 w-4 text-primary" />
                 </div>
             </CardHeader>
-            <CardContent className="relative z-10">
-                <div className="text-3xl font-bold text-card-foreground bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text transition-all duration-300">
+            <CardContent>
+                <div className="text-2xl font-bold text-card-foreground tabular-nums">
                     {displayValue}
                 </div>
                 {description && (
-                    <p className="text-xs text-muted-foreground mt-2 group-hover:text-muted-foreground/80 transition-colors">{description}</p>
+                    <p className="text-xs text-muted-foreground mt-1.5">{description}</p>
                 )}
                 {trend && (
                     <p className={cn(
-                        'text-xs mt-2 flex items-center font-medium transition-all',
-                        trend.isPositive ? 'text-emerald-400' : 'text-rose-400'
+                        'text-xs mt-2 flex items-center gap-1 font-medium',
+                        trend.isPositive ? 'text-chart-1' : 'text-destructive'
                     )}>
-                        <span className={cn(
-                            'inline-block mr-1 text-base',
-                            trend.isPositive ? 'animate-bounce' : ''
-                        )}>
+                        <span className="text-sm">
                             {trend.isPositive ? '↑' : '↓'}
                         </span>
                         {Math.abs(trend.value)}%
-                        <span className="text-muted-foreground ml-1 font-normal opacity-70">vs last month</span>
+                        <span className="text-muted-foreground font-normal">vs last month</span>
                     </p>
                 )}
             </CardContent>

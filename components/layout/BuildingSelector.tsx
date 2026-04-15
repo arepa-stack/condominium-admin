@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePermissions } from '@/lib/hooks/usePermissions';
@@ -36,16 +36,17 @@ export function BuildingSelector({ buildings, selectedBuildingId, onBuildingChan
             <DialogTrigger asChild>
                 <Button
                     variant="outline"
-                    className={`gap-2 bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/30 hover:from-primary/20 hover:to-purple-500/20 ${className}`}
+                    className={`gap-2 bg-primary/10 border-primary/30 hover:bg-primary/20 ${className}`}
                 >
                     <Building2 className="h-4 w-4" />
-                    {selectedBuilding ? selectedBuilding.name : 'Select Building'}
+                    {selectedBuilding ? selectedBuilding.name : 'Seleccionar edificio'}
                     <ChevronDown className="h-4 w-4 ml-auto" />
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Select Building</DialogTitle>
+                    <DialogTitle>Seleccionar edificio</DialogTitle>
+                    <DialogDescription>Elegí el edificio que querés gestionar.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <Select value={selectedBuildingId} onValueChange={(value) => {
@@ -53,10 +54,10 @@ export function BuildingSelector({ buildings, selectedBuildingId, onBuildingChan
                         setIsOpen(false);
                     }}>
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Choose a building" />
+                            <SelectValue placeholder="Elegí un edificio" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Buildings</SelectItem>
+                            <SelectItem value="all">Todos los edificios</SelectItem>
                             {availableBuildings.map((building) => (
                                 <SelectItem key={building.id} value={building.id}>
                                     <div className="flex items-center gap-2">
@@ -71,8 +72,8 @@ export function BuildingSelector({ buildings, selectedBuildingId, onBuildingChan
                     <div className="space-y-2">
                         <p className="text-sm text-muted-foreground">
                             {isSuperAdmin
-                                ? `You have access to all ${buildings.length} buildings as an administrator.`
-                                : `You manage ${availableBuildings.length} building${availableBuildings.length === 1 ? '' : 's'} as a board member.`
+                                ? `Como administrador tenés acceso a los ${buildings.length} edificios.`
+                                : `Administrás ${availableBuildings.length} ${availableBuildings.length === 1 ? 'edificio' : 'edificios'} como miembro de la junta.`
                             }
                         </p>
                     </div>

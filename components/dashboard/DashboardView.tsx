@@ -50,7 +50,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
     // Check if user has access to this building
     useEffect(() => {
         if (effectiveBuildingId && !isBoardInBuilding(effectiveBuildingId)) {
-            toast.error('You do not have access to this building');
+            toast.error('No tenés acceso a este edificio');
             router.push('/dashboard');
         }
     }, [effectiveBuildingId, isBoardInBuilding, router]);
@@ -127,8 +127,17 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="space-y-6 animate-fade-in">
+                <div className="space-y-2">
+                    <div className="h-8 w-48 skeleton rounded" />
+                    <div className="h-4 w-32 skeleton rounded" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="h-32 skeleton rounded-xl" />
+                    ))}
+                </div>
+                <div className="h-64 skeleton rounded-xl" />
             </div>
         );
     }
@@ -164,22 +173,22 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
     );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-threshold">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-                        {isFilteredView ? (currentBuildingName || buildingName || 'Building Dashboard') : 'Global Dashboard'}
+                    <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground tracking-tight">
+                        {isFilteredView ? (currentBuildingName || buildingName || 'Panel del edificio') : 'Panel global'}
                     </h1>
                     <p className="text-muted-foreground mt-1 flex items-center gap-2">
                         {isFilteredView ? (
                             <>
                                 <Building2 className="h-4 w-4" />
-                                <span>Building Management Overview</span>
+                                <span>Resumen de gestión del edificio</span>
                             </>
                         ) : (
                             <>
                                 <TrendingUp className="h-4 w-4" />
-                                <span>{isSuperAdmin ? 'System-wide Administration' : 'Account Overview'}</span>
+                                <span>{isSuperAdmin ? 'Administración del sistema' : 'Resumen de la cuenta'}</span>
                             </>
                         )}
                     </p>
@@ -187,56 +196,56 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                 {isFilteredView && isSuperAdmin && showBuildingFilter && (
                     <Button variant="outline" onClick={() => router.push('/dashboard')} className="gap-2">
                         <ArrowLeft className="h-4 w-4" />
-                        Back to Overview
+                        Volver al resumen
                     </Button>
                 )}
                 {effectiveBuildingId && !showBuildingFilter && isSuperAdmin && (
                     <Button variant="outline" onClick={() => router.push('/buildings')} className="gap-2">
                         <ArrowLeft className="h-4 w-4" />
-                        Back to Buildings
+                        Volver a Edificios
                     </Button>
                 )}
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
                 {!isFilteredView && isSuperAdmin && (
-                    <Link href="/buildings" className="block transition-transform hover:scale-105 duration-200">
+                    <Link href="/buildings" className="block">
                         <StatsCard
-                            title="Total Buildings"
+                            title="Total de edificios"
                             value={buildings.length}
                             icon={Building2}
-                            description="Active buildings"
-                            className="h-full border-primary/20 bg-primary/5 hover:bg-primary/10 cursor-pointer"
+                            description="Edificios activos"
+                            className="h-full border-primary/15 bg-primary/5 cursor-pointer"
                         />
                     </Link>
                 )}
                 <StatsCard
-                    title={isSuperAdmin ? 'Total Users' : 'Total Residents'}
+                    title={isSuperAdmin ? 'Total de usuarios' : 'Total de residentes'}
                     value={users.length}
                     icon={Users}
-                    description={isFilteredView ? 'In this building' : 'All users'}
+                    description={isFilteredView ? 'En este edificio' : 'Todos los usuarios'}
                 />
                 <StatsCard
-                    title="Total Debt"
+                    title="Deuda total"
                     value={formatCurrency(totalDebt)}
                     icon={FileText}
-                    description={`${pendingInvoices.length} pending invoices`}
-                    className="border-red-500/20 bg-red-500/5"
+                    description={`${pendingInvoices.length} facturas pendientes`}
+                    className="border-destructive/15 bg-destructive/5"
                 />
                 <StatsCard
-                    title="Pending Payments"
+                    title="Pagos pendientes"
                     value={pendingPayments.length}
                     icon={CreditCard}
-                    description="Awaiting approval"
-                    className="border-yellow-500/20 bg-yellow-500/5"
+                    description="Esperando aprobación"
+                    className="border-chart-2/15 bg-chart-2/5"
                 />
                 {(!isFilteredView && isSuperAdmin) && (
                     <StatsCard
-                        title="Total Revenue"
+                        title="Ingresos totales"
                         value={formatCurrency(totalRevenue)}
                         icon={DollarSign}
-                        description="Verified collections"
+                        description="Cobros verificados"
                     />
                 )}
             </div>
@@ -245,21 +254,21 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
             {isFilteredView ? (
                 <Tabs defaultValue="residents" className="space-y-4">
                     <TabsList>
-                        <TabsTrigger value="residents">Residents</TabsTrigger>
-                        <TabsTrigger value="invoices">Invoices</TabsTrigger>
-                        <TabsTrigger value="payments">Payments</TabsTrigger>
-                        <TabsTrigger value="units">Units</TabsTrigger>
+                        <TabsTrigger value="residents">Residentes</TabsTrigger>
+                        <TabsTrigger value="invoices">Facturas</TabsTrigger>
+                        <TabsTrigger value="payments">Pagos</TabsTrigger>
+                        <TabsTrigger value="units">Unidades</TabsTrigger>
                     </TabsList>
 
                     {/* Residents Tab */}
                     <TabsContent value="residents" className="space-y-4">
                         <Card className="border-border/50 bg-card">
                             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-2">
-                                <CardTitle className="text-foreground">Residents</CardTitle>
+                                <CardTitle className="text-foreground">Residentes</CardTitle>
                                 <div className="relative w-full sm:w-64">
                                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search residents..."
+                                        placeholder="Buscar residentes..."
                                         className="pl-8 w-full"
                                         value={searchUsers}
                                         onChange={(e) => setSearchUsers(e.target.value)}
@@ -269,7 +278,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                             <CardContent>
                                 {filteredUsers.length === 0 ? (
                                     <p className="text-muted-foreground text-center py-8">
-                                        {searchUsers ? 'No residents match your search' : 'No residents found'}
+                                        {searchUsers ? 'Ningún residente coincide con la búsqueda' : 'No se encontraron residentes'}
                                     </p>
                                 ) : (
                                     <div className="space-y-4 pt-4">
@@ -304,12 +313,12 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                             {user.name}
                                                             {user.role === 'board' && (
                                                                 <Badge variant="default" className="text-[10px] h-5 px-2">
-                                                                    Board
+                                                                    Junta
                                                                 </Badge>
                                                             )}
                                                         </p>
                                                         <p className="text-sm text-muted-foreground">
-                                                            {user.email} {user.unit ? `• Unit ${user.unit}` : ''}
+                                                            {user.email} {user.unit ? `• Unidad ${user.unit}` : ''}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -318,9 +327,9 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                         variant="outline"
                                                         className={
                                                             user.role === 'board'
-                                                                ? 'capitalize bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border-purple-500/30'
+                                                                ? 'capitalize bg-primary/10 text-primary border-primary/20'
                                                                 : user.role === 'admin'
-                                                                    ? 'capitalize bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border-amber-500/30'
+                                                                    ? 'capitalize bg-chart-2/10 text-chart-2 border-chart-2/20'
                                                                     : 'capitalize'
                                                         }
                                                     >
@@ -340,16 +349,16 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0 pb-2">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
-                                        <CardTitle className="text-foreground">Recent Invoices</CardTitle>
+                                        <CardTitle className="text-foreground">Facturas recientes</CardTitle>
                                         {effectiveBuildingId && (
                                             <Link href={`/billing?building_id=${effectiveBuildingId}`} passHref>
                                                 <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 px-2">
-                                                    View All <ArrowUpRight className="h-3 w-3" />
+                                                    Ver todas <ArrowUpRight className="h-3 w-3" />
                                                 </Button>
                                             </Link>
                                         )}
                                     </div>
-                                    <p className="text-xs text-muted-foreground font-normal">Manage building debts</p>
+                                    <p className="text-xs text-muted-foreground font-normal">Gestioná las deudas del edificio</p>
                                 </div>
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
                                     {(isSuperAdmin || user?.role === 'board') && (
@@ -361,18 +370,18 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                 className="gap-2 border-green-600/20 text-green-600 hover:bg-green-50 hover:text-green-700"
                                             >
                                                 <FileSpreadsheet className="h-4 w-4" />
-                                                Import Excel
+                                                Importar Excel
                                             </Button>
                                             <Button size="sm" onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2 w-full sm:w-auto">
                                                 <Plus className="h-4 w-4" />
-                                                Create Invoice
+                                                Crear factura
                                             </Button>
                                         </div>
                                     )}
                                     <div className="relative w-full sm:w-64">
                                         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                         <Input
-                                            placeholder="Search invoices..."
+                                            placeholder="Buscar facturas..."
                                             className="pl-8 w-full"
                                             value={searchInvoices}
                                             onChange={(e) => setSearchInvoices(e.target.value)}
@@ -383,7 +392,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                             <CardContent>
                                 {filteredInvoices.length === 0 ? (
                                     <p className="text-muted-foreground text-center py-8">
-                                        No invoices found.
+                                        No se encontraron facturas.
                                     </p>
                                 ) : (
                                     <div className="space-y-4 pt-4">
@@ -394,10 +403,10 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                             >
                                                 <div>
                                                     <p className="font-medium text-foreground">
-                                                        Invoice #{inv.number || inv.id.slice(0, 8)}
+                                                        Factura #{inv.number || inv.id.slice(0, 8)}
                                                     </p>
                                                     <p className="text-sm text-muted-foreground">
-                                                        {inv.unit?.name || 'Unit N/A'} • {inv.year}-{inv.month}
+                                                        {inv.unit?.name || 'Unidad N/D'} • {inv.year}-{inv.month}
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-4 justify-between sm:justify-end">
@@ -414,10 +423,10 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                         }
                                                         className={
                                                             inv.status === 'PAID'
-                                                                ? 'bg-gradient-to-r from-emerald-500/80 to-green-500/80 hover:from-emerald-600 hover:to-green-600 border-0'
+                                                                ? 'bg-chart-1/15 text-chart-1 border-chart-1/25'
                                                                 : inv.status === 'PENDING'
-                                                                    ? 'bg-gradient-to-r from-amber-500/80 to-orange-500/80 text-white hover:from-amber-600 hover:to-orange-600 border-0'
-                                                                    : 'bg-gradient-to-r from-red-500/80 to-rose-500/80 hover:from-red-600 hover:to-rose-600 border-0'
+                                                                    ? 'bg-chart-2/15 text-chart-2 border-chart-2/25'
+                                                                    : 'bg-destructive/15 text-destructive border-destructive/25'
                                                         }
                                                     >
                                                         {inv.status}
@@ -435,11 +444,11 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                     <TabsContent value="payments" className="space-y-4">
                         <Card className="border-border/50 bg-card">
                             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 pb-2">
-                                <CardTitle className="text-foreground">Recent Payments</CardTitle>
+                                <CardTitle className="text-foreground">Pagos recientes</CardTitle>
                                 <div className="relative w-full sm:w-64">
                                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search payments..."
+                                        placeholder="Buscar pagos..."
                                         className="pl-8 w-full"
                                         value={searchPayments}
                                         onChange={(e) => setSearchPayments(e.target.value)}
@@ -449,7 +458,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                             <CardContent>
                                 {filteredPayments.length === 0 ? (
                                     <p className="text-muted-foreground text-center py-8">
-                                        {searchPayments ? 'No payments match your search' : 'No payments yet'}
+                                        {searchPayments ? 'Ningún pago coincide con la búsqueda' : 'Todavía no hay pagos'}
                                     </p>
                                 ) : (
                                     <div className="space-y-4 pt-4">
@@ -460,13 +469,13 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                             >
                                                 <div>
                                                     <p className="font-medium text-foreground">
-                                                        Payment #{payment.id.slice(0, 8)}
+                                                        Pago #{payment.id.slice(0, 8)}
                                                     </p>
                                                     <p className="text-sm text-muted-foreground">
                                                         {formatDate(payment.payment_date)} • {payment.method}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        By: {payment.user?.name || 'Unknown'}
+                                                        Por: {payment.user?.name || 'Desconocido'}
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-4 justify-between sm:justify-end">
@@ -483,10 +492,10 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                         }
                                                         className={
                                                             payment.status === 'APPROVED'
-                                                                ? 'bg-gradient-to-r from-emerald-500/80 to-green-500/80 hover:from-emerald-600 hover:to-green-600 border-0'
+                                                                ? 'bg-chart-1/15 text-chart-1 border-chart-1/25'
                                                                 : payment.status === 'PENDING'
-                                                                    ? 'bg-gradient-to-r from-amber-500/80 to-orange-500/80 text-white hover:from-amber-600 hover:to-orange-600 border-0'
-                                                                    : 'bg-gradient-to-r from-red-500/80 to-rose-500/80 hover:from-red-600 hover:to-rose-600 border-0'
+                                                                    ? 'bg-chart-2/15 text-chart-2 border-chart-2/25'
+                                                                    : 'bg-destructive/15 text-destructive border-destructive/25'
                                                         }
                                                     >
                                                         {payment.status}
@@ -515,11 +524,11 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                 /* Global Activity (Non - filtered) */
                 <Card className="border-border/50 bg-card">
                     <CardHeader>
-                        <CardTitle className="text-foreground">Recent Payments (Global)</CardTitle>
+                        <CardTitle className="text-foreground">Pagos recientes (Global)</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {payments.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-8">No payments yet</p>
+                            <p className="text-muted-foreground text-center py-8">Todavía no hay pagos</p>
                         ) : (
                             <div className="space-y-4">
                                 {payments.slice(0, 5).map((payment) => (
@@ -549,10 +558,10 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                 }
                                                 className={
                                                     payment.status === 'APPROVED'
-                                                        ? 'bg-gradient-to-r from-emerald-500/80 to-green-500/80 hover:from-emerald-600 hover:to-green-600 border-0'
+                                                        ? 'bg-chart-1/15 text-chart-1 border-chart-1/25'
                                                         : payment.status === 'PENDING'
-                                                            ? 'bg-gradient-to-r from-amber-500/80 to-orange-500/80 text-white hover:from-amber-600 hover:to-orange-600 border-0'
-                                                            : 'bg-gradient-to-r from-red-500/80 to-rose-500/80 hover:from-red-600 hover:to-rose-600 border-0'
+                                                            ? 'bg-chart-2/15 text-chart-2 border-chart-2/25'
+                                                            : 'bg-destructive/15 text-destructive border-destructive/25'
                                                 }
                                             >
                                                 {payment.status}

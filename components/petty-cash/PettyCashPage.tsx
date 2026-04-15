@@ -7,6 +7,11 @@ import { TransactionDialog } from '@/components/petty-cash/TransactionDialog';
 import { AssessmentPreviewDialog } from '@/components/petty-cash/AssessmentPreviewDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { FilterBar } from '@/components/ui/filter-bar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableSkeleton } from '@/components/ui/skeletons';
 import {
     Select,
     SelectContent,
@@ -19,6 +24,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import type {
     PettyCashBalance,
@@ -30,7 +36,7 @@ import type {
 import { formatDate, formatMoney } from '@/lib/utils/format';
 import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
 import { toast } from 'sonner';
-import { ArrowDownCircle, ArrowUpCircle, Eye, AlertTriangle, TrendingUp, Users, CheckCircle2 } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Eye, AlertTriangle, TrendingUp, Users, CheckCircle2, Receipt } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import Image from 'next/image';
@@ -71,10 +77,6 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const cardClass = isBuildingVariant
         ? 'border-white/5 bg-card/50 backdrop-blur-xl'
         : 'border-border/50 bg-card';
-    const tableHeadClass = isBuildingVariant
-        ? 'bg-white/5 border-b border-white/5'
-        : 'bg-muted/50 border-b border-border/50';
-
     const fetchAll = useCallback(async () => {
         if (!buildingId) return;
         try {
@@ -165,7 +167,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                             className="gap-2"
                             onClick={() => openDialog('INCOME')}
                         >
-                            <ArrowUpCircle className="h-4 w-4 text-green-500" />
+                            <ArrowUpCircle className="h-4 w-4 text-chart-1" />
                             Registrar ingreso
                         </Button>
                         <Button className="gap-2" onClick={() => openDialog('EXPENSE')}>
@@ -243,11 +245,9 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                             <span className="text-sm text-white font-black">{u.unit_name}</span>
                                         </div>
                                         {u.status === 'PAID' ? (
-                                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                            <CheckCircle2 className="h-4 w-4 text-chart-1" />
                                         ) : (
-                                            <Badge className={u.status === 'PARTIAL' ? 'bg-amber-500/20 text-amber-500 border-amber-500/30' : 'bg-destructive/20 text-destructive border-destructive/30'}>
-                                                {u.status}
-                                            </Badge>
+                                            <StatusBadge status={u.status} />
                                         )}
                                     </div>
                                     <div className="space-y-1">
@@ -255,7 +255,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                             <span>Cobertura</span>
                                             <span>{Math.round(progress)}%</span>
                                         </div>
-                                        <Progress value={progress} className="h-1.5" indicatorClassName={u.status === 'PAID' ? 'bg-green-500' : u.status === 'PARTIAL' ? 'bg-amber-500' : 'bg-primary'} />
+                                        <Progress value={progress} className="h-1.5" indicatorClassName={u.status === 'PAID' ? 'bg-chart-1' : u.status === 'PARTIAL' ? 'bg-chart-2' : 'bg-primary'} />
                                         <div className="flex justify-between text-[10px] text-white font-medium mt-1">
                                             <span>{formatMoney(u.covered_amount, balance?.currency ?? 'USD')}</span>
                                             <span className="text-muted-foreground">/ {formatMoney(u.expected_amount, balance?.currency ?? 'USD')}</span>
@@ -268,155 +268,112 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 </div>
             )}
 
-            <Card className={`p-4 ${cardClass}`}>
-                <div className="flex flex-wrap gap-4">
-                    <div className="w-full md:w-48">
-                        <Select value={filterType} onValueChange={(v) => { setPage(0); setFilterType(v); }}>
-                            <SelectTrigger className={isBuildingVariant ? 'bg-background/50 border-white/5' : ''}>
-                                <SelectValue placeholder="Tipo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los tipos</SelectItem>
-                                <SelectItem value="INCOME">Ingreso</SelectItem>
-                                <SelectItem value="EXPENSE">Egreso</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="w-full md:w-56">
-                        <Select value={filterCategory} onValueChange={(v) => { setPage(0); setFilterCategory(v); }}>
-                            <SelectTrigger className={isBuildingVariant ? 'bg-background/50 border-white/5' : ''}>
-                                <SelectValue placeholder="Categoría" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas las categorías</SelectItem>
-                                {PETTY_CASH_CATEGORIES.map((c) => (
-                                    <SelectItem key={c} value={c}>
-                                        {c}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+            <FilterBar>
+                <div className="w-full md:w-48">
+                    <Select value={filterType} onValueChange={(v) => { setPage(0); setFilterType(v); }}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los tipos</SelectItem>
+                            <SelectItem value="INCOME">Ingreso</SelectItem>
+                            <SelectItem value="EXPENSE">Egreso</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
-            </Card>
+                <div className="w-full md:w-56">
+                    <Select value={filterCategory} onValueChange={(v) => { setPage(0); setFilterCategory(v); }}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Categoría" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas las categorías</SelectItem>
+                            {PETTY_CASH_CATEGORIES.map((c) => (
+                                <SelectItem key={c} value={c}>
+                                    {c}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </FilterBar>
 
-            <Card className={`${cardClass} overflow-hidden`}>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className={tableHeadClass}>
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        Fecha
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        Tipo
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        Monto
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        Descripción
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        Categoría
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        Evidencia
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody
-                                className={
-                                    isBuildingVariant
-                                        ? 'divide-y divide-white/5 bg-card/30'
-                                        : 'divide-y divide-border/50 bg-card'
-                                }
-                            >
-                                {isLoading ? (
-                                    <tr>
-                                        <td
-                                            colSpan={6}
-                                            className="px-6 py-8 text-center text-muted-foreground"
-                                        >
-                                            Cargando movimientos…
-                                        </td>
-                                    </tr>
-                                ) : transactions.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={6}
-                                            className="px-6 py-8 text-center text-muted-foreground"
-                                        >
-                                            No hay movimientos registrados.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    transactions.map((t) => {
-                                        const isInc =
-                                            t.type?.toUpperCase() === 'INCOME' ||
-                                            t.type?.toUpperCase() === 'INGRESO';
-                                        return (
-                                            <tr
-                                                key={t.id}
-                                                className={
-                                                    isBuildingVariant
-                                                        ? 'hover:bg-white/5'
-                                                        : 'hover:bg-accent/50'
-                                                }
-                                            >
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-foreground">
-                                                    {t.created_at
-                                                        ? formatDate(t.created_at)
-                                                        : '—'}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4">
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className={
-                                                            isInc
-                                                                ? 'border-green-500/30 bg-green-500/15 text-green-700 dark:text-green-400'
-                                                                : 'border-orange-500/30 bg-orange-500/15 text-orange-700 dark:text-orange-400'
-                                                        }
+            {isLoading ? (
+                <TableSkeleton rows={5} columns={6} />
+            ) : (
+                <>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Tipo</TableHead>
+                                <TableHead>Monto</TableHead>
+                                <TableHead>Descripción</TableHead>
+                                <TableHead>Categoría</TableHead>
+                                <TableHead>Evidencia</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {transactions.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="p-0">
+                                        <EmptyState icon={Receipt} message="No hay movimientos registrados" variant="inline" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                transactions.map((t) => {
+                                    const isInc =
+                                        t.type?.toUpperCase() === 'INCOME' ||
+                                        t.type?.toUpperCase() === 'INGRESO';
+                                    return (
+                                        <TableRow key={t.id}>
+                                            <TableCell>
+                                                {t.created_at ? formatDate(t.created_at) : '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className={
+                                                        isInc
+                                                            ? 'border-chart-1/30 bg-chart-1/15 text-chart-1'
+                                                            : 'border-chart-2/30 bg-chart-2/15 text-chart-2'
+                                                    }
+                                                >
+                                                    {typeLabel(t.type)}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="font-medium tabular-nums">
+                                                {formatTxAmount(t)}
+                                            </TableCell>
+                                            <TableCell className="max-w-xs truncate whitespace-normal">
+                                                {t.description}
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground">
+                                                {t.category || '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {t.evidence_url ? (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="gap-1"
+                                                        onClick={() => setEvidenceUrl(t.evidence_url || null)}
                                                     >
-                                                        {typeLabel(t.type)}
-                                                    </Badge>
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium tabular-nums">
-                                                    {formatTxAmount(t)}
-                                                </td>
-                                                <td className="max-w-xs truncate px-6 py-4 text-sm">
-                                                    {t.description}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                                                    {t.category || '—'}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                                    {t.evidence_url ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="gap-1"
-                                                            onClick={() =>
-                                                                setEvidenceUrl(t.evidence_url || null)
-                                                            }
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                            Ver
-                                                        </Button>
-                                                    ) : (
-                                                        '—'
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                                        <Eye className="h-4 w-4" />
+                                                        Ver
+                                                    </Button>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
                     {transactions.length > 0 && (
-                        <div className="flex items-center justify-end gap-2 border-t border-border/50 p-4">
+                        <div className="flex items-center justify-end gap-2 p-4">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -438,8 +395,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                             </Button>
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </>
+            )}
 
             <TransactionDialog
                 open={dialogOpen}
@@ -462,6 +419,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto bg-card border-white/10">
                     <DialogHeader>
                         <DialogTitle>Comprobante</DialogTitle>
+                        <DialogDescription className="sr-only">Vista previa del comprobante de la transacción.</DialogDescription>
                     </DialogHeader>
                     {evidenceUrl && (
                         <>
