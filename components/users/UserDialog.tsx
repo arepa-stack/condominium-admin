@@ -57,6 +57,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
         unit_id: z.string().optional(),
         role: z.enum(['resident', 'board', 'admin']),
         status: z.enum(['active', 'pending', 'inactive', 'rejected']),
+        board_position: z.string().optional(),
     });
 
     const editSchema = z.object({
@@ -89,10 +90,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
             unit_id: '',
             role: 'resident',
             status: 'active',
+            board_position: '',
         },
     });
 
     const selectedBuildingId = form.watch('building_id');
+    const createRole = form.watch('role');
 
     // Fetch units when building is selected (only for create mode)
     useEffect(() => {
@@ -139,6 +142,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 unit_id: '',
                 role: 'resident',
                 status: 'active',
+                board_position: '',
             });
         }
     }, [user, open, form]);
@@ -161,15 +165,24 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 toast.success('Perfil de usuario actualizado correctamente');
             } else {
                 // POST /users - Requires building_id
-                await usersService.createUser({
+                const createPayload: Parameters<typeof usersService.createUser>[0] = {
                     name: data.name,
                     email: data.email,
                     password: data.password,
                     phone: data.phone,
                     building_id: data.building_id,
-                    unit_id: data.unit_id, // Optional
+                    unit_id: data.unit_id,
                     role: data.role,
-                });
+                };
+                if (
+                    data.role === 'board' &&
+                    'board_position' in data &&
+                    typeof data.board_position === 'string' &&
+                    data.board_position.trim()
+                ) {
+                    createPayload.board_position = data.board_position.trim();
+                }
+                await usersService.createUser(createPayload);
                 toast.success('¡Usuario creado correctamente! Usá "Gestionar roles" para agregar más unidades.');
             }
             onSuccess();
@@ -473,6 +486,32 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                 )}
                             />
                         </div>
+
+                        {!user && createRole === 'board' && (
+                            <FormField
+                                control={form.control}
+                                name="board_position"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center gap-2">
+                                            <Shield className="h-4 w-4 text-muted-foreground" />
+                                            Cargo en la junta (opcional)
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                {...field}
+                                                placeholder="Ej. Tesorero, Presidente… (por defecto en el servidor: Miembro de la junta)"
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                            />
+                                        </FormControl>
+                                        <FormDescription className="text-xs">
+                                            Si lo dejás vacío, el API puede asignar un cargo por defecto y sincronizar el directorio.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         <DialogFooter>
                             <Button type="submit">

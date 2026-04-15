@@ -5,9 +5,12 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -34,6 +37,12 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
     const [loadingBuildingId, setLoadingBuildingId] = useState<string | null>(null);
     const [userBuildingRoles, setUserBuildingRoles] = useState<{ building_id: string; role: string; building_name: string }[]>([]);
     const [loading, setLoading] = useState(false);
+
+    const [promoteTarget, setPromoteTarget] = useState<{
+        buildingId: string;
+        buildingName: string;
+    } | null>(null);
+    const [boardPositionInput, setBoardPositionInput] = useState('Miembro de la junta');
 
     // Fetch user's roles and buildings when dialog opens
     useEffect(() => {
@@ -80,7 +89,11 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
 
     if (!user) return null;
 
-    const handleRoleUpdate = async (buildingId: string, role: string) => {
+    const handleRoleUpdate = async (
+        buildingId: string,
+        role: string,
+        boardPosition?: string,
+    ) => {
         if (!user) return;
 
         // Permission check
@@ -91,7 +104,12 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
 
         try {
             setLoadingBuildingId(buildingId);
-            await usersService.updateBuildingRole(user.id, buildingId, role);
+            await usersService.updateBuildingRole(
+                user.id,
+                buildingId,
+                role,
+                role === 'board' ? boardPosition : undefined,
+            );
             toast.success(`Rol de ${user.name} actualizado a ${role} en ${userBuildingRoles.find(r => r.building_id === buildingId)?.building_name || 'el edificio'}`);
 
             // Update local state
@@ -106,6 +124,19 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
         } finally {
             setLoadingBuildingId(null);
         }
+    };
+
+    const openPromoteDialog = (buildingId: string, buildingName: string) => {
+        setBoardPositionInput('Miembro de la junta');
+        setPromoteTarget({ buildingId, buildingName });
+    };
+
+    const confirmPromote = async () => {
+        if (!promoteTarget) return;
+        const { buildingId } = promoteTarget;
+        const pos = boardPositionInput.trim() || 'Miembro de la junta';
+        setPromoteTarget(null);
+        await handleRoleUpdate(buildingId, 'board', pos);
     };
 
     // handleDemoteToResident is merged into handleRoleUpdate
@@ -206,7 +237,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                 {br.role !== 'board' && (
                                                     <Button
                                                         size="sm"
-                                                        onClick={() => handleRoleUpdate(br.building_id, 'board')}
+                                                        onClick={() => openPromoteDialog(br.building_id, br.building_name)}
                                                         disabled={!canManage || isLoading}
                                                         className="bg-primary hover:bg-primary/90 text-white border-0 shadow-lg shadow-primary/30"
                                                     >
@@ -222,7 +253,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
-                                                        onClick={() => handleRoleUpdate(br.building_id, 'resident')}
+                                                        onClick={() => handleRoleUpdate(br.building_id, 'resident', undefined)}
                                                         disabled={!canManage || isLoading}
                                                         className="border-muted-foreground/30 hover:bg-muted/50"
                                                     >
@@ -251,8 +282,43 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                     <div className="text-xs text-muted-foreground">
                         <p><strong className="text-foreground">Rol del Edificio</strong> determina los permisos dentro de un edificio específico.</p>
                         <p className="mt-1">Los miembros de la directiva pueden gestionar usuarios, aprobar pagos y ver reportes de sus edificios.</p>
+                        <p className="mt-1">Al promover a junta se envía el cargo al API para sincronizar el directorio del edificio.</p>
                     </div>
                 </div>
+
+                <Dialog open={!!promoteTarget} onOpenChange={(open) => !open && setPromoteTarget(null)}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Cargo en la junta</DialogTitle>
+                            <DialogDescription>
+                                {promoteTarget
+                                    ? `Definí el cargo de ${user.name} en ${promoteTarget.buildingName}. Se enviará al API para crear o reactivar la fila en el directorio.`
+                                    : null}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2 py-2">
+                            <Label htmlFor="board-position">Cargo (ej. Presidente, Tesorero)</Label>
+                            <Input
+                                id="board-position"
+                                value={boardPositionInput}
+                                onChange={(e) => setBoardPositionInput(e.target.value)}
+                                placeholder="Miembro de la junta"
+                            />
+                        </div>
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button type="button" variant="outline" onClick={() => setPromoteTarget(null)}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={confirmPromote}
+                                disabled={!!promoteTarget && loadingBuildingId === promoteTarget.buildingId}
+                            >
+                                Confirmar promoción
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </DialogContent>
         </Dialog>
     );
