@@ -116,6 +116,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
 
     const progress = invoice ? (invoice.paid_amount / invoice.amount) * 100 : 0;
     const isPaid = invoice?.status === 'PAID';
+    const isPartial = invoice?.status === 'PARTIAL';
 
     const periodDisplay = invoice
         ? invoice.period
@@ -159,6 +160,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                                 {periodDisplay}
                                             </Badge>
                                             {isPaid && <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px] uppercase font-black">PAID</Badge>}
+                                            {isPartial && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] uppercase font-black">PARTIAL</Badge>}
                                         </div>
                                         <h2 className="text-2xl font-black text-white tracking-tight">{title}</h2>
                                         <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
@@ -178,7 +180,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                         <span>Payment Progress</span>
                                         <span>{formatCurrency(invoice.paid_amount)} / {formatCurrency(invoice.amount)}</span>
                                     </div>
-                                    <Progress value={progress} className="h-2 bg-white/5" indicatorClassName={isPaid ? "bg-green-500" : "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)]"} />
+                                    <Progress value={progress} className="h-2 bg-white/5" indicatorClassName={isPaid ? "bg-green-500" : isPartial ? "bg-amber-500" : "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)]"} />
                                 </div>
                             </div>
 

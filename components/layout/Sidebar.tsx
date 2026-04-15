@@ -8,10 +8,10 @@ import {
     Users,
     Building2,
     Home,
-    CreditCard,
     FileText,
     LogOut,
     Menu,
+    Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -33,7 +33,7 @@ const navigation = [
     { name: 'Units', href: '/units', icon: Home, roles: ['admin', 'board'] },
     { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'board'] },
     { name: 'Billing', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
-    { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['admin', 'board'] },
+    { name: 'Finanzas', href: '/finances', icon: Wallet, roles: ['admin', 'board'] },
 ];
 
 export function Sidebar() {
@@ -65,7 +65,7 @@ export function Sidebar() {
             }
 
             // Other functional pages: if in building context, use contextual route
-            const contextualPages = ['/units', '/users', '/billing', '/payments'];
+            const contextualPages = ['/units', '/users', '/billing'];
             const activeBuildingId = buildingId || selectedBuildingId;
             if (activeBuildingId && contextualPages.includes(item.href)) {
                 return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
@@ -74,7 +74,7 @@ export function Sidebar() {
             return item;
         });
 
-    const SidebarContent = () => (
+    const renderSidebarContent = () => (
         <div className="flex bg-card/50 h-full flex-col justify-between py-6 backdrop-blur-xl border-r border-white/5">
             <div className="px-4">
                 <div className="flex items-center gap-2 px-2 mb-2">
@@ -117,7 +117,7 @@ export function Sidebar() {
                                         router.push(`/buildings/${id}/${action}`);
                                     } else {
                                         // Global page to contextual page if applicable
-                                        const contextualPages = ['units', 'users', 'billing', 'payments'];
+                                        const contextualPages = ['units', 'users', 'billing'];
                                         const currentAction = pathname.replace('/', '');
                                         if (contextualPages.includes(currentAction)) {
                                             router.push(`/buildings/${id}/${currentAction}`);
@@ -220,13 +220,13 @@ export function Sidebar() {
                     </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 border-r-border/50 w-72">
-                    <SidebarContent />
+                    {renderSidebarContent()}
                 </SheetContent>
             </Sheet>
 
             {/* Desktop Sidebar */}
             <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col bg-background/50 backdrop-blur-xl z-20">
-                <SidebarContent />
+                {renderSidebarContent()}
             </div>
         </>
     );

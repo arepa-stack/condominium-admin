@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://condominium-api.nibs-tech.com/';
 // export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://condominio.api.diangogavidia.com';
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Condominio Admin';
 export const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === 'true';
@@ -18,4 +18,16 @@ export const ROUTES = {
     BUILDINGS: '/buildings',
     USERS: '/users',
     PAYMENTS: '/payments',
+    PETTY_CASH: '/petty-cash',
 } as const;
+
+export const PETTY_CASH_CATEGORIES = [
+    'REPAIR',
+    'CLEANING',
+    'EMERGENCY',
+    'OFFICE',
+    'UTILITIES',
+    'OTHER',
+] as const;
+
+export const INVOICE_STATUSES = ['PENDING', 'PARTIAL', 'PAID', 'CANCELLED'] as const;
