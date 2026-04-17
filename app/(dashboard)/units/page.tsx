@@ -33,9 +33,16 @@ export default function UnitsPage() {
     const [filterBuildingId, setFilterBuildingId] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Sync filterBuildingId with globally selected buildingId on init/change
+    useEffect(() => {
+        if (buildingId && (filterBuildingId === 'all' || !filterBuildingId)) {
+            setFilterBuildingId(buildingId);
+        }
+    }, [buildingId, filterBuildingId]);
 
-
-    const activeBuildingId = filterBuildingId !== 'all' ? filterBuildingId : undefined;
+    // Explicit filter wins, else fall back to globally selected building
+    const activeBuildingId =
+        filterBuildingId !== 'all' ? filterBuildingId : buildingId;
 
     const fetchData = useCallback(async () => {
         if (!user) return; // Wait for auth

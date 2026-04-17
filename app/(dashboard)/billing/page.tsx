@@ -66,10 +66,9 @@ export default function BillingPage() {
     const [filterMonth, setFilterMonth] = useState<string>('all');
     const searchParams = useSearchParams();
 
-    // Determine active building ID for both UI and Data loading
-    const activeBuildingId = isSuperAdmin
-        ? (filterBuildingId !== 'all' ? filterBuildingId : undefined)
-        : (filterBuildingId !== 'all' ? filterBuildingId : buildingId);
+    // Explicit filter wins, else fall back to globally selected building
+    const activeBuildingId =
+        filterBuildingId !== 'all' ? filterBuildingId : buildingId;
 
     // Initial filter setup from query params
     useEffect(() => {
@@ -86,12 +85,12 @@ export default function BillingPage() {
         if (status) setFilterStatus(status);
     }, [searchParams]);
 
-    // Sync filterBuildingId with buildingId for board members on init
+    // Sync filterBuildingId with globally selected buildingId on init/change
     useEffect(() => {
-        if (!isSuperAdmin && buildingId && (filterBuildingId === 'all' || !filterBuildingId)) {
+        if (buildingId && (filterBuildingId === 'all' || !filterBuildingId)) {
             setFilterBuildingId(buildingId);
         }
-    }, [buildingId, isSuperAdmin, filterBuildingId]);
+    }, [buildingId, filterBuildingId]);
 
     // Reset unit filter when building changes
     useEffect(() => {
@@ -328,14 +327,14 @@ export default function BillingPage() {
             <InvoiceDialog
                 open={isInvoiceDialogOpen}
                 onOpenChange={setIsInvoiceDialogOpen}
-                buildingId={isSuperAdmin ? (filterBuildingId !== 'all' ? filterBuildingId : undefined) : buildingId}
+                buildingId={activeBuildingId}
                 onSuccess={fetchData}
             />
 
             <ExcelInvoiceLoader
                 open={isExcelLoaderOpen}
                 onOpenChange={setIsExcelLoaderOpen}
-                buildingId={isSuperAdmin ? (filterBuildingId !== 'all' ? filterBuildingId : undefined) : buildingId}
+                buildingId={activeBuildingId}
                 buildings={buildings}
                 onSuccess={fetchData}
             />

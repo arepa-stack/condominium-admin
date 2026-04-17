@@ -63,12 +63,18 @@ export default function UsersPage() {
     const [isUnitsManagerOpen, setIsUnitsManagerOpen] = useState(false);
     const [unitsManagerUser, setUnitsManagerUser] = useState<User | null>(null);
 
+    // Explicit filter wins, else fall back to globally selected building
     const activeBuildingId =
         filterBuildingId && filterBuildingId !== 'all'
             ? filterBuildingId
-            : !isSuperAdmin && buildingId
-                ? buildingId
-                : undefined;
+            : buildingId;
+
+    // Sync filterBuildingId with globally selected buildingId on init/change
+    useEffect(() => {
+        if (buildingId && (filterBuildingId === 'all' || !filterBuildingId)) {
+            setFilterBuildingId(buildingId);
+        }
+    }, [buildingId, filterBuildingId]);
 
     // Reset to first page when filters change
     useEffect(() => {
