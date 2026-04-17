@@ -2,14 +2,22 @@ import { apiClient } from '@/lib/api/client';
 import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
 import type {
     PettyCashBalance,
-    PettyCashTransaction,
+    PettyCashEntry,
+    PettyCashEntryType,
+    PettyCashCategory,
     CreatePettyCashIncomeDto,
+    CreatePettyCashAssessmentDto,
     PettyCashAssessmentPreview,
     PettyCashAssessmentResponse,
     PettyCashTransparency,
 } from '@/types/models';
 
 const P = ADMIN_API_PREFIX;
+
+const normalizeEntry = (e: PettyCashEntry): PettyCashEntry => ({
+    ...e,
+    amount: Number(e.amount),
+});
 
 export const pettyCashService = {
     async getBalance(buildingId: string): Promise<PettyCashBalance> {
@@ -25,30 +33,27 @@ export const pettyCashService = {
     async getHistory(
         buildingId: string,
         params?: {
-            type?: string;
-            category?: string;
+            type?: PettyCashEntryType;
+            category?: PettyCashCategory;
             page?: number;
             limit?: number;
         }
-    ): Promise<PettyCashTransaction[]> {
-        const { data } = await apiClient.get<PettyCashTransaction[]>(
-            `${P}/petty-cash/funds/${buildingId}/transactions`,
+    ): Promise<PettyCashEntry[]> {
+        const { data } = await apiClient.get<PettyCashEntry[]>(
+            `${P}/petty-cash/funds/${buildingId}/entries`,
             { params }
         );
-        return (Array.isArray(data) ? data : []).map((t) => ({
-            ...t,
-            amount: Number(t.amount),
-        }));
+        return (Array.isArray(data) ? data : []).map(normalizeEntry);
     },
 
-    async registerIncome(payload: CreatePettyCashIncomeDto): Promise<PettyCashTransaction> {
+    async registerIncome(payload: CreatePettyCashIncomeDto): Promise<PettyCashEntry> {
         const fd = new FormData();
-        fd.append('type', 'INCOME');
+        fd.append('type', 'income');
         fd.append('amount', String(payload.amount));
         fd.append('description', payload.description);
 
-        const { data } = await apiClient.post<PettyCashTransaction>(
-            `${P}/petty-cash/funds/${payload.building_id}/transactions`,
+        const { data } = await apiClient.post<PettyCashEntry>(
+            `${P}/petty-cash/funds/${payload.building_id}/entries`,
             fd,
             {
                 headers: {
@@ -56,21 +61,20 @@ export const pettyCashService = {
                 },
             }
         );
-        return {
-            ...data,
-            amount: Number(data.amount),
-        };
+        return normalizeEntry(data);
     },
 
-    async registerExpense(formData: FormData): Promise<PettyCashTransaction> {
+    async registerExpense(formData: FormData): Promise<PettyCashEntry> {
         const buildingId = formData.get('building_id');
-        // Type is explicitly added to formData in TransactionDialog or we ensure it's here
-        if (!formData.has('type')) {
-            formData.append('type', 'EXPENSE');
+        if (!buildingId) {
+            throw new Error('building_id is required');
         }
-        
-        const { data } = await apiClient.post<PettyCashTransaction>(
-            `${P}/petty-cash/funds/${buildingId}/transactions`,
+        if (!formData.has('type')) {
+            formData.append('type', 'expense');
+        }
+
+        const { data } = await apiClient.post<PettyCashEntry>(
+            `${P}/petty-cash/funds/${buildingId}/entries`,
             formData,
             {
                 headers: {
@@ -78,10 +82,19 @@ export const pettyCashService = {
                 },
             }
         );
-        return {
-            ...data,
-            amount: Number(data.amount),
-        };
+        return normalizeEntry(data);
+    },
+
+    async reverseEntry(
+        buildingId: string,
+        entryId: string,
+        reason: string
+    ): Promise<PettyCashEntry> {
+        const { data } = await apiClient.post<PettyCashEntry>(
+            `${P}/petty-cash/funds/${buildingId}/entries/${entryId}/reverse`,
+            { reason }
+        );
+        return normalizeEntry(data);
     },
 
     async getAssessmentPreview(buildingId: string): Promise<PettyCashAssessmentPreview | null> {
@@ -99,8 +112,18 @@ export const pettyCashService = {
         }
     },
 
-    async generateAssessments(buildingId: string): Promise<PettyCashAssessmentResponse> {
-        const { data } = await apiClient.post<PettyCashAssessmentResponse>(`${P}/petty-cash/funds/${buildingId}/assessments`);
+    async generateAssessments(
+        buildingId: string,
+        payload: CreatePettyCashAssessmentDto
+    ): Promise<PettyCashAssessmentResponse> {
+        const { data } = await apiClient.post<PettyCashAssessmentResponse>(
+            `${P}/petty-cash/funds/${buildingId}/assessments`,
+            {
+                description: payload.description,
+                amount: payload.amount,
+                ...(payload.category ? { category: payload.category } : {}),
+            }
+        );
         return data;
     },
 

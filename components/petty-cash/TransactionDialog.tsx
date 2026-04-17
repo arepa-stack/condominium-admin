@@ -33,14 +33,16 @@ import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import type { PettyCashTransactionType } from '@/types/models';
+import type { PettyCashCategory } from '@/types/models';
 
-function buildSchema(transactionType: PettyCashTransactionType) {
+export type PettyCashManualEntryType = 'income' | 'expense';
+
+function buildSchema(entryType: PettyCashManualEntryType) {
     const base = {
         amount: z.coerce.number().positive('El monto debe ser mayor a 0'),
         description: z.string().min(1, 'La descripción es obligatoria'),
     };
-    if (transactionType === 'INCOME') {
+    if (entryType === 'income') {
         return z.object(base);
     }
     return z.object({
@@ -58,7 +60,7 @@ interface TransactionFormValues {
 interface TransactionDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    transactionType: PettyCashTransactionType;
+    entryType: PettyCashManualEntryType;
     buildingId: string;
     onSuccess?: () => void;
 }
@@ -66,12 +68,12 @@ interface TransactionDialogProps {
 export function TransactionDialog({
     open,
     onOpenChange,
-    transactionType,
+    entryType,
     buildingId,
     onSuccess,
 }: TransactionDialogProps) {
     const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
-    const schema = useMemo(() => buildSchema(transactionType), [transactionType]);
+    const schema = useMemo(() => buildSchema(entryType), [entryType]);
 
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(schema) as Resolver<TransactionFormValues>,
@@ -91,7 +93,7 @@ export function TransactionDialog({
             });
             setEvidenceFile(null);
         }
-    }, [open, transactionType, form]);
+    }, [open, entryType, form]);
 
     const onSubmit = async (data: TransactionFormValues) => {
         if (!buildingId) {
@@ -99,7 +101,7 @@ export function TransactionDialog({
             return;
         }
         try {
-            if (transactionType === 'INCOME') {
+            if (entryType === 'income') {
                 await pettyCashService.registerIncome({
                     building_id: buildingId,
                     amount: data.amount,
@@ -111,7 +113,10 @@ export function TransactionDialog({
                 fd.append('building_id', buildingId);
                 fd.append('amount', String(data.amount));
                 fd.append('description', data.description);
-                fd.append('category', (data as { category: string }).category);
+                fd.append(
+                    'category',
+                    ((data as { category: string }).category as PettyCashCategory) || 'OTHER'
+                );
                 if (evidenceFile) {
                     fd.append('evidence_image', evidenceFile);
                 }
@@ -123,14 +128,14 @@ export function TransactionDialog({
         } catch (e) {
             console.error(e);
             toast.error(
-                transactionType === 'INCOME'
+                entryType === 'income'
                     ? 'No se pudo registrar el ingreso'
                     : 'No se pudo registrar el egreso'
             );
         }
     };
 
-    const isExpense = transactionType === 'EXPENSE';
+    const isExpense = entryType === 'expense';
     const title = isExpense ? 'Registrar egreso' : 'Registrar ingreso';
 
     return (
