@@ -66,11 +66,18 @@ export default function PaymentsPage() {
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
 
-    const activeBuildingId = isSuperAdmin
-        ? filterBuildingId && filterBuildingId !== 'all'
+    // Explicit filter wins, else fall back to globally selected building
+    const activeBuildingId =
+        filterBuildingId && filterBuildingId !== 'all'
             ? filterBuildingId
-            : undefined
-        : buildingId;
+            : buildingId;
+
+    // Sync filterBuildingId with globally selected buildingId on init/change
+    useEffect(() => {
+        if (buildingId && (filterBuildingId === 'all' || !filterBuildingId)) {
+            setFilterBuildingId(buildingId);
+        }
+    }, [buildingId, filterBuildingId]);
 
     // Reset to first page when filters change
     useEffect(() => {
