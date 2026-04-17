@@ -12,6 +12,7 @@ import {
     LogOut,
     Menu,
     Wallet,
+    Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -43,6 +44,7 @@ const navigation: Array<{
     { name: 'Usuarios', href: '/users', icon: Users, access: 'board-or-admin' },
     { name: 'Facturación', href: '/billing', icon: FileText, access: 'board-or-admin' },
     { name: 'Finanzas', href: '/finances', icon: Wallet, access: 'board-or-admin' },
+    { name: 'Ajustes', href: '/settings', icon: Settings, access: 'board-or-admin' },
 ];
 
 export function Sidebar() {
@@ -70,13 +72,6 @@ export function Sidebar() {
             return isSuperAdmin || isBoardMember;
         })
         .map(item => {
-            // Dashboard is handled specifically: /dashboard is global, /buildings/[id]/dashboard is contextual
-            if (item.href === '/dashboard') {
-                return buildingId
-                    ? { ...item, href: `/buildings/${buildingId}/dashboard` }
-                    : item;
-            }
-
             // Other functional pages: if in building context, use contextual route
             const contextualPages = ['/units', '/users', '/billing'];
             const activeBuildingId = buildingId || selectedBuildingId;
@@ -174,12 +169,20 @@ export function Sidebar() {
 
                 <nav className="space-y-0.5">
                     {filteredNavigation.map((item) => {
-                        let isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                        let isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`));
 
-                        // Special case: "Buildings" should only be active on the buildings list page, 
-                        // not while inside a specific building's context
+                        // Special case: "Edificios" is active if we're in any /buildings/... path,
+                        // UNLESS we're in a more specific section that has its own sidebar item.
                         if (item.name === 'Edificios') {
-                            isActive = pathname === '/buildings' || pathname === '/buildings/';
+                            const isChildPageActive = filteredNavigation.some(
+                                other => other.name !== 'Edificios' && pathname.startsWith(other.href)
+                            );
+                            isActive = pathname.startsWith('/buildings') && !isChildPageActive;
+                        }
+
+                        // Special case: "Panel" should only be active for the global dashboard
+                        if (item.name === 'Panel') {
+                            isActive = pathname === '/dashboard' || pathname === '/dashboard/';
                         }
                         return (
                             <Link
@@ -219,14 +222,26 @@ export function Sidebar() {
                         </div>
                     </div>
                 </div>
-                <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3 hover:bg-destructive/10 hover:text-destructive text-muted-foreground text-sm"
-                    onClick={logout}
-                >
-                    <LogOut className="h-4 w-4" />
-                    Cerrar sesión
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        className="flex-1 justify-start gap-3 hover:bg-destructive/10 hover:text-destructive text-muted-foreground text-sm"
+                        onClick={logout}
+                    >
+                        <LogOut className="h-4 w-4" />
+                        Cerrar sesión
+                    </Button>
+                    <Link href="/settings">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                            title="Ajustes de apariencia"
+                        >
+                            <Settings className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                </div>
             </div>
         </div>
     );
