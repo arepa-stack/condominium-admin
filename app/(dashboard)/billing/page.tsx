@@ -27,7 +27,22 @@ import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Eye, Building2, Plus, FileSpreadsheet, Home, FileText } from 'lucide-react';
-import type { Invoice, Building, Unit } from '@/types/models';
+import { Paginator } from '@/components/ui/paginator';
+import type { Invoice, Building, Unit, PaginationMetadata, InvoiceTag } from '@/types/models';
+
+const PAGE_SIZE = 20;
+
+type InvoiceQuery = {
+    page?: number;
+    limit?: number | 'all';
+    building_id?: string;
+    unit_id?: string;
+    status?: string;
+    month?: number;
+    year?: number;
+    user_id?: string;
+    tag?: InvoiceTag;
+};
 
 export default function BillingPage() {
     const { isSuperAdmin, isBoardMember, user, buildingId } = usePermissions();
@@ -35,6 +50,8 @@ export default function BillingPage() {
     const router = useRouter();
 
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [invoicesMetadata, setInvoicesMetadata] = useState<PaginationMetadata | null>(null);
+    const [page, setPage] = useState(1);
     const [buildings, setBuildings] = useState<Building[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -81,32 +98,30 @@ export default function BillingPage() {
         setFilterUnitId('all');
     }, [filterBuildingId, isSuperAdmin]);
 
+    // Reset to first page whenever filters change
+    useEffect(() => {
+        setPage(1);
+    }, [activeBuildingId, filterUnitId, filterStatus, filterYear, filterMonth]);
+
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
 
-            // Build query params
-            const query: any = {};
+            const query: InvoiceQuery = { page, limit: PAGE_SIZE };
             if (activeBuildingId) query.building_id = activeBuildingId;
             if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
             if (filterYear) query.year = parseInt(filterYear);
             if (filterMonth && filterMonth !== 'all') query.month = parseInt(filterMonth);
 
-            const promises: Promise<any>[] = [
-                billingService.getInvoices(query),
-                isSuperAdmin ? buildingsService.getBuildings() : Promise.resolve([])
-            ];
+            const [invoicesResp, buildingsData, unitsData] = await Promise.all([
+                billingService.getInvoicesPaginated(query),
+                isSuperAdmin ? buildingsService.getBuildings() : Promise.resolve([] as Building[]),
+                activeBuildingId ? unitsService.getUnits(activeBuildingId) : Promise.resolve([] as Unit[]),
+            ]);
 
-            if (activeBuildingId) {
-                promises.push(unitsService.getUnits(activeBuildingId));
-            } else {
-                promises.push(Promise.resolve([]));
-            }
-
-            const [invoicesData, buildingsData, unitsData] = await Promise.all(promises);
-
-            setInvoices(invoicesData);
+            setInvoices(invoicesResp.data);
+            setInvoicesMetadata(invoicesResp.metadata);
             setBuildings(buildingsData);
             setUnits(unitsData);
 
@@ -116,7 +131,7 @@ export default function BillingPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [isSuperAdmin, activeBuildingId, filterUnitId, filterStatus, filterYear, filterMonth]);
+    }, [isSuperAdmin, activeBuildingId, filterUnitId, filterStatus, filterYear, filterMonth, page]);
 
     useEffect(() => {
         fetchData();
@@ -303,6 +318,12 @@ export default function BillingPage() {
                     </TableBody>
                 </Table>
             )}
+
+            <Paginator
+                metadata={invoicesMetadata}
+                isLoading={isLoading}
+                onPageChange={setPage}
+            />
 
             <InvoiceDialog
                 open={isInvoiceDialogOpen}
