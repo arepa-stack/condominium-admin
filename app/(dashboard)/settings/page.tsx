@@ -1,0 +1,130 @@
+'use client';
+
+import { useTheme } from 'next-themes';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Monitor, Moon, Sun, Palette } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+
+export default function SettingsPage() {
+    const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    // Evitar errores de hidratación mostrando nada hasta que esté montado el cliente
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null;
+
+    const themeOptions = [
+        {
+            id: 'light',
+            label: 'Claro',
+            desc: 'Ideal para ambientes con mucha luz natural.',
+            icon: Sun,
+            color: 'bg-[#FBFBF9] border-[#E5E5E0]',
+        },
+        {
+            id: 'dark',
+            label: 'Oscuro',
+            desc: 'Perfecto para trabajar de noche o en interiores.',
+            icon: Moon,
+            color: 'bg-[#1A1D23] border-[#2E333C]',
+        },
+        {
+            id: 'system',
+            label: 'Sistema',
+            desc: 'Se adapta automáticamente según tu dispositivo.',
+            icon: Monitor,
+            color: 'bg-gradient-to-br from-[#FBFBF9] to-[#1A1D23]',
+        },
+    ];
+
+    return (
+        <div className="max-w-4xl space-y-8 animate-fade-in">
+            <div className="flex flex-col gap-2">
+                <h1 className="text-3xl font-bold text-foreground font-display tracking-tight flex items-center gap-3">
+                    <Palette className="h-8 w-8 text-primary" />
+                    Ajustes del Sistema
+                </h1>
+                <p className="text-muted-foreground">Personaliza tu experiencia y configuración visual.</p>
+            </div>
+
+            <Card className="border-border/50 bg-card backdrop-blur shadow-sm">
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <Palette className="h-5 w-5 text-primary" />
+                        Apariencia
+                    </CardTitle>
+                    <CardDescription>
+                        Elige el tema que mejor se adapte a tu estilo de trabajo.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <RadioGroup 
+                        value={theme} 
+                        onValueChange={setTheme}
+                        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+                    >
+                        {themeOptions.map((option) => {
+                            const Icon = option.icon;
+                            const isSelected = theme === option.id;
+                            
+                            return (
+                                <div key={option.id}>
+                                    <RadioGroupItem
+                                        value={option.id}
+                                        id={option.id}
+                                        className="peer sr-only"
+                                    />
+                                    <Label
+                                        htmlFor={option.id}
+                                        onClick={() => setTheme(option.id)}
+                                        className={cn(
+                                            "flex flex-col gap-4 rounded-xl border-2 bg-muted/20 p-4 transition-all cursor-pointer",
+                                            "hover:bg-muted/40 hover:border-border",
+                                            isSelected 
+                                                ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
+                                                : "border-transparent"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "aspect-video w-full rounded-lg border shadow-sm flex items-center justify-center overflow-hidden",
+                                            option.color
+                                        )}>
+                                            <Icon className={cn(
+                                                "h-10 w-10",
+                                                option.id === 'light' ? 'text-[#B45309]' : 'text-primary'
+                                            )} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="font-bold leading-none tracking-tight">
+                                                {option.label}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                {option.desc}
+                                            </p>
+                                        </div>
+                                    </Label>
+                                </div>
+                            );
+                        })}
+                    </RadioGroup>
+                </CardContent>
+            </Card>
+
+            <div className="p-8 border-2 border-dashed border-border/30 rounded-2xl flex flex-col items-center justify-center text-center gap-2 opacity-60">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                    <Palette className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                    <p className="font-semibold text-sm">Más ajustes próximamente</p>
+                    <p className="text-xs text-muted-foreground">Estamos trabajando en opciones de idioma y notificaciones.</p>
+                </div>
+            </div>
+        </div>
+    );
+}
