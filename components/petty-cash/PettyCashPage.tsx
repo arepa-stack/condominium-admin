@@ -1,14 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { BalanceCard } from '@/components/petty-cash/BalanceCard';
-import { TransactionDialog } from '@/components/petty-cash/TransactionDialog';
+import { TransactionDialog, type PettyCashManualEntryType } from '@/components/petty-cash/TransactionDialog';
 import { AssessmentPreviewDialog } from '@/components/petty-cash/AssessmentPreviewDialog';
-import { Card, CardContent } from '@/components/ui/card';
+import { TransparencyView } from '@/components/petty-cash/TransparencyView';
+import { ReverseEntryDialog } from '@/components/petty-cash/ReverseEntryDialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { StatusBadge } from '@/components/ui/status-badge';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/skeletons';
@@ -28,19 +28,30 @@ import {
 } from '@/components/ui/dialog';
 import type {
     PettyCashBalance,
-    PettyCashTransaction,
-    PettyCashTransactionType,
+    PettyCashEntry,
+    PettyCashEntryType,
+    PettyCashCategory,
     PettyCashAssessmentPreview,
     PettyCashTransparency,
+    CreatePettyCashAssessmentDto,
 } from '@/types/models';
 import { formatDate, formatMoney } from '@/lib/utils/format';
 import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
 import { toast } from 'sonner';
-import { ArrowDownCircle, ArrowUpCircle, Eye, AlertTriangle, TrendingUp, Users, CheckCircle2, Receipt } from 'lucide-react';
+import {
+    ArrowDownCircle,
+    ArrowUpCircle,
+    Eye,
+    AlertTriangle,
+    Receipt,
+    Undo2,
+    ArrowRightCircle,
+    RotateCcw,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import Image from 'next/image';
 import { usePermissions } from '@/lib/hooks/usePermissions';
+import type { AxiosError } from 'axios';
 
 function currentPeriod(): string {
     const now = new Date();
@@ -49,34 +60,64 @@ function currentPeriod(): string {
 
 interface PettyCashPageProps {
     buildingId: string;
-    /** Darker styling when rendered inside building context */
     variant?: 'default' | 'building';
 }
+
+type TypeFilter = 'all' | PettyCashEntryType;
+type CategoryFilter = 'all' | PettyCashCategory;
+
+const ENTRY_TYPE_META: Record<
+    PettyCashEntryType,
+    { label: string; className: string; icon: React.ComponentType<{ className?: string }> }
+> = {
+    income: {
+        label: 'Ingreso',
+        className: 'border-chart-1/30 bg-chart-1/15 text-chart-1',
+        icon: ArrowUpCircle,
+    },
+    expense: {
+        label: 'Egreso',
+        className: 'border-chart-2/30 bg-chart-2/15 text-chart-2',
+        icon: ArrowDownCircle,
+    },
+    collection: {
+        label: 'Cobro auto',
+        className: 'border-primary/30 bg-primary/15 text-primary',
+        icon: ArrowRightCircle,
+    },
+    reversal: {
+        label: 'Reversa',
+        className: 'border-destructive/30 bg-destructive/15 text-destructive',
+        icon: RotateCcw,
+    },
+};
 
 export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPageProps) {
     const { canManageBuilding } = usePermissions();
     const canEdit = canManageBuilding(buildingId);
+    const period = currentPeriod();
 
     const [balance, setBalance] = useState<PettyCashBalance | null>(null);
-    const [transactions, setTransactions] = useState<PettyCashTransaction[]>([]);
+    const [entries, setEntries] = useState<PettyCashEntry[]>([]);
     const [assessmentPreview, setAssessmentPreview] = useState<PettyCashAssessmentPreview | null>(null);
     const [transparency, setTransparency] = useState<PettyCashTransparency | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [filterType, setFilterType] = useState<string>('all');
-    const [filterCategory, setFilterCategory] = useState<string>('all');
+    const [isReversing, setIsReversing] = useState(false);
+    const [filterType, setFilterType] = useState<TypeFilter>('all');
+    const [filterCategory, setFilterCategory] = useState<CategoryFilter>('all');
     const [page, setPage] = useState(0);
     const pageSize = 20;
 
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [dialogType, setDialogType] = useState<PettyCashTransactionType>('INCOME');
+    const [dialogType, setDialogType] = useState<PettyCashManualEntryType>('income');
     const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
     const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
+    const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
+    const [entryToReverse, setEntryToReverse] = useState<PettyCashEntry | null>(null);
 
     const isBuildingVariant = variant === 'building';
-    const cardClass = isBuildingVariant
-        ? 'border-white/5 bg-card/50 backdrop-blur-xl'
-        : 'border-border/50 bg-card';
+
     const fetchAll = useCallback(async () => {
         if (!buildingId) return;
         try {
@@ -90,57 +131,96 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     limit: pageSize,
                 }),
                 pettyCashService.getAssessmentPreview(buildingId),
-                pettyCashService.getTransparency(buildingId, currentPeriod()),
+                pettyCashService.getTransparency(buildingId, period),
             ]);
             setBalance(bal);
-            setTransactions(history);
+            setEntries(history);
             setAssessmentPreview(preview);
             setTransparency(trans);
         } catch (e) {
             console.error(e);
             toast.error('No se pudo cargar la caja chica');
             setBalance(null);
-            setTransactions([]);
+            setEntries([]);
             setAssessmentPreview(null);
+            setTransparency(null);
         } finally {
             setIsLoading(false);
         }
-    }, [buildingId, filterType, filterCategory, page]);
+    }, [buildingId, filterType, filterCategory, page, period]);
 
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
 
-    const openDialog = (type: PettyCashTransactionType) => {
+    const reversedEntryIds = useMemo(() => {
+        const set = new Set<string>();
+        for (const e of entries) {
+            if (e.type === 'reversal' && e.reference_type === 'reversal' && e.reference_id) {
+                set.add(e.reference_id);
+            }
+        }
+        return set;
+    }, [entries]);
+
+    const openDialog = (type: PettyCashManualEntryType) => {
         setDialogType(type);
         setDialogOpen(true);
     };
 
-    const handleGenerateAssessments = async () => {
+    const handleGenerateAssessments = async (dto: CreatePettyCashAssessmentDto) => {
         setIsGenerating(true);
         try {
-            const resp = await pettyCashService.generateAssessments(buildingId);
-            toast.success(`Se generaron ${resp.invoices_created} recibos de reposición correctamente`);
+            const resp = await pettyCashService.generateAssessments(buildingId, dto);
+            toast.success(
+                `Se generaron ${resp.invoices_created} facturas para "${resp.description}"`
+            );
             setAssessmentDialogOpen(false);
             await fetchAll();
         } catch (e) {
+            const err = e as AxiosError<{ code?: string; message?: string }>;
+            const code = err.response?.data?.code;
+            if (code === 'AMOUNT_TOO_SMALL_TO_DISTRIBUTE') {
+                toast.error('El monto es demasiado bajo para repartir entre las unidades');
+            } else if (code === 'NO_UNITS') {
+                toast.error('El edificio no tiene unidades asignadas');
+            } else {
+                toast.error(err.response?.data?.message || 'Error al generar el prorrateo');
+            }
             console.error(e);
-            toast.error('Error al generar los recibos');
         } finally {
             setIsGenerating(false);
         }
     };
 
-    const formatTxAmount = (t: PettyCashTransaction) => {
-        const cur = balance?.currency ?? 'USD';
-        return formatMoney(t.amount, cur);
+    const handleReverseEntry = async (entryId: string, reason: string) => {
+        setIsReversing(true);
+        try {
+            await pettyCashService.reverseEntry(buildingId, entryId, reason);
+            toast.success('Movimiento revertido');
+            setReverseDialogOpen(false);
+            setEntryToReverse(null);
+            await fetchAll();
+        } catch (e) {
+            const err = e as AxiosError<{ code?: string; message?: string }>;
+            const code = err.response?.data?.code;
+            const status = err.response?.status;
+            if (code === 'INVALID_OPERATION' || status === 409) {
+                toast.error('No se puede reversar una reversa');
+            } else if (status === 404) {
+                toast.error('Movimiento no encontrado');
+            } else {
+                toast.error(err.response?.data?.message || 'Error al revertir el movimiento');
+            }
+            console.error(e);
+        } finally {
+            setIsReversing(false);
+        }
     };
 
-    const typeLabel = (type: string) => {
-        const u = type?.toUpperCase?.() ?? type;
-        if (u === 'INCOME' || u === 'INGRESO') return 'Ingreso';
-        if (u === 'EXPENSE' || u === 'EGRESO') return 'Egreso';
-        return type;
+    const openReverseDialog = (entry: PettyCashEntry) => {
+        setEntryToReverse(entry);
+        setReverseDialogOpen(true);
     };
 
     return (
@@ -156,8 +236,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     >
                         Caja chica
                     </h1>
-                    <p className="mt-1 text-muted-foreground text-sm">
-                        Saldo y movimientos del fondo del edificio
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Saldo, movimientos y prorrateos del fondo del edificio
                     </p>
                 </div>
                 {canEdit && (
@@ -165,12 +245,12 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         <Button
                             variant="outline"
                             className="gap-2"
-                            onClick={() => openDialog('INCOME')}
+                            onClick={() => openDialog('income')}
                         >
                             <ArrowUpCircle className="h-4 w-4 text-chart-1" />
                             Registrar ingreso
                         </Button>
-                        <Button className="gap-2" onClick={() => openDialog('EXPENSE')}>
+                        <Button className="gap-2" onClick={() => openDialog('expense')}>
                             <ArrowDownCircle className="h-4 w-4" />
                             Registrar egreso
                         </Button>
@@ -182,12 +262,15 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-3">
-                            <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                            <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
                             <div>
-                                <h3 className="font-semibold text-white">Sobregiro detectado para reponer</h3>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                    Faltan {formatMoney(assessmentPreview.pending_to_assess, balance?.currency ?? 'USD')} de reponer. 
-                                    ({assessmentPreview.units.length} unidades pendientes por montos variables).
+                                <h3 className="font-semibold text-white">
+                                    Hay saldo sin prorratear
+                                </h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Quedan{' '}
+                                    {formatMoney(assessmentPreview.pending_to_assess)} por
+                                    cobrar a {assessmentPreview.units.length} unidades.
                                 </p>
                             </div>
                         </div>
@@ -197,7 +280,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                             onClick={() => setAssessmentDialogOpen(true)}
                             className="whitespace-nowrap"
                         >
-                            Generar Recibos de Reposición
+                            Generar prorrateo
                         </Button>
                     </div>
                 </div>
@@ -209,80 +292,39 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     isLoading={isLoading}
                     onRefresh={fetchAll}
                 />
-                
-                {/* Transparency Summary View */}
-                <Card className={`p-4 flex flex-col justify-center ${cardClass}`}>
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" />
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Recaudación de Reposición</h3>
-                        </div>
-                        <span className="text-2xl font-black text-white">{transparency?.collection_percentage || 0}%</span>
-                    </div>
-                    <Progress value={transparency?.collection_percentage || 0} className="h-4" />
-                    <div className="mt-3 flex justify-between items-center text-[10px] text-muted-foreground uppercase font-black">
-                        <span>Recaudado: {formatMoney(transparency?.total_collected || 0, balance?.currency ?? 'USD')}</span>
-                        <span>Meta: {formatMoney(transparency?.total_to_collect || 0, balance?.currency ?? 'USD')}</span>
-                    </div>
-                </Card>
             </div>
 
-            {/* Transparency Details */}
-            {transparency && transparency.units.length > 0 && (
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-primary" />
-                        <h2 className="text-sm font-black text-white uppercase tracking-widest">Estatus de Reposición por Unidad</h2>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {transparency.units.map(u => {
-                            const progress = (u.covered_amount / u.expected_amount) * 100;
-                            return (
-                                <Card key={u.unit_id} className="p-3 bg-white/5 border-white/5 relative overflow-hidden group">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-muted-foreground uppercase font-bold">Unidad</span>
-                                            <span className="text-sm text-white font-black">{u.unit_name}</span>
-                                        </div>
-                                        {u.status === 'PAID' ? (
-                                            <CheckCircle2 className="h-4 w-4 text-chart-1" />
-                                        ) : (
-                                            <StatusBadge status={u.status} />
-                                        )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between text-[9px] text-muted-foreground mb-1">
-                                            <span>Cobertura</span>
-                                            <span>{Math.round(progress)}%</span>
-                                        </div>
-                                        <Progress value={progress} className="h-1.5" indicatorClassName={u.status === 'PAID' ? 'bg-chart-1' : u.status === 'PARTIAL' ? 'bg-chart-2' : 'bg-primary'} />
-                                        <div className="flex justify-between text-[10px] text-white font-medium mt-1">
-                                            <span>{formatMoney(u.covered_amount, balance?.currency ?? 'USD')}</span>
-                                            <span className="text-muted-foreground">/ {formatMoney(u.expected_amount, balance?.currency ?? 'USD')}</span>
-                                        </div>
-                                    </div>
-                                </Card>
-                            )
-                        })}
-                    </div>
-                </div>
-            )}
+            <TransparencyView transparency={transparency} period={period} />
 
             <FilterBar>
                 <div className="w-full md:w-48">
-                    <Select value={filterType} onValueChange={(v) => { setPage(0); setFilterType(v); }}>
+                    <Select
+                        value={filterType}
+                        onValueChange={(v) => {
+                            setPage(0);
+                            setFilterType(v as TypeFilter);
+                        }}
+                    >
                         <SelectTrigger>
                             <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Todos los tipos</SelectItem>
-                            <SelectItem value="INCOME">Ingreso</SelectItem>
-                            <SelectItem value="EXPENSE">Egreso</SelectItem>
+                            <SelectItem value="income">Ingreso</SelectItem>
+                            <SelectItem value="expense">Egreso</SelectItem>
+                            <SelectItem value="collection">Cobro auto</SelectItem>
+                            <SelectItem value="reversal">Reversa</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="w-full md:w-56">
-                    <Select value={filterCategory} onValueChange={(v) => { setPage(0); setFilterCategory(v); }}>
+                    <Select
+                        value={filterCategory}
+                        onValueChange={(v) => {
+                            setPage(0);
+                            setFilterCategory(v as CategoryFilter);
+                        }}
+                    >
                         <SelectTrigger>
                             <SelectValue placeholder="Categoría" />
                         </SelectTrigger>
@@ -299,7 +341,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             </FilterBar>
 
             {isLoading ? (
-                <TableSkeleton rows={5} columns={6} />
+                <TableSkeleton rows={5} columns={7} />
             ) : (
                 <>
                     <Table>
@@ -311,53 +353,86 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                 <TableHead>Descripción</TableHead>
                                 <TableHead>Categoría</TableHead>
                                 <TableHead>Evidencia</TableHead>
+                                {canEdit && <TableHead className="text-right">Acciones</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {transactions.length === 0 ? (
+                            {entries.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="p-0">
-                                        <EmptyState icon={Receipt} message="No hay movimientos registrados" variant="inline" />
+                                    <TableCell
+                                        colSpan={canEdit ? 7 : 6}
+                                        className="p-0"
+                                    >
+                                        <EmptyState
+                                            icon={Receipt}
+                                            message="No hay movimientos registrados"
+                                            variant="inline"
+                                        />
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                transactions.map((t) => {
-                                    const isInc =
-                                        t.type?.toUpperCase() === 'INCOME' ||
-                                        t.type?.toUpperCase() === 'INGRESO';
+                                entries.map((entry) => {
+                                    const meta = ENTRY_TYPE_META[entry.type];
+                                    const isReversal = entry.type === 'reversal';
+                                    const alreadyReversed = reversedEntryIds.has(entry.id);
+                                    const canReverse =
+                                        canEdit && !isReversal && !alreadyReversed;
+
                                     return (
-                                        <TableRow key={t.id}>
+                                        <TableRow
+                                            key={entry.id}
+                                            className={alreadyReversed ? 'opacity-60' : ''}
+                                        >
                                             <TableCell>
-                                                {t.created_at ? formatDate(t.created_at) : '—'}
+                                                {entry.created_at
+                                                    ? formatDate(entry.created_at)
+                                                    : '—'}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge
                                                     variant="secondary"
-                                                    className={
-                                                        isInc
-                                                            ? 'border-chart-1/30 bg-chart-1/15 text-chart-1'
-                                                            : 'border-chart-2/30 bg-chart-2/15 text-chart-2'
-                                                    }
+                                                    className={meta.className}
                                                 >
-                                                    {typeLabel(t.type)}
+                                                    {meta.label}
                                                 </Badge>
+                                                {alreadyReversed && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="ml-1 border-muted-foreground/40 text-muted-foreground"
+                                                    >
+                                                        Reversada
+                                                    </Badge>
+                                                )}
                                             </TableCell>
-                                            <TableCell className="font-medium tabular-nums">
-                                                {formatTxAmount(t)}
+                                            <TableCell
+                                                className={
+                                                    entry.amount < 0
+                                                        ? 'font-medium tabular-nums text-destructive'
+                                                        : 'font-medium tabular-nums'
+                                                }
+                                                style={
+                                                    alreadyReversed
+                                                        ? { textDecoration: 'line-through' }
+                                                        : undefined
+                                                }
+                                            >
+                                                {formatMoney(entry.amount)}
                                             </TableCell>
                                             <TableCell className="max-w-xs truncate whitespace-normal">
-                                                {t.description}
+                                                {entry.description}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
-                                                {t.category || '—'}
+                                                {entry.category || '—'}
                                             </TableCell>
                                             <TableCell>
-                                                {t.evidence_url ? (
+                                                {entry.evidence_url ? (
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
                                                         className="gap-1"
-                                                        onClick={() => setEvidenceUrl(t.evidence_url || null)}
+                                                        onClick={() =>
+                                                            setEvidenceUrl(entry.evidence_url)
+                                                        }
                                                     >
                                                         <Eye className="h-4 w-4" />
                                                         Ver
@@ -366,13 +441,34 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                                     '—'
                                                 )}
                                             </TableCell>
+                                            {canEdit && (
+                                                <TableCell className="text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="gap-1"
+                                                        onClick={() => openReverseDialog(entry)}
+                                                        disabled={!canReverse}
+                                                        title={
+                                                            isReversal
+                                                                ? 'No se puede reversar una reversa'
+                                                                : alreadyReversed
+                                                                    ? 'Esta entrada ya fue reversada'
+                                                                    : 'Revertir movimiento'
+                                                        }
+                                                    >
+                                                        <Undo2 className="h-4 w-4" />
+                                                        Revertir
+                                                    </Button>
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                     );
                                 })
                             )}
                         </TableBody>
                     </Table>
-                    {transactions.length > 0 && (
+                    {entries.length > 0 && (
                         <div className="flex items-center justify-end gap-2 p-4">
                             <Button
                                 variant="outline"
@@ -388,7 +484,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                             <Button
                                 variant="outline"
                                 size="sm"
-                                disabled={transactions.length < pageSize || isLoading}
+                                disabled={entries.length < pageSize || isLoading}
                                 onClick={() => setPage((p) => p + 1)}
                             >
                                 Siguiente
@@ -401,7 +497,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             <TransactionDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
-                transactionType={dialogType}
+                entryType={dialogType}
                 buildingId={buildingId}
                 onSuccess={fetchAll}
             />
@@ -410,16 +506,30 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 open={assessmentDialogOpen}
                 onOpenChange={setAssessmentDialogOpen}
                 preview={assessmentPreview}
-                currency={balance?.currency ?? 'USD'}
+                existingBatches={transparency?.assessments ?? []}
+                period={period}
                 isGenerating={isGenerating}
                 onConfirm={handleGenerateAssessments}
             />
 
+            <ReverseEntryDialog
+                open={reverseDialogOpen}
+                onOpenChange={(o) => {
+                    setReverseDialogOpen(o);
+                    if (!o) setEntryToReverse(null);
+                }}
+                entry={entryToReverse}
+                isReversing={isReversing}
+                onConfirm={handleReverseEntry}
+            />
+
             <Dialog open={!!evidenceUrl} onOpenChange={(o) => !o && setEvidenceUrl(null)}>
-                <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto bg-card border-white/10">
+                <DialogContent className="max-h-[95vh] max-w-5xl overflow-y-auto border-white/10 bg-card">
                     <DialogHeader>
                         <DialogTitle>Comprobante</DialogTitle>
-                        <DialogDescription className="sr-only">Vista previa del comprobante de la transacción.</DialogDescription>
+                        <DialogDescription className="sr-only">
+                            Vista previa del comprobante del movimiento.
+                        </DialogDescription>
                     </DialogHeader>
                     {evidenceUrl && (
                         <>
@@ -433,10 +543,10 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                 </Button>
                             </div>
                             {evidenceUrl.toLowerCase().includes('.pdf') ||
-                            evidenceUrl.toLowerCase().includes('pdf') ? (
+                                evidenceUrl.toLowerCase().includes('pdf') ? (
                                 <p className="mt-4 text-sm text-muted-foreground">
-                                    Los archivos PDF no se previsualizan aquí. Usa el botón de arriba
-                                    para abrirlos.
+                                    Los archivos PDF no se previsualizan aquí. Usá el botón
+                                    de arriba para abrirlos.
                                 </p>
                             ) : (
                                 <div className="relative mt-2 h-[75vh] min-h-[400px] w-full">

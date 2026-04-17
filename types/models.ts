@@ -263,24 +263,39 @@ export interface UnitCreditResponse {
   history: CreditLedgerEntry[];
 }
 
-export type PettyCashTransactionType = "INCOME" | "EXPENSE" | "INGRESO" | "EGRESO";
+export type PettyCashEntryType = "income" | "expense" | "collection" | "reversal";
+
+export type PettyCashCategory =
+  | "REPAIR"
+  | "CLEANING"
+  | "EMERGENCY"
+  | "OFFICE"
+  | "UTILITIES"
+  | "OTHER";
+
+export type PettyCashEntryReferenceType =
+  | "manual"
+  | "invoice_payment"
+  | "reversal";
 
 export interface PettyCashBalance {
-  current_balance: number;
+  id: string;
   building_id: string;
-  currency?: string;
-  updated_at?: string;
+  current_balance: number;
+  updated_at: string;
 }
 
-export interface PettyCashTransaction {
+export interface PettyCashEntry {
   id: string;
-  fund_id?: string;
-  building_id: string;
+  fund_id: string;
+  type: PettyCashEntryType;
   amount: number;
+  category: PettyCashCategory | null;
   description: string;
-  type: PettyCashTransactionType;
-  category: string;
-  evidence_url?: string;
+  evidence_url: string | null;
+  reference_type: PettyCashEntryReferenceType | null;
+  reference_id: string | null;
+  created_by: string;
   created_at: string;
 }
 
@@ -290,19 +305,33 @@ export interface CreatePettyCashIncomeDto {
   description: string;
 }
 
+export interface CreatePettyCashExpenseDto {
+  building_id: string;
+  amount: number | string;
+  description: string;
+  category?: PettyCashCategory;
+  evidence_image?: File;
+}
+
 export interface PettyCashAssessmentPreview {
   building_id: string;
-  total_expenses: number;
-  total_income: number;
-  fund_balance: number;
+  current_balance: number;
   total_overage: number;
   already_assessed: number;
   pending_to_assess: number;
   units: { id: string; name: string; amount: number }[];
 }
 
+export interface CreatePettyCashAssessmentDto {
+  description: string;
+  amount: number | string;
+  category?: PettyCashCategory;
+}
+
 export interface PettyCashAssessmentResponse {
   building_id: string;
+  assessment_id: string;
+  description: string;
   total_assessed: number;
   invoices_created: number;
   invoices: {
@@ -313,8 +342,10 @@ export interface PettyCashAssessmentResponse {
   }[];
 }
 
-export interface PettyCashTransparency {
-  building_id: string;
+export interface PettyCashTransparencyBatch {
+  id: string;
+  description: string;
+  category: PettyCashCategory | null;
   total_to_collect: number;
   total_collected: number;
   collection_percentage: number;
@@ -325,5 +356,18 @@ export interface PettyCashTransparency {
     covered_amount: number;
     status: "PAID" | "PARTIAL" | "PENDING";
   }[];
+}
+
+export interface PettyCashTransparency {
+  building_id: string;
+  period: string;
+  assessments: PettyCashTransparencyBatch[];
+  total_to_collect: number;
+  total_collected: number;
+  collection_percentage: number;
+}
+
+export interface ReversePettyCashEntryDto {
+  reason: string;
 }
 
