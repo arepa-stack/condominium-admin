@@ -119,7 +119,7 @@ export default function BuildingPaymentsPage() {
                     <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Pagos</h1>
                     <p className="text-muted-foreground mt-1">Revisá y gestioná los pagos de este edificio</p>
                 </div>
-                <Button onClick={() => setIsPaymentDialogOpen(true)} className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all">
+                <Button onClick={() => setIsPaymentDialogOpen(true)} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all">
                     <DollarSign className="h-4 w-4" />
                     Registrar Pago
                 </Button>
@@ -275,7 +275,7 @@ export default function BuildingPaymentsPage() {
 
             {/* Proof Dialog */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl">
+                <DialogContent className="max-w-5xl bg-card border-border backdrop-blur-2xl">
                     <DialogDescription className="sr-only">Vista previa del comprobante de pago.</DialogDescription>
                     <div className="flex items-center justify-between gap-4 mb-2">
                         <DialogTitle>Comprobante de Pago</DialogTitle>
@@ -283,7 +283,7 @@ export default function BuildingPaymentsPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="gap-2 border-white/10 hover:bg-white/5 text-white"
+                                className="gap-2 border-border hover:bg-muted text-foreground"
                                 onClick={() => window.open(proofUrl, '_blank')}
                             >
                                 <CheckCircle className="h-4 w-4" />
@@ -292,7 +292,7 @@ export default function BuildingPaymentsPage() {
                         )}
                     </div>
                     {proofUrl && (
-                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl">
+                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-border shadow-2xl">
                             <Image
                                 src={proofUrl}
                                 alt="Comprobante de pago"

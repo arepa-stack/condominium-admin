@@ -154,35 +154,35 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                     ) : (
                         <div className="flex flex-col h-full max-h-[85vh]">
                             {/* Header Section */}
-                            <div className="p-6 bg-gradient-to-br from-primary/10 to-transparent border-b border-white/5">
+                            <div className="p-6 bg-gradient-to-br from-primary/10 to-transparent border-b border-border">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
                                             <Badge variant="outline" className="text-[10px] uppercase font-black border-primary/20 bg-primary/5 text-primary">
                                                 {periodDisplay}
                                             </Badge>
-                                            {isPaid && <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px] uppercase font-black">PAID</Badge>}
-                                            {isPartial && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] uppercase font-black">PARCIAL</Badge>}
+                                            {isPaid && <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 text-[10px] uppercase font-black">PAID</Badge>}
+                                            {isPartial && <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] uppercase font-black">PARCIAL</Badge>}
                                         </div>
-                                        <h2 className="text-2xl font-black text-white tracking-tight">{title}</h2>
+                                        <h2 className="text-2xl font-black text-foreground tracking-tight">{title}</h2>
                                         <span className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
                                             <BuildingIcon className="h-3 w-3" /> {resolvedBuildingName}
-                                            <span className="w-px h-3 bg-white/10 shrink-0" aria-hidden="true" />
+                                            <span className="w-px h-3 bg-border shrink-0" aria-hidden="true" />
                                             <Hash className="h-3 w-3" /> Unidad {resolvedUnitName}
                                         </span>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Monto Total</span>
-                                        <span className="text-3xl font-black text-white tabular-nums">{formatCurrency(invoice.amount)}</span>
+                                        <span className="text-3xl font-black text-foreground tabular-nums">{formatCurrency(invoice.amount)}</span>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <div className="flex justify-between text-[11px] text-white/70 font-bold uppercase tracking-tight">
+                                    <div className="flex justify-between text-[11px] text-muted-foreground font-bold uppercase tracking-tight">
                                         <span>Progreso del pago</span>
                                         <span>{formatCurrency(invoice.paid_amount)} / {formatCurrency(invoice.amount)}</span>
                                     </div>
-                                    <Progress value={progress} className="h-2 bg-white/5" indicatorClassName={isPaid ? "bg-green-500" : isPartial ? "bg-amber-500" : "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)]"} />
+                                    <Progress value={progress} className="h-2 bg-muted/50" indicatorClassName={isPaid ? "bg-green-500" : isPartial ? "bg-amber-500" : "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)]"} />
                                 </div>
                             </div>
 
@@ -197,11 +197,11 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-muted-foreground">Emitida</span>
-                                                <span className="text-white font-medium">{formatDate(invoice.issue_date || invoice.created_at || '')}</span>
+                                                <span className="text-foreground font-medium">{formatDate(invoice.issue_date || invoice.created_at || '')}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-muted-foreground">Vencimiento</span>
-                                                <span className={`font-bold ${invoice.due_date && new Date(invoice.due_date) < new Date() && !isPaid ? 'text-red-400' : 'text-white'}`}>
+                                                <span className={`font-bold ${invoice.due_date && new Date(invoice.due_date) < new Date() && !isPaid ? 'text-red-700 dark:text-red-400' : 'text-foreground'}`}>
                                                     {invoice.due_date ? formatDate(invoice.due_date) : '--'}
                                                 </span>
                                             </div>
@@ -212,13 +212,13 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                             <Info className="h-3 w-3 text-primary" />
                                             Descripción
                                         </h3>
-                                        <p className="text-xs text-white/80 italic leading-relaxed">
+                                        <p className="text-xs text-muted-foreground italic leading-relaxed">
                                             {invoice.description || 'Expensas mensuales por servicios del condominio y gestión de áreas comunes.'}
                                         </p>
                                     </div>
                                 </div>
 
-                                <Separator className="bg-white/5" />
+                                <Separator className="bg-muted/50" />
 
                                 {/* Associated Payments */}
                                 <div>
@@ -227,7 +227,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                         Pagos asociados
                                     </h3>
                                     {payments.length === 0 ? (
-                                        <div className="py-12 flex flex-col items-center justify-center bg-white/5 border border-dashed border-white/10 rounded-2xl">
+                                        <div className="py-12 flex flex-col items-center justify-center bg-muted/50 border border-dashed border-border rounded-2xl">
                                             <Info className="h-8 w-8 text-muted-foreground/20 mb-2" />
                                             <p className="text-xs text-muted-foreground italic">Todavía no se registraron pagos.</p>
                                         </div>
@@ -236,7 +236,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                             {payments.map((p) => (
                                                 <div
                                                     key={p.id}
-                                                    className="group flex flex-col sm:flex-row items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all cursor-pointer"
+                                                    className="group flex flex-col sm:flex-row items-center justify-between p-4 bg-muted/50 border border-border rounded-2xl hover:bg-muted transition-all cursor-pointer"
                                                     onClick={() => handleOpenPaymentDetail(p)}
                                                 >
                                                     <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -244,14 +244,14 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                                             <CreditCard className="h-4 w-4" />
                                                         </div>
                                                         <div className="flex flex-col">
-                                                            <span className="text-sm font-black text-white">{formatCurrency(p.allocated_amount)}</span>
+                                                            <span className="text-sm font-black text-foreground">{formatCurrency(p.allocated_amount)}</span>
                                                             <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
                                                                 El {formatDate(p.allocated_at || p.payment_date)}
                                                             </span>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-4 mt-3 sm:mt-0 w-full sm:w-auto justify-between sm:justify-end">
-                                                        <Badge variant="outline" className="text-[9px] uppercase font-black border-white/10 text-muted-foreground">
+                                                        <Badge variant="outline" className="text-[9px] uppercase font-black border-border text-muted-foreground">
                                                             {formatPaymentMethod(p.method)}
                                                         </Badge>
                                                         <ArrowUpRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-all" />
@@ -263,8 +263,8 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-white/5 border-t border-white/5 flex justify-end">
-                                <Button variant="ghost" onClick={onClose} className="hover:bg-white/10 font-bold uppercase tracking-widest text-[10px]">
+                            <div className="p-4 bg-muted/50 border-t border-border flex justify-end">
+                                <Button variant="ghost" onClick={onClose} className="hover:bg-muted font-bold uppercase tracking-widest text-[10px]">
                                     Cerrar
                                 </Button>
                             </div>
@@ -277,7 +277,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
             <Dialog open={isPaymentDetailsOpen} onOpenChange={setIsPaymentDetailsOpen}>
                 <DialogContent className="sm:max-w-[520px] bg-card border-border/30 backdrop-blur-2xl shadow-2xl">
                     <DialogHeader>
-                        <DialogTitle className="text-white">Detalles de la transacción</DialogTitle>
+                        <DialogTitle className="text-foreground">Detalles de la transacción</DialogTitle>
                         <DialogDescription className="text-muted-foreground">
                             Desglose completo del pago y sus imputaciones.
                         </DialogDescription>
@@ -289,14 +289,14 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                         </div>
                     ) : (
                         <div className="py-4 space-y-6">
-                            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
+                            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/50 border border-border">
                                 <div>
                                     <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Pago Total</span>
-                                    <span className="text-2xl font-black text-white tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
+                                    <span className="text-2xl font-black text-foreground tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
                                 </div>
                                 <div className="text-right">
                                     <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Fecha</span>
-                                    <span className="text-sm font-bold text-white">{formatDate(detailedPayment.payment_date)}</span>
+                                    <span className="text-sm font-bold text-foreground">{formatDate(detailedPayment.payment_date)}</span>
                                 </div>
                             </div>
 
@@ -314,10 +314,10 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                         paymentAllocations.map((alloc: any) => (
                                             <div
                                                 key={alloc.id}
-                                                className={`flex justify-between items-center p-3 rounded-lg border transition-colors ${alloc.id === invoiceId || alloc.invoice_id === invoiceId ? 'bg-primary/10 border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.1)]' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                                                className={`flex justify-between items-center p-3 rounded-lg border transition-colors ${alloc.id === invoiceId || alloc.invoice_id === invoiceId ? 'bg-primary/10 border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.1)]' : 'bg-muted/50 border-border hover:bg-muted'}`}
                                             >
                                                 <div className="flex flex-col">
-                                                    <span className="text-[11px] font-bold text-white">
+                                                    <span className="text-[11px] font-bold text-foreground">
                                                         Factura #{alloc.receipt_number || alloc.number || (alloc.id === invoiceId ? displayId : alloc.id.slice(0, 8))}
                                                         {(alloc.id === invoiceId || alloc.invoice_id === invoiceId) && <Badge className="ml-2 text-[8px] bg-primary text-primary-foreground h-4 py-0 uppercase">Actual</Badge>}
                                                     </span>
@@ -325,7 +325,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                                         {alloc.period ? formatPeriod(alloc.period) : (alloc.year && alloc.month ? formatPeriod(`${alloc.year}-${alloc.month}`) : '--')}
                                                     </span>
                                                 </div>
-                                                <span className="font-black text-sm text-white tabular-nums">{formatCurrency(alloc.allocated_amount || alloc.amount)}</span>
+                                                <span className="font-black text-sm text-foreground tabular-nums">{formatCurrency(alloc.allocated_amount || alloc.amount)}</span>
                                             </div>
                                         ))
                                     ) : (
@@ -340,7 +340,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                             {detailedPayment.proof_url && (
                                 <Button
                                     variant="outline"
-                                    className="w-full gap-2 border-white/10 hover:bg-white/5 transition-all"
+                                    className="w-full gap-2 border-border hover:bg-muted transition-all"
                                     onClick={() => setProofUrl(detailedPayment.proof_url!)}
                                 >
                                     <Eye className="h-4 w-4" /> Ver comprobante completo
@@ -353,15 +353,15 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
 
             {/* Proof Modal */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl p-6">
+                <DialogContent className="max-w-5xl bg-card border-border backdrop-blur-2xl p-6">
                     <DialogDescription className="sr-only">Vista previa del comprobante de pago.</DialogDescription>
                     <div className="flex items-center justify-between gap-4 mb-2">
-                        <DialogTitle className="text-white">Comprobante de pago</DialogTitle>
+                        <DialogTitle className="text-foreground">Comprobante de pago</DialogTitle>
                         {proofUrl && (
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="gap-2 border-white/10 hover:bg-white/5 text-white"
+                                className="gap-2 border-border hover:bg-muted text-foreground"
                                 onClick={() => window.open(proofUrl, '_blank')}
                             >
                                 <ExternalLink className="h-4 w-4" />
@@ -370,7 +370,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                         )}
                     </div>
                     {proofUrl && (
-                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl mt-4">
+                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-border shadow-2xl mt-4">
                             <Image
                                 src={proofUrl}
                                 alt="Comprobante de pago"

@@ -339,7 +339,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
                                             className="bg-background/50 border-border/50 focus:border-primary transition-colors"
                                         />
                                     </FormControl>
-                                    {user && <p className="text-[0.8rem] text-amber-400/80">⚠️ El email no se puede cambiar</p>}
+                                    {user && <p className="text-[0.8rem] text-amber-700 dark:text-amber-400/80">⚠️ El email no se puede cambiar</p>}
                                     <FormMessage />
                                 </FormItem>
                             )}

@@ -29,15 +29,15 @@ export function TransparencyView({ transparency, period }: TransparencyViewProps
 
     return (
         <div className="space-y-6">
-            <Card className="border-white/5 bg-card/50 p-4 backdrop-blur-xl">
+            <Card className="border-border bg-card/50 p-4 backdrop-blur-xl">
                 <div className="mb-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-primary" />
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-white">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-foreground">
                             Recaudación total · {period}
                         </h3>
                     </div>
-                    <span className="text-2xl font-black text-white">
+                    <span className="text-2xl font-black text-foreground">
                         {Math.round(transparency.collection_percentage)}%
                     </span>
                 </div>
@@ -53,7 +53,7 @@ export function TransparencyView({ transparency, period }: TransparencyViewProps
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-black uppercase tracking-widest text-white">
+                    <h2 className="text-sm font-black uppercase tracking-widest text-foreground">
                         Progreso por prorrateo
                     </h2>
                 </div>
@@ -80,7 +80,7 @@ function BatchCard({ batch }: BatchCardProps) {
             className={
                 isLegacy
                     ? 'border-amber-500/30 bg-amber-500/5 p-4'
-                    : 'border-white/5 bg-white/5 p-4'
+                    : 'border-border bg-muted/30 p-4'
             }
         >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -89,7 +89,7 @@ function BatchCard({ batch }: BatchCardProps) {
                         {isLegacy && (
                             <Archive className="h-4 w-4 shrink-0 text-amber-500" />
                         )}
-                        <h3 className="font-bold text-white truncate">
+                        <h3 className="font-bold text-foreground truncate">
                             {batch.description}
                         </h3>
                         {batch.category && (
@@ -110,7 +110,7 @@ function BatchCard({ batch }: BatchCardProps) {
                                 className="h-2"
                             />
                         </div>
-                        <span className="text-sm font-black tabular-nums text-white">
+                        <span className="text-sm font-black tabular-nums text-foreground">
                             {Math.round(batch.collection_percentage)}%
                         </span>
                     </div>
@@ -143,7 +143,7 @@ function BatchCard({ batch }: BatchCardProps) {
             </div>
 
             {expanded && (
-                <div className="mt-4 grid grid-cols-1 gap-2 border-t border-white/5 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="mt-4 grid grid-cols-1 gap-2 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {batch.units.map((u) => {
                         const progress =
                             u.expected_amount > 0
@@ -152,14 +152,14 @@ function BatchCard({ batch }: BatchCardProps) {
                         return (
                             <div
                                 key={u.unit_id}
-                                className="rounded-lg border border-white/5 bg-background/30 p-3"
+                                className="rounded-lg border border-border bg-background/30 p-3"
                             >
                                 <div className="mb-2 flex items-start justify-between">
                                     <div>
                                         <p className="text-[10px] font-bold uppercase text-muted-foreground">
                                             Unidad
                                         </p>
-                                        <p className="text-sm font-black text-white">
+                                        <p className="text-sm font-black text-foreground">
                                             {u.unit_name}
                                         </p>
                                     </div>
@@ -180,7 +180,7 @@ function BatchCard({ batch }: BatchCardProps) {
                                                 : 'bg-primary'
                                     }
                                 />
-                                <div className="mt-1 flex justify-between text-[10px] font-medium text-white">
+                                <div className="mt-1 flex justify-between text-[10px] font-medium text-foreground">
                                     <span>{formatMoney(u.covered_amount)}</span>
                                     <span className="text-muted-foreground">
                                         / {formatMoney(u.expected_amount)}

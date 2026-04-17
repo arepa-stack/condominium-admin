@@ -172,7 +172,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
             <DialogContent className="sm:max-w-[500px] border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
-                        <FileText className="h-5 w-5 text-emerald-400" />
+                        <FileText className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
                         Crear nueva factura
                     </DialogTitle>
                     <DialogDescription>

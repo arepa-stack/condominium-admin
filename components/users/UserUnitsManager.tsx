@@ -305,7 +305,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                         htmlFor="primary"
                                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
                                     >
-                                        <Star className="h-3 w-3 text-amber-400" />
+                                        <Star className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                                         Unidad principal
                                     </label>
                                 </div>
@@ -395,7 +395,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                                                 {unit.unit_name || unit.unit_id.slice(0, 8)}
                                                                             </span>
                                                                             {unit.is_primary && (
-                                                                                <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
+                                                                                <Badge className="text-xs bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30">
                                                                                     <Star className="h-3 w-3 mr-1" />
                                                                                     Principal
                                                                                 </Badge>

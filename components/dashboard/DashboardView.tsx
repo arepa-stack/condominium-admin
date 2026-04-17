@@ -465,7 +465,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                         {inv.tag === 'PETTY_CASH' && (
                                                             <>
                                                                 <span>•</span>
-                                                                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-500/10 text-blue-500 border-blue-500/20">
+                                                                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20">
                                                                     Caja Chica
                                                                 </Badge>
                                                             </>
