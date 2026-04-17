@@ -18,8 +18,13 @@ export const billingService = {
         user_id?: string;
         tag?: InvoiceTag;
     }): Promise<Invoice[]> {
-        const { data } = await apiClient.get<Invoice[]>(`${P}/billing/invoices`, { params });
-        return data;
+        // Response shape: { data: Invoice[], metadata: {...} }. UI aún no pagina,
+        // pedimos limit alto para traer todo en una sola llamada.
+        const { data } = await apiClient.get<{ data: Invoice[]; metadata?: unknown }>(
+            `${P}/billing/invoices`,
+            { params: { limit: 1000, ...params } },
+        );
+        return data?.data ?? [];
     },
 
     async getInvoiceById(id: string): Promise<Invoice> {
