@@ -1,22 +1,48 @@
 import { apiClient } from '@/lib/api/client';
 import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
-import type { Payment, UpdatePaymentDto, PaymentSummary } from '@/types/models';
+import type {
+    Payment,
+    UpdatePaymentDto,
+    PaymentSummary,
+    PaginatedResponse,
+    PaginationParams,
+} from '@/types/models';
 
 const P = ADMIN_API_PREFIX;
 
+interface AdminPaymentListFilters {
+    building_id?: string;
+    status?: string;
+    period?: string;
+    year?: string;
+    unit_id?: string;
+}
+
+const normalizePayment = (p: Payment): Payment => ({
+    ...p,
+    amount: Number(p.amount),
+});
+
 export const paymentsService = {
-    async getAdminPayments(params?: {
-        building_id?: string;
-        status?: string;
-        period?: string;
-        year?: string;
-        unit_id?: string;
-    }): Promise<Payment[]> {
-        const { data } = await apiClient.get<Payment[]>(`${P}/payments/admin/payments`, { params });
-        return data.map(p => ({
-            ...p,
-            amount: Number(p.amount)
-        }));
+    async getAdminPayments(params?: AdminPaymentListFilters): Promise<Payment[]> {
+        const { data } = await apiClient.get<PaginatedResponse<Payment>>(
+            `${P}/payments/admin/payments`,
+            { params: { limit: 'all', ...params } },
+        );
+        return (data?.data ?? []).map(normalizePayment);
+    },
+
+    async getAdminPaymentsPaginated(
+        params?: AdminPaymentListFilters & PaginationParams,
+    ): Promise<PaginatedResponse<Payment>> {
+        const { data } = await apiClient.get<PaginatedResponse<Payment>>(
+            `${P}/payments/admin/payments`,
+            { params },
+        );
+        return {
+            data: (data?.data ?? []).map(normalizePayment),
+            metadata: data.metadata,
+        };
     },
 
     async getUserPayments(params?: {
@@ -25,10 +51,7 @@ export const paymentsService = {
         building_id?: string;
     }): Promise<Payment[]> {
         const { data } = await apiClient.get<Payment[]>(`${P}/payments`, { params });
-        return data.map(p => ({
-            ...p,
-            amount: Number(p.amount)
-        }));
+        return (Array.isArray(data) ? data : []).map(normalizePayment);
     },
 
     async getPaymentSummary(): Promise<PaymentSummary> {

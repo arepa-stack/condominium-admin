@@ -10,7 +10,14 @@ import type {
     PettyCashAssessmentPreview,
     PettyCashAssessmentResponse,
     PettyCashTransparency,
+    PaginatedResponse,
+    PaginationParams,
 } from '@/types/models';
+
+interface PettyCashEntryFilters {
+    type?: PettyCashEntryType;
+    category?: PettyCashCategory;
+}
 
 const P = ADMIN_API_PREFIX;
 
@@ -32,18 +39,27 @@ export const pettyCashService = {
 
     async getHistory(
         buildingId: string,
-        params?: {
-            type?: PettyCashEntryType;
-            category?: PettyCashCategory;
-            page?: number;
-            limit?: number;
-        }
+        params?: PettyCashEntryFilters,
     ): Promise<PettyCashEntry[]> {
-        const { data } = await apiClient.get<PettyCashEntry[]>(
+        const { data } = await apiClient.get<PaginatedResponse<PettyCashEntry>>(
             `${P}/petty-cash/funds/${buildingId}/entries`,
-            { params }
+            { params: { limit: 'all', ...params } },
         );
-        return (Array.isArray(data) ? data : []).map(normalizeEntry);
+        return (data?.data ?? []).map(normalizeEntry);
+    },
+
+    async getHistoryPaginated(
+        buildingId: string,
+        params?: PettyCashEntryFilters & PaginationParams,
+    ): Promise<PaginatedResponse<PettyCashEntry>> {
+        const { data } = await apiClient.get<PaginatedResponse<PettyCashEntry>>(
+            `${P}/petty-cash/funds/${buildingId}/entries`,
+            { params },
+        );
+        return {
+            data: (data?.data ?? []).map(normalizeEntry),
+            metadata: data.metadata,
+        };
     },
 
     async registerIncome(payload: CreatePettyCashIncomeDto): Promise<PettyCashEntry> {

@@ -1,3 +1,22 @@
+export interface PaginationMetadata {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  metadata: PaginationMetadata;
+}
+
+export type PaginationParams = {
+  page?: number;
+  limit?: number | 'all';
+};
+
 export type PaymentMethod = "PAGO_MOVIL" | "TRANSFER" | "CASH";
 export type PaymentStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type InvoiceStatus = "PENDING" | "PARTIAL" | "PAID" | "CANCELLED";
