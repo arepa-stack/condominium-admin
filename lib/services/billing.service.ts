@@ -2,29 +2,40 @@ import { apiClient } from '@/lib/api/client';
 import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
 import type {
     Invoice, InvoicePayment, UnitBalance, BillingDebtPayload,
-    ProposedInvoice, PreviewInvoicesResponse, UnitCreditResponse, InvoiceTag
+    ProposedInvoice, PreviewInvoicesResponse, UnitCreditResponse, InvoiceTag,
+    PaginatedResponse, PaginationParams,
 } from '@/types/models';
 
 const P = ADMIN_API_PREFIX;
 
+interface InvoiceListFilters {
+    building_id?: string;
+    unit_id?: string;
+    status?: string;
+    month?: number;
+    year?: number;
+    user_id?: string;
+    tag?: InvoiceTag;
+}
+
 export const billingService = {
 
-    async getInvoices(params?: {
-        building_id?: string;
-        unit_id?: string;
-        status?: string;
-        month?: number;
-        year?: number;
-        user_id?: string;
-        tag?: InvoiceTag;
-    }): Promise<Invoice[]> {
-        // Response shape: { data: Invoice[], metadata: {...} }. UI aún no pagina,
-        // pedimos limit alto para traer todo en una sola llamada.
-        const { data } = await apiClient.get<{ data: Invoice[]; metadata?: unknown }>(
+    async getInvoices(params?: InvoiceListFilters): Promise<Invoice[]> {
+        const { data } = await apiClient.get<PaginatedResponse<Invoice>>(
             `${P}/billing/invoices`,
-            { params: { limit: 1000, ...params } },
+            { params: { limit: 'all', ...params } },
         );
         return data?.data ?? [];
+    },
+
+    async getInvoicesPaginated(
+        params?: InvoiceListFilters & PaginationParams,
+    ): Promise<PaginatedResponse<Invoice>> {
+        const { data } = await apiClient.get<PaginatedResponse<Invoice>>(
+            `${P}/billing/invoices`,
+            { params },
+        );
+        return data;
     },
 
     async getInvoiceById(id: string): Promise<Invoice> {
@@ -33,20 +44,27 @@ export const billingService = {
     },
 
     async getInvoicePayments(id: string): Promise<InvoicePayment[]> {
-        const { data } = await apiClient.get<InvoicePayment[]>(`${P}/billing/invoices/${id}/payments`);
-        return data;
+        const { data } = await apiClient.get<PaginatedResponse<InvoicePayment>>(
+            `${P}/billing/invoices/${id}/payments`,
+            { params: { limit: 'all' } },
+        );
+        return data?.data ?? [];
     },
 
     async getPaymentInvoices(id: string): Promise<Invoice[]> {
-        const { data } = await apiClient.get<Invoice[]>(`${P}/billing/payments/${id}/invoices`);
-        return data;
+        const { data } = await apiClient.get<PaginatedResponse<Invoice>>(
+            `${P}/billing/payments/${id}/invoices`,
+            { params: { limit: 'all' } },
+        );
+        return data?.data ?? [];
     },
 
     async getUnitInvoices(unitId: string, tag?: InvoiceTag): Promise<Invoice[]> {
-        const { data } = await apiClient.get<Invoice[]>(`${P}/billing/units/${unitId}/invoices`, {
-            params: tag ? { tag } : undefined
-        });
-        return data;
+        const { data } = await apiClient.get<PaginatedResponse<Invoice>>(
+            `${P}/billing/units/${unitId}/invoices`,
+            { params: { limit: 'all', ...(tag ? { tag } : {}) } },
+        );
+        return data?.data ?? [];
     },
 
     async getUnitBalance(unitId: string): Promise<UnitBalance> {

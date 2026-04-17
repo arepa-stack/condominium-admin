@@ -34,15 +34,20 @@ import { UserUnitsManager } from '@/components/users/UserUnitsManager';
 import { BuildingRoleBadge } from '@/components/users/BuildingRoleBadge';
 import { formatUserRole } from '@/lib/utils/format';
 import { getEffectiveRole } from '@/lib/utils/roles';
-import type { User, Building, Unit, UserUnit } from '@/types/models';
+import type { User, Building, Unit, PaginationMetadata } from '@/types/models';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
+import { Paginator } from '@/components/ui/paginator';
+
+const PAGE_SIZE = 20;
 
 export default function UsersPage() {
     const { isSuperAdmin, isBoardMember, user: currentUser, buildingId } = usePermissions();
     const { availableBuildings } = useBuildingContext();
     const [users, setUsers] = useState<User[]>([]);
+    const [usersMetadata, setUsersMetadata] = useState<PaginationMetadata | null>(null);
+    const [page, setPage] = useState(1);
     const [buildings, setBuildings] = useState<Building[]>([]);
-    const [units, setUnits] = useState<Unit[]>([]); // Added units state
+    const [, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Filters
@@ -58,47 +63,52 @@ export default function UsersPage() {
     const [isUnitsManagerOpen, setIsUnitsManagerOpen] = useState(false);
     const [unitsManagerUser, setUnitsManagerUser] = useState<User | null>(null);
 
+    const activeBuildingId =
+        filterBuildingId && filterBuildingId !== 'all'
+            ? filterBuildingId
+            : !isSuperAdmin && buildingId
+                ? buildingId
+                : undefined;
+
+    // Reset to first page when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [activeBuildingId, filterRole, filterStatus]);
+
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
 
-            // Determine active building ID for fetching units
-            let activeBuildingId = null;
-            if (filterBuildingId && filterBuildingId !== 'all') {
-                activeBuildingId = filterBuildingId;
-            } else if (!isSuperAdmin && buildingId) {
-                activeBuildingId = buildingId;
-            }
-
-            // Build query params
-            const query: Record<string, string> = {};
+            const query: {
+                page: number;
+                limit: number;
+                building_id?: string;
+                role?: string;
+                status?: string;
+            } = { page, limit: PAGE_SIZE };
             if (activeBuildingId) query.building_id = activeBuildingId;
-
             if (filterRole && filterRole !== 'all') query.role = filterRole;
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
 
-            const promises: Promise<any>[] = [
-                usersService.getUsers(query),
+            const [usersResp, buildingsData, unitsData] = await Promise.all([
+                usersService.getUsersPaginated(query),
                 isSuperAdmin
                     ? buildingsService.getBuildings()
-                    : Promise.resolve(availableBuildings.map(b => ({
-                        id: b.id,
-                        name: b.name || 'Unknown Building',
-                        // Mock fields to satisfy Building type
-                        address: '',
-                        total_units: 0
-                    })))
-            ];
+                    : Promise.resolve(
+                        availableBuildings.map((b) => ({
+                            id: b.id,
+                            name: b.name || 'Unknown Building',
+                            address: '',
+                            total_units: 0,
+                        })) as Building[],
+                    ),
+                activeBuildingId
+                    ? unitsService.getUnits(activeBuildingId)
+                    : Promise.resolve([] as Unit[]),
+            ]);
 
-            if (activeBuildingId) {
-                promises.push(unitsService.getUnits(activeBuildingId));
-            } else {
-                promises.push(Promise.resolve([]));
-            }
-
-            const [usersData, buildingsData, unitsData] = await Promise.all(promises);
-
-            setUsers(usersData);
+            setUsers(usersResp.data);
+            setUsersMetadata(usersResp.metadata);
             setBuildings(buildingsData);
             setUnits(unitsData);
         } catch (error) {
@@ -107,7 +117,7 @@ export default function UsersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [filterBuildingId, filterRole, filterStatus, isSuperAdmin, currentUser]);
+    }, [activeBuildingId, filterRole, filterStatus, isSuperAdmin, page, availableBuildings]);
 
     useEffect(() => {
         fetchData();
@@ -467,6 +477,12 @@ export default function UsersPage() {
                             ))
                         )}
             </div>
+
+            <Paginator
+                metadata={usersMetadata}
+                isLoading={isLoading}
+                onPageChange={setPage}
+            />
 
             <UserDialog
                 open={isDialogOpen}

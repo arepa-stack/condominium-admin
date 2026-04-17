@@ -6,18 +6,33 @@ import type {
   CreateUserDto,
   AssignUnitDto,
   UserUnit,
+  PaginatedResponse,
+  PaginationParams,
 } from "@/types/models";
 
 const P = ADMIN_API_PREFIX;
 
+interface UserListFilters {
+  building_id?: string;
+  unit_id?: string;
+  role?: string;
+  status?: string;
+}
+
 export const usersService = {
-  async getUsers(params?: {
-    building_id?: string;
-    unit_id?: string;
-    role?: string;
-    status?: string;
-  }): Promise<User[]> {
-    const { data } = await apiClient.get<User[]>(`${P}/users`, { params });
+  async getUsers(params?: UserListFilters): Promise<User[]> {
+    const { data } = await apiClient.get<PaginatedResponse<User>>(`${P}/users`, {
+      params: { limit: "all", ...params },
+    });
+    return data?.data ?? [];
+  },
+
+  async getUsersPaginated(
+    params?: UserListFilters & PaginationParams,
+  ): Promise<PaginatedResponse<User>> {
+    const { data } = await apiClient.get<PaginatedResponse<User>>(`${P}/users`, {
+      params,
+    });
     return data;
   },
 
@@ -64,10 +79,11 @@ export const usersService = {
   },
 
   async getUserUnits(userId: string): Promise<UserUnit[]> {
-    const { data } = await apiClient.get<UserUnit[]>(
+    const { data } = await apiClient.get<PaginatedResponse<UserUnit>>(
       `${P}/users/${userId}/units`,
+      { params: { limit: "all" } },
     );
-    return data;
+    return data?.data ?? [];
   },
 
   async removeUnit(userId: string, unitId: string): Promise<void> {

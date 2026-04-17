@@ -34,7 +34,9 @@ import type {
     PettyCashAssessmentPreview,
     PettyCashTransparency,
     CreatePettyCashAssessmentDto,
+    PaginationMetadata,
 } from '@/types/models';
+import { Paginator } from '@/components/ui/paginator';
 import { formatDate, formatMoney } from '@/lib/utils/format';
 import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
 import { toast } from 'sonner';
@@ -99,6 +101,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
 
     const [balance, setBalance] = useState<PettyCashBalance | null>(null);
     const [entries, setEntries] = useState<PettyCashEntry[]>([]);
+    const [entriesMetadata, setEntriesMetadata] = useState<PaginationMetadata | null>(null);
     const [assessmentPreview, setAssessmentPreview] = useState<PettyCashAssessmentPreview | null>(null);
     const [transparency, setTransparency] = useState<PettyCashTransparency | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +109,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [isReversing, setIsReversing] = useState(false);
     const [filterType, setFilterType] = useState<TypeFilter>('all');
     const [filterCategory, setFilterCategory] = useState<CategoryFilter>('all');
-    const [page, setPage] = useState(0);
+    const [page, setPage] = useState(1);
     const pageSize = 20;
 
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -124,7 +127,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             setIsLoading(true);
             const [bal, history, preview, trans] = await Promise.all([
                 pettyCashService.getBalance(buildingId),
-                pettyCashService.getHistory(buildingId, {
+                pettyCashService.getHistoryPaginated(buildingId, {
                     type: filterType !== 'all' ? filterType : undefined,
                     category: filterCategory !== 'all' ? filterCategory : undefined,
                     page,
@@ -134,7 +137,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 pettyCashService.getTransparency(buildingId, period),
             ]);
             setBalance(bal);
-            setEntries(history);
+            setEntries(history.data);
+            setEntriesMetadata(history.metadata);
             setAssessmentPreview(preview);
             setTransparency(trans);
         } catch (e) {
@@ -142,6 +146,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             toast.error('No se pudo cargar la caja chica');
             setBalance(null);
             setEntries([]);
+            setEntriesMetadata(null);
             setAssessmentPreview(null);
             setTransparency(null);
         } finally {
@@ -301,7 +306,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     <Select
                         value={filterType}
                         onValueChange={(v) => {
-                            setPage(0);
+                            setPage(1);
                             setFilterType(v as TypeFilter);
                         }}
                     >
@@ -321,7 +326,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     <Select
                         value={filterCategory}
                         onValueChange={(v) => {
-                            setPage(0);
+                            setPage(1);
                             setFilterCategory(v as CategoryFilter);
                         }}
                     >
@@ -468,29 +473,11 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                             )}
                         </TableBody>
                     </Table>
-                    {entries.length > 0 && (
-                        <div className="flex items-center justify-end gap-2 p-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page <= 0 || isLoading}
-                                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                            >
-                                Anterior
-                            </Button>
-                            <span className="text-sm text-muted-foreground">
-                                Página {page + 1}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={entries.length < pageSize || isLoading}
-                                onClick={() => setPage((p) => p + 1)}
-                            >
-                                Siguiente
-                            </Button>
-                        </div>
-                    )}
+                    <Paginator
+                        metadata={entriesMetadata}
+                        isLoading={isLoading}
+                        onPageChange={setPage}
+                    />
                 </>
             )}
 
