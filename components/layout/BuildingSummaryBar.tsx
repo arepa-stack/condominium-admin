@@ -5,16 +5,24 @@ import { buildingsService } from '@/lib/services/buildings.service';
 import { billingService } from '@/lib/services/billing.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { formatCurrency } from '@/lib/utils/format';
-import { Building2, Wallet, Clock, CheckCircle2 } from 'lucide-react';
+import { Building2, Wallet, Clock, CheckCircle2, Plus, FileSpreadsheet, Users, CreditCard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/tooltip-simple';
+import Link from 'next/link';
+
 import type { Building } from '@/types/models';
+import { usePathname } from 'next/navigation';
+
 
 interface BuildingSummaryBarProps {
     buildingId: string;
 }
 
 export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
+    const pathname = usePathname();
     const [building, setBuilding] = useState<Building | null>(null);
+
     const [stats, setStats] = useState({
         totalDebt: 0,
         pendingPayments: 0,
@@ -84,7 +92,7 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-foreground">
-                            {isBuildingLoading ? 'Loading building...' : building?.name}
+                            {isBuildingLoading ? 'Cargando edificio...' : building?.name}
                         </h2>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                             {isBuildingLoading ? '...' : building?.address}
@@ -96,7 +104,7 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                     <div className="space-y-1">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                             <Wallet className="w-3 h-3 text-destructive" />
-                            Total Debt
+                            Deuda Total
                         </p>
                         <p className="text-lg font-bold text-destructive tabular-nums">
                             {isStatsLoading ? '...' : formatCurrency(stats.totalDebt)}
@@ -106,23 +114,67 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                     <div className="space-y-1">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                             <Clock className="w-3 h-3 text-chart-2" />
-                            Pending Payments
+                            Pagos por Aprobar
                         </p>
                         <p className="text-lg font-bold text-chart-2 tabular-nums">
                             {isStatsLoading ? '...' : stats.pendingPayments}
                         </p>
                     </div>
 
-                    <div className="space-y-1 invisible md:visible">
+                    <div className="space-y-2 invisible md:visible">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <CheckCircle2 className="w-3 h-3 text-chart-1" />
-                            Quick Actions
+                            <CheckCircle2 className="w-3 h-3 text-primary" />
+                            Acciones Rápidas
                         </p>
-                        <div className="flex gap-2">
-                            <div className="w-2 h-2 rounded-full bg-chart-1/20 border border-chart-1/50" />
-                            <div className="w-2 h-2 rounded-full bg-primary/20 border border-primary/50" />
+                        <div className="flex items-center gap-2">
+                            <Tooltip content="Nueva factura">
+                                <Link href={`${pathname}?open=invoice`} scroll={false}>
+                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+                                        <Plus className="h-3.5 w-3.5" />
+                                        <span>Factura</span>
+                                    </Button>
+                                </Link>
+                            </Tooltip>
+                            
+                            <Tooltip content="Importar Excel">
+                                <Link href={`${pathname}?open=excel`} scroll={false}>
+                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-green-600/20 text-green-600 hover:bg-green-50 hover:text-green-700 transition-all">
+                                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                                        <span>Excel</span>
+                                    </Button>
+                                </Link>
+                            </Tooltip>
+
+                            <Tooltip content="Añadir residente">
+                                <Link href={`${pathname}?open=resident`} scroll={false}>
+                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+                                        <Users className="h-3.5 w-3.5" />
+                                        <span>Residente</span>
+                                    </Button>
+                                </Link>
+                            </Tooltip>
+
+                            <div className="w-px h-6 bg-border/40 mx-1" />
+
+                            <Tooltip content="Gestionar Pagos">
+                                <Link href={`/buildings/${buildingId}/payments`}>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-primary">
+                                        <CreditCard className="h-4 w-4" />
+                                    </Button>
+                                </Link>
+                            </Tooltip>
+
+                            <Tooltip content="Ver Usuarios">
+                                <Link href={`/buildings/${buildingId}/users`}>
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-primary">
+                                        <Users className="h-4 w-4" />
+                                    </Button>
+                                </Link>
+                            </Tooltip>
                         </div>
+
                     </div>
+
                 </div>
             </div>
 

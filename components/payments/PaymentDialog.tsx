@@ -35,6 +35,7 @@ interface PaymentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     buildingId?: string;
+    unitId?: string;
     buildings?: Building[];
     onSuccess?: () => void;
 }
@@ -43,6 +44,7 @@ export function PaymentDialog({
     open,
     onOpenChange,
     buildingId,
+    unitId,
     buildings = [],
     onSuccess,
 }: PaymentDialogProps) {
@@ -77,10 +79,11 @@ export function PaymentDialog({
     })), [pendingInvoices]);
 
     useEffect(() => {
-        if (open && buildingId) {
-            setSelectedBuildingId(buildingId);
+        if (open) {
+            if (buildingId) setSelectedBuildingId(buildingId);
+            if (unitId) setSelectedUnitId(unitId);
         }
-    }, [open, buildingId]);
+    }, [open, buildingId, unitId]);
 
     useEffect(() => {
         const fetchUnits = async () => {
@@ -156,8 +159,8 @@ export function PaymentDialog({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedUnitId || !amount || !date || !method) {
-            toast.error("Completá todos los campos obligatorios");
+        if (!selectedUnitId || !amount || !date || !method || !proofFile) {
+            toast.error("Completá todos los campos obligatorios y adjuntá el comprobante");
             return;
         }
 
@@ -276,7 +279,7 @@ export function PaymentDialog({
                             Seleccionar facturas a pagar ({selectedInvoiceIds.length})
                         </Label>
 
-                        <div className="space-y-2 border rounded-xl p-3 bg-white/5 max-h-[180px] overflow-y-auto custom-scrollbar">
+                        <div className="space-y-2 border rounded-xl p-3 bg-muted/50 max-h-[180px] overflow-y-auto custom-scrollbar">
                             {invoicesOptions.length === 0 ? (
                                 <p className="text-xs text-muted-foreground italic text-center py-4">
                                     {!selectedUnitId || selectedUnitId === 'all' ? "Primero seleccioná una unidad" : "No hay facturas pendientes para esta unidad"}
@@ -286,7 +289,7 @@ export function PaymentDialog({
                                     <div
                                         key={inv.id}
                                         className={cn(
-                                            "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/10",
+                                            "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer hover:bg-muted",
                                             selectedInvoiceIds.includes(inv.id) ? "bg-primary/10 border border-primary/20" : "border border-transparent"
                                         )}
                                         onClick={() => toggleInvoice(inv.id)}
@@ -296,17 +299,17 @@ export function PaymentDialog({
                                                 "h-4 w-4 rounded border flex items-center justify-center transition-colors",
                                                 selectedInvoiceIds.includes(inv.id) ? "bg-primary border-primary" : "border-primary/40 bg-transparent"
                                             )}>
-                                                {selectedInvoiceIds.includes(inv.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                                {selectedInvoiceIds.includes(inv.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-white uppercase tracking-tighter">
+                                                <span className="text-xs font-bold text-foreground uppercase tracking-tighter">
                                                     {inv.label}
                                                 </span>
                                                 <span className="text-[10px] text-muted-foreground">{inv.subLabel}</span>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm font-black text-white tabular-nums">
+                                            <span className="text-sm font-black text-foreground tabular-nums">
                                                 {formatCurrency(inv.amount)}
                                             </span>
                                         </div>
@@ -400,15 +403,23 @@ export function PaymentDialog({
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             <Upload className="h-4 w-4 text-muted-foreground" />
-                            Comprobante de pago (opcional)
+                            Comprobante de pago <span className="text-destructive">*</span>
                         </Label>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                type="file"
-                                accept="image/*,application/pdf"
-                                onChange={handleFileChange}
-                                className="cursor-pointer"
-                            />
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={handleFileChange}
+                                    className="cursor-pointer"
+                                    required
+                                />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                                {method === 'CASH' 
+                                    ? 'Requerido: Sube una foto del recibo de caja firmado como comprobante del efectivo.' 
+                                    : 'Requerido: Sube una captura o PDF de la transferencia bancaria / pago móvil.'}
+                            </span>
                         </div>
                     </div>
 

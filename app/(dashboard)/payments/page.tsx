@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { paymentsService } from '@/lib/services/payments.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -18,6 +20,8 @@ import {
     DialogContent,
     DialogTitle,
     DialogDescription,
+    DialogHeader,
+    DialogFooter,
 } from '@/components/ui/dialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -31,7 +35,7 @@ import { formatCurrency, formatDate, formatPaymentMethod } from '@/lib/utils/for
 const PAGE_SIZE = 20;
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Eye, CheckCircle, XCircle, Building2, Home, DollarSign, RotateCcw, Receipt } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Building2, Home, DollarSign, RotateCcw, Receipt, Loader2 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import { PaymentApprovalDialog } from '@/components/payments/PaymentApprovalDialog';
@@ -65,6 +69,16 @@ export default function PaymentsPage() {
     const [approvalPayment, setApprovalPayment] = useState<Payment | null>(null);
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
+    // Reason Dialog State
+    const [reasonDialog, setReasonDialog] = useState<{
+        open: boolean;
+        paymentId?: string;
+        action?: 'reject' | 'reverse';
+        title?: string;
+        description?: string;
+    }>({ open: false });
+    const [actionReason, setActionReason] = useState('');
+    const [isActionSubmitting, setIsActionSubmitting] = useState(false);
 
     // Explicit filter wins, else fall back to globally selected building
     const activeBuildingId =
@@ -128,34 +142,6 @@ export default function PaymentsPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
-
-    const handleReject = async (paymentId: string) => {
-        const reason = prompt('Motivo del rechazo:');
-        if (reason === null) return;
-
-        try {
-            await paymentsService.rejectPayment(paymentId, reason);
-            toast.success('Pago rechazado');
-            fetchData();
-        } catch (error) {
-            console.error(error);
-            toast.error('Error al rechazar el pago');
-        }
-    };
-
-    const handleReverse = async (paymentId: string) => {
-        const reason = prompt('Motivo de la reversión:');
-        if (reason === null) return;
-
-        try {
-            await paymentsService.reversePayment(paymentId, reason);
-            toast.success('Pago revertido correctamente');
-            fetchData();
-        } catch (error) {
-            console.error(error);
-            toast.error('Error al revertir el pago');
-        }
-    };
 
     return (
         <div className="space-y-6">
@@ -318,7 +304,17 @@ export default function PaymentsPage() {
                                                 <Button
                                                     size="sm"
                                                     variant="destructive"
-                                                    onClick={(e) => { e.stopPropagation(); handleReject(payment.id); }}
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setReasonDialog({
+                                                            open: true,
+                                                            paymentId: payment.id,
+                                                            action: 'reject',
+                                                            title: 'Rechazar Pago',
+                                                            description: 'Por favor, indica el motivo del rechazo. Este mensaje será visible para el residente y le enviará una notificación.'
+                                                        });
+                                                        setActionReason('');
+                                                    }}
                                                     className="h-8 w-8 p-0"
                                                     title="Rechazar"
                                                 >
@@ -330,7 +326,17 @@ export default function PaymentsPage() {
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                onClick={(e) => { e.stopPropagation(); handleReverse(payment.id); }}
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    setReasonDialog({
+                                                        open: true,
+                                                        paymentId: payment.id,
+                                                        action: 'reverse',
+                                                        title: 'Revertir Pago',
+                                                        description: 'Por favor, indica un motivo válido para la reversión del pago. Esta acción anulará el balance acreditado a la unidad.'
+                                                    });
+                                                    setActionReason('');
+                                                }}
                                                 className="h-8 w-8 p-0 border-chart-2/50 text-chart-2 hover:bg-chart-2/10"
                                                 title="Revertir pago"
                                             >
@@ -353,7 +359,7 @@ export default function PaymentsPage() {
 
             {/* Proof Dialog */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto bg-card border-white/10">
+                <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto bg-card border-border/50 shadow-2xl">
                     <DialogDescription className="sr-only">Vista previa del comprobante de pago.</DialogDescription>
                     <div className="flex items-center justify-between">
                         <DialogTitle>Comprobante de Pago</DialogTitle>
@@ -361,7 +367,7 @@ export default function PaymentsPage() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="gap-2 border-white/10 hover:bg-white/5"
+                                className="gap-2 border-border/50 hover:bg-muted/50"
                                 onClick={() => window.open(proofUrl, '_blank')}
                             >
                                 <CheckCircle className="h-4 w-4" />
@@ -380,6 +386,81 @@ export default function PaymentsPage() {
                             />
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Action Reason Dialog */}
+            <Dialog open={reasonDialog.open} onOpenChange={(open) => {
+                if (isActionSubmitting) return;
+                if (!open) setReasonDialog({ open: false });
+            }}>
+                <DialogContent className="sm:max-w-[425px] border-border/50 bg-card backdrop-blur">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold">{reasonDialog.title}</DialogTitle>
+                        <DialogDescription className="text-muted-foreground mt-2">
+                            {reasonDialog.description}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-6">
+                        <div className="flex flex-col gap-3">
+                            <Label htmlFor="reason" className="text-sm font-semibold text-foreground/90 flex items-center gap-1">
+                                Motivo <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                id="reason"
+                                placeholder="..."
+                                value={actionReason}
+                                onChange={(e) => setActionReason(e.target.value)}
+                                disabled={isActionSubmitting}
+                                autoFocus
+                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button 
+                            variant="ghost" 
+                            disabled={isActionSubmitting} 
+                            onClick={() => setReasonDialog({ open: false })}
+                            className="text-muted-foreground hover:text-foreground"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button 
+                            variant={reasonDialog.action === 'reject' ? "destructive" : "default"}
+                            disabled={!actionReason.trim() || isActionSubmitting}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[120px]"
+                            onClick={async () => {
+                                if (!reasonDialog.paymentId || !actionReason.trim()) return;
+                                setIsActionSubmitting(true);
+                                try {
+                                    if (reasonDialog.action === 'reject') {
+                                        await paymentsService.rejectPayment(reasonDialog.paymentId, actionReason.trim());
+                                        toast.success('Pago rechazado y residente notificado');
+                                    } else {
+                                        await paymentsService.reversePayment(reasonDialog.paymentId, actionReason.trim());
+                                        toast.success('Pago revertido con éxito');
+                                    }
+                                    setReasonDialog({ open: false });
+                                    fetchData();
+                                } catch (error) {
+                                    console.error(error);
+                                    toast.error(reasonDialog.action === 'reject' ? 'Error al rechazar el pago' : 'Error al revertir el pago');
+                                } finally {
+                                    setIsActionSubmitting(false);
+                                }
+                            }}
+                        >
+                            {isActionSubmitting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin opacity-70" />
+                                    Procesando...
+                                </>
+                            ) : (
+                                "Confirmar Acción"
+                            )}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

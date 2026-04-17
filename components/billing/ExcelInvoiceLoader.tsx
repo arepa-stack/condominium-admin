@@ -265,7 +265,7 @@ export function ExcelInvoiceLoader({
                                                         {inv.unitName}
                                                         {inv.warning && (
                                                             <span title={inv.warning}>
-                                                                <AlertCircle className="h-4 w-4 text-yellow-500 cursor-help" />
+                                                                <AlertCircle className="h-4 w-4 text-yellow-700 dark:text-yellow-500 cursor-help" />
                                                             </span>
                                                         )}
                                                     </div>

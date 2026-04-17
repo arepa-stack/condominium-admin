@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { buildingsService } from '@/lib/services/buildings.service';
+import { unitsService } from '@/lib/services/units.service';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -26,12 +27,28 @@ export default function BuildingsPage() {
             const data = await buildingsService.getBuildings();
 
             // Filter by board buildings if not admin
+            let filteredBuildings: Building[] = [];
             if (!isSuperAdmin) {
                 const boardBuildingIds = getBoardBuildings();
-                setBuildings(data.filter(b => boardBuildingIds.includes(b.id)));
+                filteredBuildings = data.filter(b => boardBuildingIds.includes(b.id));
             } else {
-                setBuildings(data);
+                filteredBuildings = data;
             }
+
+            // Enrich with unit count if not provided by backend
+            const enrichedBuildings = await Promise.all(
+                filteredBuildings.map(async (building) => {
+                    try {
+                        const units = await unitsService.getUnits(building.id);
+                        return { ...building, total_units: units.length };
+                    } catch (err) {
+                        console.error(`Failed to fetch units for building ${building.id}:`, err);
+                        return building;
+                    }
+                })
+            );
+
+            setBuildings(enrichedBuildings);
         } catch (error) {
             console.error('Failed to fetch buildings:', error);
             toast.error('Error al cargar los edificios');
