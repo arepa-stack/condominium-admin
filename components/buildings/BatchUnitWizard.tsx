@@ -144,7 +144,7 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
                                         placeholder="ej. 2.5"
                                         value={defaultAliquot || ''}
                                         onChange={e => setDefaultAliquot(parseFloat(e.target.value) || 0)}
-                                        className="text-center font-bold text-lg bg-background/50 border-white/10"
+                                        className="text-center font-bold text-lg bg-background/50 border-border"
                                     />
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">%</div>
                                 </div>
@@ -153,16 +153,16 @@ export function BatchUnitWizard({ buildingId, isOpen, onClose, onSuccess }: Batc
                                 </p>
                             </div>
 
-                            <div className="text-sm border border-white/5 p-5 rounded-2xl bg-white/5 space-y-2 text-left">
+                            <div className="text-sm border border-border p-5 rounded-2xl bg-muted/50 space-y-2 text-left">
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Pisos:</span>
-                                    <span className="font-bold text-white">{floors.length} (1 - {floors.length})</span>
+                                    <span className="font-bold text-foreground">{floors.length} (1 - {floors.length})</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Unidades por piso:</span>
-                                    <span className="font-bold text-white italic">{unitsPerFloor.join(', ')}</span>
+                                    <span className="font-bold text-foreground italic">{unitsPerFloor.join(', ')}</span>
                                 </div>
-                                <div className="pt-2 border-t border-white/5 text-[10px] text-muted-foreground italic flex items-center gap-2">
+                                <div className="pt-2 border-t border-border text-[10px] text-muted-foreground italic flex items-center gap-2">
                                     <div className="h-1 w-1 rounded-full bg-primary" />
                                     Ejemplo: 1-{unitsPerFloor[0] || 'A'} hasta {floors.length}-{unitsPerFloor[unitsPerFloor.length - 1] || 'Z'}
                                 </div>

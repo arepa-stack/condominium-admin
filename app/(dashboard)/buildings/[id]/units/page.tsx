@@ -104,7 +104,7 @@ export default function BuildingUnitsPage() {
             </div>
 
             {/* Filters */}
-            <Card className="p-4 border-white/5 bg-card/50 backdrop-blur-xl">
+            <Card className="p-4 border-border bg-card/50 backdrop-blur-xl">
                 <div className="flex gap-4">
                     <div className="flex-1 relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -113,7 +113,7 @@ export default function BuildingUnitsPage() {
                             placeholder="Buscar unidad por nombre o piso..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 rounded-md border border-white/5 bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-white placeholder:text-muted-foreground"
+                            className="w-full pl-9 pr-4 py-2 rounded-md border border-border bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground placeholder:text-muted-foreground"
                         />
                     </div>
                 </div>
@@ -123,12 +123,12 @@ export default function BuildingUnitsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {isLoading ? (
                     Array.from({ length: 8 }).map((_, i) => (
-                        <Card key={i} className="animate-pulse border-white/5 bg-card/50">
+                        <Card key={i} className="animate-pulse border-border bg-card/50">
                             <CardContent className="h-32 bg-muted/10" />
                         </Card>
                     ))
                 ) : filteredUnits.length === 0 ? (
-                    <div className="col-span-full py-20 text-center bg-card/30 rounded-2xl border border-dashed border-white/5">
+                    <div className="col-span-full py-20 text-center bg-card/30 rounded-2xl border border-dashed border-border">
                         <Home className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
                         <p className="text-muted-foreground">No se encontraron unidades</p>
                     </div>
@@ -137,7 +137,7 @@ export default function BuildingUnitsPage() {
                         return (
                             <Card
                                 key={unit.id}
-                                className="group hover:scale-[1.02] transition-all duration-300 border-white/5 bg-card/40 backdrop-blur-sm overflow-hidden hover:bg-card/60"
+                                className="group hover:scale-[1.02] transition-all duration-300 border-border bg-card/40 backdrop-blur-sm overflow-hidden hover:bg-card/60"
                             >
                                 <CardContent className="p-5">
                                     <div className="flex items-start justify-between mb-4">
@@ -148,14 +148,14 @@ export default function BuildingUnitsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
+                                                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
                                             >
                                                 <Eye className="h-4 w-4 text-primary" />
                                             </Button>
                                         </Link>
                                     </div>
 
-                                    <h3 className="font-bold text-lg text-white mb-1">
+                                    <h3 className="font-bold text-lg text-foreground mb-1">
                                         Unidad {unit.name}
                                     </h3>
 
@@ -166,7 +166,7 @@ export default function BuildingUnitsPage() {
                                                 <span>Piso {unit.floor}</span>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2 text-xs text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded-full w-fit border border-red-400/20">
+                                            <div className="flex items-center gap-2 text-xs text-red-700 dark:text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded-full w-fit border border-red-400/20">
                                                 <AlertCircle className="h-3 w-3" />
                                                 <span>Sin piso</span>
                                             </div>
@@ -178,7 +178,7 @@ export default function BuildingUnitsPage() {
                                                     <span>Alícuota {unit.aliquot}%</span>
                                                 </>
                                             ) : (
-                                                <div className="flex items-center gap-2 text-xs text-yellow-500 font-bold bg-yellow-500/10 px-2 py-0.5 rounded-full w-fit border border-yellow-500/20">
+                                                <div className="flex items-center gap-2 text-xs text-yellow-700 dark:text-yellow-500 font-bold bg-yellow-500/10 px-2 py-0.5 rounded-full w-fit border border-yellow-500/20">
                                                     <AlertTriangle className="h-3 w-3" />
                                                     <span>Alícuota 0%</span>
                                                 </div>
@@ -190,7 +190,7 @@ export default function BuildingUnitsPage() {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            className="w-full text-xs bg-white/5 border-white/5 hover:bg-primary/20 hover:border-primary/50 hover:text-primary transition-all duration-300"
+                                            className="w-full text-xs bg-muted/50 border-border hover:bg-primary/20 hover:border-primary/50 hover:text-primary transition-all duration-300"
                                         >
                                             Configurar detalles
                                         </Button>

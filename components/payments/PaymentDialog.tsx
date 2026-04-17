@@ -279,7 +279,7 @@ export function PaymentDialog({
                             Seleccionar facturas a pagar ({selectedInvoiceIds.length})
                         </Label>
 
-                        <div className="space-y-2 border rounded-xl p-3 bg-white/5 max-h-[180px] overflow-y-auto custom-scrollbar">
+                        <div className="space-y-2 border rounded-xl p-3 bg-muted/50 max-h-[180px] overflow-y-auto custom-scrollbar">
                             {invoicesOptions.length === 0 ? (
                                 <p className="text-xs text-muted-foreground italic text-center py-4">
                                     {!selectedUnitId || selectedUnitId === 'all' ? "Primero seleccioná una unidad" : "No hay facturas pendientes para esta unidad"}
@@ -289,7 +289,7 @@ export function PaymentDialog({
                                     <div
                                         key={inv.id}
                                         className={cn(
-                                            "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/10",
+                                            "flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer hover:bg-muted",
                                             selectedInvoiceIds.includes(inv.id) ? "bg-primary/10 border border-primary/20" : "border border-transparent"
                                         )}
                                         onClick={() => toggleInvoice(inv.id)}
@@ -299,17 +299,17 @@ export function PaymentDialog({
                                                 "h-4 w-4 rounded border flex items-center justify-center transition-colors",
                                                 selectedInvoiceIds.includes(inv.id) ? "bg-primary border-primary" : "border-primary/40 bg-transparent"
                                             )}>
-                                                {selectedInvoiceIds.includes(inv.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                                {selectedInvoiceIds.includes(inv.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-white uppercase tracking-tighter">
+                                                <span className="text-xs font-bold text-foreground uppercase tracking-tighter">
                                                     {inv.label}
                                                 </span>
                                                 <span className="text-[10px] text-muted-foreground">{inv.subLabel}</span>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm font-black text-white tabular-nums">
+                                            <span className="text-sm font-black text-foreground tabular-nums">
                                                 {formatCurrency(inv.amount)}
                                             </span>
                                         </div>
