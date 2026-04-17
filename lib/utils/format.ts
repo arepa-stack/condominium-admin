@@ -71,9 +71,9 @@ export function formatPaymentMethod(method: string): string {
  */
 export function formatUserRole(role: string): string {
     const roles: Record<string, string> = {
-        admin: 'Super Admin',
-        board: 'Board Member',
-        resident: 'Resident',
+        admin: 'Administrador',
+        board: 'Directiva',
+        resident: 'Residente',
     };
     return roles[role] || role;
 }

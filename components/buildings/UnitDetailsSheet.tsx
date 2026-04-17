@@ -3,7 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button'; // [NEW]
-import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { formatCurrency, formatDate, formatUserRole } from '@/lib/utils/format';
+import { getEffectiveRole } from '@/lib/utils/roles';
 import type { Unit, User, Payment, Invoice } from '@/types/models';
 import { useEffect, useState, useMemo } from 'react';
 import { usersService } from '@/lib/services/users.service';
@@ -121,7 +122,9 @@ export function UnitDetailsSheet({ unit, open, onOpenChange }: UnitDetailsSheetP
                                                         <p className="text-xs text-muted-foreground">{resident.email}</p>
                                                     </div>
                                                 </div>
-                                                <Badge variant="outline" className="capitalize">{resident.role}</Badge>
+                                                <Badge variant="outline" className="capitalize">
+                                                    {formatUserRole(getEffectiveRole(resident, unit.building_id))}
+                                                </Badge>
                                             </div>
                                         ))}
                                     </div>

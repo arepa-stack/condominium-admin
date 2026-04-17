@@ -33,6 +33,7 @@ import { UserRoleManager } from '@/components/users/UserRoleManager';
 import { UserUnitsManager } from '@/components/users/UserUnitsManager';
 import { BuildingRoleBadge } from '@/components/users/BuildingRoleBadge';
 import { formatUserRole } from '@/lib/utils/format';
+import { getEffectiveRole } from '@/lib/utils/roles';
 import type { User, Building, Unit } from '@/types/models';
 import { useParams } from 'next/navigation';
 
@@ -204,7 +205,7 @@ export default function BuildingUsersPage() {
                                         <div className="text-xs text-muted-foreground">{user.email}</div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className="font-medium">{formatUserRole(user.role)}</Badge>
+                                        <Badge variant="outline" className="font-medium">{formatUserRole(getEffectiveRole(user, buildingId))}</Badge>
                                     </TableCell>
                                     <TableCell className="whitespace-normal">
                                         {user.units && user.units.length > 0 ? (

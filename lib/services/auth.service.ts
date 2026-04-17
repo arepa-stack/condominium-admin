@@ -1,6 +1,7 @@
 
 import { apiClient } from '@/lib/api/client';
 import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
+import { canEnterPanel } from '@/lib/utils/roles';
 import type { AuthResponse, LoginCredentials, User } from '@/types/models';
 
 export const authService = {
@@ -29,14 +30,8 @@ export const authService = {
 
         console.log('Login response user:', data.user);
 
-        // Rule: Only users with role: 'admin' or role: 'board' should access the panel.
-        const allowedRoles = ['admin', 'board'];
-        // Normalize role to lowercase to handle backend inconsistency
-        const userRole = data.user.role?.toLowerCase() as string;
-
-        if (!allowedRoles.includes(userRole)) {
-            console.error(`Access denied: Role '${data.user.role}' is not allowed.`);
-            // Clean up
+        if (!canEnterPanel(data.user)) {
+            console.error('Access denied: user is neither admin nor board in any building.', data.user);
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             throw new Error('Access denied. Only administrators and board members can access this panel.');

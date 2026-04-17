@@ -218,7 +218,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                         Promover a Directiva
                                                     </Button>
                                                 )}
-                                                {((user?.role as string) === 'admin' || (user?.role as string) === 'superadmin') && br.role === 'board' && (
+                                                {isSuperAdmin && br.role === 'board' && (
                                                     <Button
                                                         size="sm"
                                                         variant="outline"

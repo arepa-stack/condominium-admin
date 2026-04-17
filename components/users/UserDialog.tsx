@@ -32,6 +32,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { usersService } from '@/lib/services/users.service';
 import { unitsService } from '@/lib/services/units.service';
+import { usePermissions } from '@/lib/hooks/usePermissions';
+import { getEffectiveRole } from '@/lib/utils/roles';
 import { Shield, User as UserIcon, Phone, Mail, Building2, Home } from 'lucide-react';
 import type { User, Building, Unit } from '@/types/models';
 
@@ -44,6 +46,7 @@ interface UserDialogProps {
 }
 
 export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: UserDialogProps) {
+    const { isSuperAdmin } = usePermissions();
     const [units, setUnits] = useState<Unit[]>([]);
     const [loadingUnits, setLoadingUnits] = useState(false);
 
@@ -64,7 +67,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
         email: z.string().email('Email inválido'),
         password: z.string().optional(),
         phone: z.string().optional(),
-        role: z.enum(['resident', 'board', 'admin']),
+        app_role: z.enum(['admin', 'user']),
         status: z.enum(['active', 'pending', 'inactive', 'rejected']),
     });
 
@@ -78,7 +81,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
             email: '',
             password: '',
             phone: '',
-            role: 'resident',
+            app_role: 'user',
             status: 'active',
         } : {
             name: '',
@@ -125,7 +128,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 email: user.email,
                 password: '',
                 phone: user.phone || '',
-                role: user.role,
+                app_role: user.app_role,
                 status: user.status || 'active',
             });
         } else {
@@ -150,8 +153,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 const updateData: any = {
                     name: data.name,
                     phone: data.phone,
-                    role: data.role,
                 };
+
+                // Only admins can change app_role, and only if it actually changed
+                if (isSuperAdmin && data.app_role && data.app_role !== user.app_role) {
+                    updateData.app_role = data.app_role;
+                }
 
                 if (data.password) {
                     updateData.password = data.password;
@@ -190,6 +197,8 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 return 'bg-muted/50 text-muted-foreground border-border/50';
         }
     };
+
+    const editingUserEffectiveRole = user ? getEffectiveRole(user) : null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -411,43 +420,87 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                         )}
 
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="role"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="flex items-center gap-2">
-                                            <Shield className="h-4 w-4 text-muted-foreground" />
-                                            Rol global
-                                        </FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger className="bg-background/50 border-border/50">
-                                                    <SelectValue placeholder="Seleccionar rol" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="resident">
-                                                    <Badge variant="outline" className={getRoleBadgeColor('resident')}>
-                                                        Residente
-                                                    </Badge>
-                                                </SelectItem>
-                                                <SelectItem value="board">
-                                                    <Badge variant="outline" className={getRoleBadgeColor('board')}>
-                                                        Junta
-                                                    </Badge>
-                                                </SelectItem>
-                                                <SelectItem value="admin">
-                                                    <Badge variant="outline" className={getRoleBadgeColor('admin')}>
-                                                        Administrador
-                                                    </Badge>
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            {user ? (
+                                <FormField
+                                    control={form.control}
+                                    name="app_role"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-2">
+                                                <Shield className="h-4 w-4 text-muted-foreground" />
+                                                Capacidad global
+                                            </FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                disabled={!isSuperAdmin}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-background/50 border-border/50">
+                                                        <SelectValue placeholder="Seleccionar capacidad" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="user">
+                                                        <Badge variant="outline" className={getRoleBadgeColor('resident')}>
+                                                            Usuario estándar
+                                                        </Badge>
+                                                    </SelectItem>
+                                                    <SelectItem value="admin">
+                                                        <Badge variant="outline" className={getRoleBadgeColor('admin')}>
+                                                            Administrador
+                                                        </Badge>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormDescription className="text-xs">
+                                                {isSuperAdmin
+                                                    ? `Actualmente: ${editingUserEffectiveRole === 'admin' ? 'Admin global' : editingUserEffectiveRole === 'board' ? 'Directiva' : 'Residente'}. El rol de Directiva se gestiona por edificio desde "Gestionar roles".`
+                                                    : 'Solo un administrador puede cambiar la capacidad global.'}
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            ) : (
+                                <FormField
+                                    control={form.control}
+                                    name="role"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-2">
+                                                <Shield className="h-4 w-4 text-muted-foreground" />
+                                                Rol inicial
+                                            </FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-background/50 border-border/50">
+                                                        <SelectValue placeholder="Seleccionar rol" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="resident">
+                                                        <Badge variant="outline" className={getRoleBadgeColor('resident')}>
+                                                            Residente
+                                                        </Badge>
+                                                    </SelectItem>
+                                                    <SelectItem value="board">
+                                                        <Badge variant="outline" className={getRoleBadgeColor('board')}>
+                                                            Directiva
+                                                        </Badge>
+                                                    </SelectItem>
+                                                    <SelectItem value="admin">
+                                                        <Badge variant="outline" className={getRoleBadgeColor('admin')}>
+                                                            Administrador
+                                                        </Badge>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
 
                             <FormField
                                 control={form.control}
