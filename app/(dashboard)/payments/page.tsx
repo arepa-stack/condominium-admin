@@ -24,8 +24,11 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/skeletons';
-import type { Payment, Building, Unit } from '@/types/models';
+import type { Payment, Building, Unit, PaginationMetadata } from '@/types/models';
+import { Paginator } from '@/components/ui/paginator';
 import { formatCurrency, formatDate, formatPaymentMethod } from '@/lib/utils/format';
+
+const PAGE_SIZE = 20;
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { Eye, CheckCircle, XCircle, Building2, Home, DollarSign, RotateCcw, Receipt } from 'lucide-react';
@@ -42,6 +45,8 @@ export default function PaymentsPage() {
     const userIdParam = searchParams.get('user_id');
 
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [paymentsMetadata, setPaymentsMetadata] = useState<PaginationMetadata | null>(null);
+    const [page, setPage] = useState(1);
     const [buildings, setBuildings] = useState<Building[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -61,48 +66,48 @@ export default function PaymentsPage() {
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
 
+    const activeBuildingId = isSuperAdmin
+        ? filterBuildingId && filterBuildingId !== 'all'
+            ? filterBuildingId
+            : undefined
+        : buildingId;
+
+    // Reset to first page when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [activeBuildingId, filterUnitId, filterStatus, filterPeriod, filterYear, userIdParam]);
+
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
 
-            // Determine building ID
-            let activeBuildingId = undefined;
-            if (isSuperAdmin) {
-                if (filterBuildingId && filterBuildingId !== 'all') {
-                    activeBuildingId = filterBuildingId;
-                }
-            } else {
-                activeBuildingId = buildingId;
-            }
-
-            const query: Record<string, string> = {};
+            const query: {
+                page: number;
+                limit: number;
+                building_id?: string;
+                unit_id?: string;
+                status?: string;
+                period?: string;
+                year?: string;
+                user_id?: string;
+            } = { page, limit: PAGE_SIZE };
             if (activeBuildingId) query.building_id = activeBuildingId;
             if (userIdParam) query.user_id = userIdParam;
             if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
             if (filterYear) query.year = filterYear;
-
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
             if (filterPeriod) query.period = filterPeriod;
 
-            const promises: Promise<any>[] = [
-                paymentsService.getPayments(query),
-                isSuperAdmin ? buildingsService.getBuildings() : Promise.resolve([])
-            ];
+            const [paymentsResp, buildingsData, unitsData] = await Promise.all([
+                paymentsService.getAdminPaymentsPaginated(query),
+                isSuperAdmin ? buildingsService.getBuildings() : Promise.resolve([] as Building[]),
+                activeBuildingId
+                    ? unitsService.getUnits(activeBuildingId)
+                    : Promise.resolve([] as Unit[]),
+            ]);
 
-            if (activeBuildingId) {
-                promises.push(unitsService.getUnits(activeBuildingId));
-            } else {
-                promises.push(Promise.resolve([]));
-            }
-
-            const [paymentsData, buildingsData, unitsData] = await Promise.all(promises);
-
-            let filteredPayments = paymentsData;
-            if (userIdParam) {
-                filteredPayments = paymentsData.filter((p: Payment) => p.user_id === userIdParam);
-            }
-
-            setPayments(filteredPayments);
+            setPayments(paymentsResp.data);
+            setPaymentsMetadata(paymentsResp.metadata);
             setBuildings(buildingsData);
             setUnits(unitsData);
         } catch (error) {
@@ -111,7 +116,7 @@ export default function PaymentsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [isSuperAdmin, user, filterBuildingId, filterUnitId, filterStatus, filterPeriod, filterYear, userIdParam]);
+    }, [activeBuildingId, filterUnitId, filterStatus, filterPeriod, filterYear, userIdParam, isSuperAdmin, page]);
 
     useEffect(() => {
         fetchData();
@@ -332,6 +337,12 @@ export default function PaymentsPage() {
                     </TableBody>
                 </Table>
             )}
+
+            <Paginator
+                metadata={paymentsMetadata}
+                isLoading={isLoading}
+                onPageChange={setPage}
+            />
 
             {/* Proof Dialog */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
