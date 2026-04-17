@@ -47,76 +47,96 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-:root {
-  --radius: 0.75rem;
-
-  /* ═══════════════════════════════════════
-     Warm Architecture Palette
-     Inspired by: residential lobbies, stone,
-     terracotta, garden courtyards, iron gates
-     ═══════════════════════════════════════ */
-
-  /* Surfaces — warm slate with earthy undertones */
-  --background: #1A1D23;
-  --foreground: #F5F0EB;
-
-  --card: #22262E;
-  --card-foreground: #F5F0EB;
-
-  --popover: #22262E;
-  --popover-foreground: #F5F0EB;
-
-  /* Primary — Terracotta: warm, confident, residential */
-  --primary: #C2703E;
-  --primary-foreground: #FFFFFF;
-
-  /* Semantic gradients — warm tones throughout */
-  --gradient-primary: linear-gradient(135deg, #C2703E 0%, #D4915F 100%);
-  --gradient-success: linear-gradient(135deg, #6B9E7B 0%, #4E8A5E 100%);
-  --gradient-warning: linear-gradient(135deg, #D4A853 0%, #C49235 100%);
-  --gradient-danger: linear-gradient(135deg, #C25B5B 0%, #A94444 100%);
-  --gradient-info: linear-gradient(135deg, #5B8EC2 0%, #4478AB 100%);
-
-  --secondary: #2A2F38;
-  --secondary-foreground: #F5F0EB;
-
-  --muted: #2A2F38;
-  --muted-foreground: #9CA3AB;
-
-  --accent: #2A2F38;
-  --accent-foreground: #D4915F;
-
-  --destructive: #C25B5B;
-  --destructive-foreground: #FFFFFF;
-
-  --border: #2E333C;
-  --input: #2E333C;
-  --ring: #C2703E;
-
-  /* Chart colors — earthy & intentional */
-  --chart-1: #6B9E7B;
-  /* Sage — Success/positive */
-  --chart-2: #D4A853;
-  /* Gold — Warning/attention */
-  --chart-3: #5B8EC2;
-  /* Steel blue — Info */
-  --chart-4: #C2703E;
-  /* Terracotta — Primary/accent */
-  --chart-5: #8B7B9E;
-  /* Muted lavender — Secondary data */
-
-  /* Sidebar — deeper, warm but recessive */
-  --sidebar: #15181D;
-  --sidebar-foreground: #F5F0EB;
-  --sidebar-primary: #C2703E;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #22262E;
-  --sidebar-accent-foreground: #D4915F;
-  --sidebar-border: #1E2229;
-  --sidebar-ring: #C2703E;
-}
-
 @layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* ═══════════════════════════════════════
+       Warm Architecture Palette - LIGHT
+       ═══════════════════════════════════════ */
+
+    --background: #F3F1ED;
+    --foreground: #1C1917;
+    --card: #FFFFFF;
+    --card-foreground: #1C1917;
+    --popover: #FFFFFF;
+    --popover-foreground: #1C1917;
+    --primary: #B45309; 
+    --primary-foreground: #FFFFFF;
+    --gradient-primary: linear-gradient(135deg, #B45309 0%, #D97706 100%);
+    --gradient-success: linear-gradient(135deg, #166534 0%, #15803D 100%);
+    --gradient-warning: linear-gradient(135deg, #B45309 0%, #D97706 100%);
+    --gradient-danger: linear-gradient(135deg, #991B1B 0%, #B91C1C 100%);
+    --gradient-info: linear-gradient(135deg, #075985 0%, #0369A1 100%);
+    --secondary: #EBE8E2;
+    --secondary-foreground: #1C1917;
+    --muted: #EBE8E2;
+    --muted-foreground: #6A6662;
+    --accent: #EBE8E2;
+    --accent-foreground: #B45309;
+    --destructive: #DC2626;
+    --destructive-foreground: #FFFFFF;
+    --border: #D6D2C9;
+    --input: #D6D2C9;
+    --ring: #B45309;
+    --chart-1: #15803D;
+    --chart-2: #D97706;
+    --chart-3: #0369A1;
+    --chart-4: #B45309;
+    --chart-5: #6B21A8;
+    --sidebar: #F9F8F6;
+    --sidebar-foreground: #1C1917;
+    --sidebar-primary: #B45309;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #EBE8E2;
+    --sidebar-accent-foreground: #B45309;
+    --sidebar-border: #E8E5DD;
+    --sidebar-ring: #B45309;
+  }
+
+  .dark {
+    /* ═══════════════════════════════════════
+       Warm Architecture Palette - DARK
+       ═══════════════════════════════════════ */
+    --background: #1A1D23;
+    --foreground: #F5F0EB;
+    --card: #22262E;
+    --card-foreground: #F5F0EB;
+    --popover: #22262E;
+    --popover-foreground: #F5F0EB;
+    --primary: #C2703E;
+    --primary-foreground: #FFFFFF;
+    --gradient-primary: linear-gradient(135deg, #C2703E 0%, #D4915F 100%);
+    --gradient-success: linear-gradient(135deg, #6B9E7B 0%, #4E8A5E 100%);
+    --gradient-warning: linear-gradient(135deg, #D4A853 0%, #C49235 100%);
+    --gradient-danger: linear-gradient(135deg, #C25B5B 0%, #A94444 100%);
+    --gradient-info: linear-gradient(135deg, #5B8EC2 0%, #4478AB 100%);
+    --secondary: #2A2F38;
+    --secondary-foreground: #F5F0EB;
+    --muted: #2A2F38;
+    --muted-foreground: #9CA3AB;
+    --accent: #2A2F38;
+    --accent-foreground: #D4915F;
+    --destructive: #C25B5B;
+    --destructive-foreground: #FFFFFF;
+    --border: #2E333C;
+    --input: #2E333C;
+    --ring: #C2703E;
+    --chart-1: #6B9E7B;
+    --chart-2: #D4A853;
+    --chart-3: #5B8EC2;
+    --chart-4: #C2703E;
+    --chart-5: #8B7B9E;
+    --sidebar: #15181D;
+    --sidebar-foreground: #F5F0EB;
+    --sidebar-primary: #C2703E;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #22262E;
+    --sidebar-accent-foreground: #D4915F;
+    --sidebar-border: #1E2229;
+    --sidebar-ring: #C2703E;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }

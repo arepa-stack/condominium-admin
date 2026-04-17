@@ -130,7 +130,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                 };
             case 'owner':
                 return {
-                    className: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+                    className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
                     icon: Crown,
                     label: '👑 Propietario'
                 };
@@ -208,7 +208,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                         size="sm"
                                                         onClick={() => handleRoleUpdate(br.building_id, 'board')}
                                                         disabled={!canManage || isLoading}
-                                                        className="bg-primary hover:bg-primary/90 text-white border-0 shadow-lg shadow-primary/30"
+                                                        className="bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-lg shadow-primary/30"
                                                     >
                                                         {isLoading ? (
                                                             <Loader2 className="h-4 w-4 animate-spin mr-1" />
@@ -235,7 +235,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                                                     </Button>
                                                 )}
                                                 {!canManage && (
-                                                    <p className="text-xs text-amber-400/80 font-medium">Sin permisos</p>
+                                                    <p className="text-xs text-amber-700 dark:text-amber-400/80 font-medium">Sin permisos</p>
                                                 )}
                                             </div>
                                         </div>

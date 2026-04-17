@@ -235,7 +235,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     <h1
                         className={
                             isBuildingVariant
-                                ? 'font-display text-3xl font-bold tracking-tight text-white'
+                                ? 'font-display text-3xl font-bold tracking-tight text-foreground'
                                 : 'text-3xl font-bold text-foreground'
                         }
                     >
@@ -269,7 +269,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         <div className="flex items-center gap-3">
                             <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
                             <div>
-                                <h3 className="font-semibold text-white">
+                                <h3 className="font-semibold text-foreground">
                                     Hay saldo sin prorratear
                                 </h3>
                                 <p className="mt-1 text-sm text-muted-foreground">
@@ -511,7 +511,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             />
 
             <Dialog open={!!evidenceUrl} onOpenChange={(o) => !o && setEvidenceUrl(null)}>
-                <DialogContent className="max-h-[95vh] max-w-5xl overflow-y-auto border-white/10 bg-card">
+                <DialogContent className="max-h-[95vh] max-w-5xl overflow-y-auto border-border bg-card">
                     <DialogHeader>
                         <DialogTitle>Comprobante</DialogTitle>
                         <DialogDescription className="sr-only">

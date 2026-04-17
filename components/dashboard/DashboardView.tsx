@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { Building2, Users, CreditCard, DollarSign, TrendingUp, ArrowLeft, Search, FileText, Plus, FileSpreadsheet, ArrowUpRight } from 'lucide-react';
 import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
+import { UserDialog } from '@/components/users/UserDialog';
 import { UnitsTab } from '@/components/buildings/UnitsTab';
+
 import { buildingsService } from '@/lib/services/buildings.service';
 import { usersService } from '@/lib/services/users.service';
 import { paymentsService } from '@/lib/services/payments.service';
@@ -17,11 +20,13 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Building, User, Payment, Invoice } from '@/types/models';
+
+
 
 interface DashboardViewProps {
     buildingId?: string;
@@ -47,6 +52,26 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
     const [searchInvoices, setSearchInvoices] = useState('');
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
     const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
+    const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+    
+    // Quick Actions - Handler for query params
+    const searchParams = useSearchParams();
+    const openParam = searchParams.get('open');
+
+    useEffect(() => {
+        if (openParam === 'invoice') {
+            setIsInvoiceDialogOpen(true);
+        } else if (openParam === 'excel') {
+            setIsExcelLoaderOpen(true);
+        } else if (openParam === 'resident') {
+            setSelectedUser(null);
+            setIsUserDialogOpen(true);
+        }
+    }, [openParam]);
+
+
 
     // Check if user has access to this building
     useEffect(() => {
@@ -278,10 +303,30 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                             </CardHeader>
                             <CardContent>
                                 {filteredUsers.length === 0 ? (
-                                    <p className="text-muted-foreground text-center py-8">
-                                        {searchUsers ? 'Ningún residente coincide con la búsqueda' : 'No se encontraron residentes'}
-                                    </p>
+                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                                            <Users className="h-6 w-6 text-muted-foreground" />
+                                        </div>
+                                        <p className="text-muted-foreground max-w-[250px] mb-6">
+                                            {searchUsers 
+                                                ? 'Ningún residente coincide con la búsqueda' 
+                                                : 'No hay residentes registrados en este edificio todavía.'}
+                                        </p>
+                                        {!searchUsers && (
+                                            <Button 
+                                                onClick={() => {
+                                                    setSelectedUser(null);
+                                                    setIsUserDialogOpen(true);
+                                                }}
+                                                className="gap-2"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                Añadir residente
+                                            </Button>
+                                        )}
+                                    </div>
                                 ) : (
+
                                     <div className="space-y-4 pt-4">
                                         {filteredUsers.map((user) => {
                                             const effectiveRole = getEffectiveRole(user, effectiveBuildingId);
@@ -303,10 +348,12 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                         router.push(`${basePath}?user_id=${user.id}`);
                                                     }
                                                 }}
-                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg transition-all duration-200 cursor-pointer gap-4 sm:gap-0 ${isBoardHere
-                                                    ? 'bg-primary/5 border-primary/20 shadow-sm hover:shadow-md'
-                                                    : 'border-border/50 hover:bg-accent/50 hover:shadow-md'
-                                                    }`}
+                                                className={cn(
+                                                    "flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl transition-all duration-300 cursor-pointer gap-4 sm:gap-0",
+                                                    isBoardHere
+                                                        ? "bg-primary/[0.07] border-primary/30 shadow-sm hover:shadow-md ring-1 ring-primary/5"
+                                                        : "bg-card border-border/60 hover:bg-accent/30 hover:shadow-md"
+                                                )}
                                             >
                                                 <div className="flex items-center gap-4">
                                                     <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${isBoardHere ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
@@ -407,13 +454,23 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                 key={inv.id}
                                                 className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-accent/50 transition-all duration-200 gap-4 sm:gap-0"
                                             >
-                                                <div>
-                                                    <p className="font-medium text-foreground">
-                                                        Factura #{inv.number || inv.id.slice(0, 8)}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold text-foreground truncate">
+                                                        {inv.number ? `Factura ${inv.number}` : `Factura #${inv.id.slice(0, 8)}`}
                                                     </p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {inv.unit?.name || 'Unidad N/D'} • {inv.year}-{inv.month}
-                                                    </p>
+                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                        <span className="shrink-0">{inv.unit?.name || 'Sin unidad asignada'}</span>
+                                                        <span>•</span>
+                                                        <span>{inv.period || `${inv.year}-${inv.month}`}</span>
+                                                        {inv.tag === 'PETTY_CASH' && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20">
+                                                                    Caja Chica
+                                                                </Badge>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center gap-4 justify-between sm:justify-end">
                                                     <p className="font-semibold text-foreground">
@@ -427,13 +484,14 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                                     ? 'secondary'
                                                                     : 'destructive'
                                                         }
-                                                        className={
+                                                        className={cn(
+                                                            "font-medium",
                                                             inv.status === 'PAID'
-                                                                ? 'bg-chart-1/15 text-chart-1 border-chart-1/25'
+                                                                ? 'bg-chart-1/20 text-chart-1 border-chart-1/30'
                                                                 : inv.status === 'PENDING'
-                                                                    ? 'bg-chart-2/15 text-chart-2 border-chart-2/25'
-                                                                    : 'bg-destructive/15 text-destructive border-destructive/25'
-                                                        }
+                                                                    ? 'bg-chart-2/20 text-chart-2 border-chart-2/30'
+                                                                    : 'bg-destructive/20 text-destructive border-destructive/30'
+                                                        )}
                                                     >
                                                         {inv.status}
                                                     </Badge>
@@ -496,13 +554,14 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                                     ? 'secondary'
                                                                     : 'destructive'
                                                         }
-                                                        className={
+                                                        className={cn(
+                                                            "font-medium",
                                                             payment.status === 'APPROVED'
-                                                                ? 'bg-chart-1/15 text-chart-1 border-chart-1/25'
+                                                                ? 'bg-chart-1/20 text-chart-1 border-chart-1/30'
                                                                 : payment.status === 'PENDING'
-                                                                    ? 'bg-chart-2/15 text-chart-2 border-chart-2/25'
-                                                                    : 'bg-destructive/15 text-destructive border-destructive/25'
-                                                        }
+                                                                    ? 'bg-chart-2/20 text-chart-2 border-chart-2/30'
+                                                                    : 'bg-destructive/20 text-destructive border-destructive/30'
+                                                        )}
                                                     >
                                                         {payment.status}
                                                     </Badge>
@@ -562,13 +621,14 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                             ? 'secondary'
                                                             : 'destructive'
                                                 }
-                                                className={
+                                                className={cn(
+                                                    "font-medium",
                                                     payment.status === 'APPROVED'
-                                                        ? 'bg-chart-1/15 text-chart-1 border-chart-1/25'
+                                                        ? 'bg-chart-1/20 text-chart-1 border-chart-1/30'
                                                         : payment.status === 'PENDING'
-                                                            ? 'bg-chart-2/15 text-chart-2 border-chart-2/25'
-                                                            : 'bg-destructive/15 text-destructive border-destructive/25'
-                                                }
+                                                            ? 'bg-chart-2/20 text-chart-2 border-chart-2/30'
+                                                            : 'bg-destructive/20 text-destructive border-destructive/30'
+                                                )}
                                             >
                                                 {payment.status}
                                             </Badge>
@@ -595,6 +655,17 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                 buildings={buildings}
                 onSuccess={fetchData}
             />
+
+            <UserDialog
+                open={isUserDialogOpen}
+                onOpenChange={setIsUserDialogOpen}
+                user={selectedUser}
+                buildings={isSuperAdmin ? buildings : (buildings.length > 0 ? buildings : (effectiveBuildingId ? [{ id: effectiveBuildingId, name: currentBuildingName || buildingName || 'Edificio Actual', address: '' }] : []))}
+                onSuccess={fetchData}
+                defaultBuildingId={effectiveBuildingId}
+            />
+
         </div>
+
     );
 }

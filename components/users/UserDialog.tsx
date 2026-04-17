@@ -34,8 +34,17 @@ import { usersService } from '@/lib/services/users.service';
 import { unitsService } from '@/lib/services/units.service';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { getEffectiveRole } from '@/lib/utils/roles';
-import { Shield, User as UserIcon, Phone, Mail, Building2, Home } from 'lucide-react';
+import { Shield, User as UserIcon, Phone, Mail, Building2, Home, ChevronDown, Loader2 } from 'lucide-react';
 import type { User, Building, Unit } from '@/types/models';
+
+const VENEZUELA_OPERATORS = [
+    { label: '0412', value: '412', provider: 'Digitel' },
+    { label: '0422', value: '422', provider: 'Digitel' },
+    { label: '0414', value: '414', provider: 'Movistar' },
+    { label: '0424', value: '424', provider: 'Movistar' },
+    { label: '0416', value: '416', provider: 'Movilnet' },
+    { label: '0426', value: '426', provider: 'Movilnet' },
+];
 
 interface UserDialogProps {
     open: boolean;
@@ -43,12 +52,20 @@ interface UserDialogProps {
     user: User | null;
     buildings: Building[];
     onSuccess: () => void;
+    defaultBuildingId?: string;
 }
 
-export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: UserDialogProps) {
+
+export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, defaultBuildingId }: UserDialogProps) {
+
     const { isSuperAdmin } = usePermissions();
     const [units, setUnits] = useState<Unit[]>([]);
     const [loadingUnits, setLoadingUnits] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Phone parsing state
+    const [phoneOperator, setPhoneOperator] = useState('412');
+    const [phoneBody, setPhoneBody] = useState('');
 
     // Different schemas for create vs edit
     const createSchema = z.object({
@@ -138,21 +155,34 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 email: '',
                 password: '',
                 phone: '',
-                building_id: '',
+                building_id: defaultBuildingId || '',
                 unit_id: '',
                 role: 'resident',
                 status: 'active',
             });
         }
-    }, [user, open, form]);
+
+        // Handle phone parsing
+        const phone = user?.phone || '';
+        if (phone.startsWith('+58') && phone.length >= 6) {
+            setPhoneOperator(phone.substring(3, 6));
+            setPhoneBody(phone.substring(6));
+        } else {
+            setPhoneOperator('412');
+            setPhoneBody('');
+        }
+    }, [user, open, form, defaultBuildingId]);
+
 
     const onSubmit = async (data: any) => {
         try {
+            setIsSubmitting(true);
             if (user) {
                 // PATCH /users/:id - Only profile data
+                const combinedPhone = phoneBody ? `+58${phoneOperator}${phoneBody}` : '';
                 const updateData: any = {
                     name: data.name,
-                    phone: data.phone,
+                    phone: combinedPhone,
                 };
 
                 // Only admins can change app_role, and only if it actually changed
@@ -168,11 +198,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                 toast.success('Perfil de usuario actualizado correctamente');
             } else {
                 // POST /users - Requires building_id
+                const combinedPhone = phoneBody ? `+58${phoneOperator}${phoneBody}` : '';
                 await usersService.createUser({
                     name: data.name,
                     email: data.email,
                     password: data.password,
-                    phone: data.phone,
+                    phone: combinedPhone,
                     building_id: data.building_id,
                     unit_id: data.unit_id, // Optional
                     role: data.role,
@@ -184,6 +215,8 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
         } catch (error) {
             console.error(error);
             toast.error(user ? 'Error al actualizar el usuario' : 'Error al crear el usuario');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -201,8 +234,24 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
     const editingUserEffectiveRole = user ? getEffectiveRole(user) : null;
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] border-border/50 bg-card backdrop-blur">
+        <Dialog open={open} onOpenChange={(val) => {
+            if (isSubmitting) return;
+            onOpenChange(val);
+        }}>
+            <DialogContent 
+                className="sm:max-w-[600px] border-border/50 bg-card backdrop-blur max-h-[90vh] overflow-y-auto custom-scrollbar"
+                onPointerDownOutside={(e) => { if (isSubmitting) e.preventDefault(); }}
+                onEscapeKeyDown={(e) => { if (isSubmitting) e.preventDefault(); }}
+            >
+                {isSubmitting && (
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+                        <p className="text-sm font-semibold animate-pulse">
+                            {user ? 'Guardando cambios...' : 'Registrando usuario...'}
+                        </p>
+                    </div>
+                )}
+                
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
                         {user ? (
@@ -290,7 +339,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                                             className="bg-background/50 border-border/50 focus:border-primary transition-colors"
                                         />
                                     </FormControl>
-                                    {user && <p className="text-[0.8rem] text-amber-400/80">⚠️ El email no se puede cambiar</p>}
+                                    {user && <p className="text-[0.8rem] text-amber-700 dark:text-amber-400/80">⚠️ El email no se puede cambiar</p>}
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -315,26 +364,43 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="flex items-center gap-2">
-                                        <Phone className="h-4 w-4 text-muted-foreground" />
-                                        Teléfono (opcional)
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            {...field}
-                                            placeholder="+507 6000-0000"
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+                                Teléfono (opcional)
+                            </FormLabel>
+                            <div className="flex items-center rounded-md border border-border/50 bg-background/50 focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-colors overflow-hidden">
+                                <div className="w-[110px] shrink-0 border-r border-border/50 bg-muted/10">
+                                    <Select value={phoneOperator} onValueChange={setPhoneOperator}>
+                                        <SelectTrigger 
+                                            className="h-10 border-0 bg-transparent ring-0 focus:ring-0 focus:ring-offset-0 rounded-none shadow-none"
+                                        >
+                                            <SelectValue placeholder="Cód." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {VENEZUELA_OPERATORS.map((op) => (
+                                                <SelectItem key={op.value} value={op.value}>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-xs">{op.label}</span>
+                                                        <span className="text-[10px] text-muted-foreground leading-none">{op.provider}</span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Input
+                                    value={phoneBody}
+                                    onChange={(e) => setPhoneBody(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                                    placeholder="1234567"
+                                    className="h-10 border-0 bg-transparent ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none shadow-none flex-1 tabular-nums tracking-widest font-medium"
+                                />
+                            </div>
+                            <FormDescription className="text-[10px] flex items-center gap-1 opacity-70">
+                                Formato internacional: <span className="text-primary font-bold">+58 {phoneOperator} {phoneBody || '-------'}</span>
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
 
                         {/* Only show building/unit for CREATE mode */}
                         {!user && (
@@ -528,8 +594,15 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess }: U
                         </div>
 
                         <DialogFooter>
-                            <Button type="submit">
-                                {user ? 'Guardar cambios' : 'Crear usuario'}
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Espere...
+                                    </>
+                                ) : (
+                                    user ? 'Guardar cambios' : 'Crear usuario'
+                                )}
                             </Button>
                         </DialogFooter>
                     </form>

@@ -125,9 +125,9 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                    <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
                         {title}
-                        {isPaid && <Badge className="bg-green-500/20 text-green-400 border-green-500/30 ml-2">PAID</Badge>}
+                        {isPaid && <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 ml-2">PAID</Badge>}
                     </h1>
                     <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
                         <Hash className="h-3 w-3" /> Unidad {unitName}
@@ -137,12 +137,12 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Main Invoice Info */}
-                <Card className="md:col-span-2 border-white/5 bg-card/50 backdrop-blur-xl overflow-hidden shadow-2xl">
+                <Card className="md:col-span-2 border-border bg-card/50 backdrop-blur-xl overflow-hidden shadow-2xl">
                     <CardHeader className="pb-4">
                         <div className="flex justify-between items-start">
                             <div>
                                 <span className="text-xs text-muted-foreground uppercase font-bold tracking-widest block mb-1">Monto Total</span>
-                                <CardTitle className="text-4xl font-black text-white">
+                                <CardTitle className="text-4xl font-black text-foreground">
                                     {formatCurrency(invoice.amount)}
                                 </CardTitle>
                                 {invoice.due_date && (
@@ -162,28 +162,28 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                     </CardHeader>
                     <CardContent className="space-y-8">
                         <div>
-                            <div className="flex justify-between text-sm mb-2 text-white">
+                            <div className="flex justify-between text-sm mb-2 text-foreground">
                                 <span className="font-semibold">Progreso del pago</span>
                                 <span className="font-bold tabular-nums">
                                     {formatCurrency(invoice.paid_amount)} <span className="text-muted-foreground font-medium">/ {formatCurrency(invoice.amount)}</span>
                                 </span>
                             </div>
-                            <Progress value={progress} className="h-3 bg-white/5" indicatorClassName={isPaid ? "bg-green-500" : "bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]"} />
+                            <Progress value={progress} className="h-3 bg-muted/50" indicatorClassName={isPaid ? "bg-green-500" : "bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]"} />
                         </div>
 
-                        <Separator className="bg-white/5" />
+                        <Separator className="bg-muted/50" />
 
                         <div className="grid grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <div>
                                     <span className="text-xs text-muted-foreground uppercase font-bold tracking-widest block mb-1">Detalles</span>
                                     <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-sm text-white/90">
+                                        <div className="flex items-center gap-2 text-sm text-foreground">
                                             <BuildingIcon className="h-4 w-4 text-primary" />
                                             {currentBuilding?.name || 'Detalles del edificio N/D'}
                                         </div>
                                         {invoice.issue_date && (
-                                            <div className="flex items-center gap-2 text-sm text-white/90">
+                                            <div className="flex items-center gap-2 text-sm text-foreground">
                                                 <div className="w-4 h-4 flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" /></div>
                                                 Emitida: {formatDate(invoice.issue_date)}
                                             </div>
@@ -193,7 +193,7 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                             </div>
                             <div>
                                 <span className="text-xs text-muted-foreground uppercase font-bold tracking-widest block mb-1">Descripción</span>
-                                <p className="text-sm text-white/80 leading-relaxed italic">
+                                <p className="text-sm text-muted-foreground leading-relaxed italic">
                                     {invoice.description || 'Expensas y servicios mensuales'}
                                 </p>
                             </div>
@@ -202,9 +202,9 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                 </Card>
 
                 {/* Associated Payments */}
-                <Card className="border-white/5 bg-card/50 backdrop-blur-xl shadow-2xl">
+                <Card className="border-border bg-card/50 backdrop-blur-xl shadow-2xl">
                     <CardHeader>
-                        <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                        <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
                             <Info className="h-5 w-5 text-primary" />
                             Pagos
                         </CardTitle>
@@ -213,7 +213,7 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                     <CardContent className="px-0">
                         {payments.length === 0 ? (
                             <div className="text-center py-12 px-6">
-                                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-3">
+                                <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
                                     <Info className="h-6 w-6 text-muted-foreground" />
                                 </div>
                                 <p className="text-sm text-muted-foreground italic">
@@ -221,16 +221,16 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                                 </p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-white/5">
+                            <div className="divide-y divide-border">
                                 {payments.map((payment) => (
                                     <div
                                         key={payment.id}
-                                        className="group p-4 hover:bg-white/5 transition-all cursor-pointer relative"
+                                        className="group p-4 hover:bg-muted transition-all cursor-pointer relative"
                                         onClick={() => openPaymentDetails(payment)}
                                     >
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
-                                                <div className="text-sm font-bold text-white">{formatCurrency(payment.allocated_amount)}</div>
+                                                <div className="text-sm font-bold text-foreground">{formatCurrency(payment.allocated_amount)}</div>
                                                 <div className="text-[10px] text-muted-foreground uppercase tracking-tighter mt-0.5">
                                                     Imputado el {formatDate(payment.allocated_at || payment.payment_date)}
                                                 </div>
@@ -271,15 +271,15 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
 
             {/* Proof Dialog */}
             <Dialog open={!!proofUrl} onOpenChange={(open) => !open && setProofUrl(null)}>
-                <DialogContent className="max-w-5xl bg-card border-white/10 backdrop-blur-2xl">
+                <DialogContent className="max-w-5xl bg-card border-border backdrop-blur-2xl">
                     <DialogDescription className="sr-only">Vista previa del comprobante de pago.</DialogDescription>
                     <div className="flex items-center justify-between gap-4 mb-2">
-                        <DialogTitle className="text-white">Comprobante de pago</DialogTitle>
+                        <DialogTitle className="text-foreground">Comprobante de pago</DialogTitle>
                         {proofUrl && (
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="gap-2 border-white/10 hover:bg-white/5 text-white"
+                                className="gap-2 border-border hover:bg-muted text-foreground"
                                 onClick={() => window.open(proofUrl, '_blank')}
                             >
                                 <ExternalLink className="h-4 w-4" />
@@ -288,7 +288,7 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                         )}
                     </div>
                     {proofUrl && (
-                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-white/5 shadow-2xl">
+                        <div className="relative w-full h-[75vh] min-h-[400px] rounded-xl overflow-hidden border border-border shadow-2xl">
                             <Image
                                 src={proofUrl}
                                 alt="Comprobante de pago"
@@ -303,9 +303,9 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
 
             {/* Payment Details Dialog */}
             <Dialog open={!!selectedPayment} onOpenChange={(open) => !open && setSelectedPayment(null)}>
-                <DialogContent className="sm:max-w-[450px] bg-card border-white/10 backdrop-blur-2xl shadow-2xl">
+                <DialogContent className="sm:max-w-[450px] bg-card border-border backdrop-blur-2xl shadow-2xl">
                     <DialogHeader>
-                        <DialogTitle className="text-white">Detalles de la transacción</DialogTitle>
+                        <DialogTitle className="text-foreground">Detalles de la transacción</DialogTitle>
                         <DialogDescription className="text-muted-foreground">
                             Desglose completo del pago y sus imputaciones.
                         </DialogDescription>
@@ -317,14 +317,14 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                         </div>
                     ) : (
                         <div className="py-4 space-y-6">
-                            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
+                            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/50 border border-border">
                                 <div>
                                     <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Pago Total</span>
-                                    <span className="text-2xl font-black text-white tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
+                                    <span className="text-2xl font-black text-foreground tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
                                 </div>
                                 <div className="text-right">
                                     <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest block mb-1">Fecha</span>
-                                    <span className="text-sm font-bold text-white">{formatDate(detailedPayment.payment_date)}</span>
+                                    <span className="text-sm font-bold text-foreground">{formatDate(detailedPayment.payment_date)}</span>
                                 </div>
                             </div>
 
@@ -338,16 +338,16 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                                         detailedPayment.allocations.map(alloc => (
                                             <div
                                                 key={alloc.id}
-                                                className={`flex justify-between items-center p-3 rounded-lg border transition-colors ${alloc.invoice_id === id ? 'bg-primary/10 border-primary/30' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                                                className={`flex justify-between items-center p-3 rounded-lg border transition-colors ${alloc.invoice_id === id ? 'bg-primary/10 border-primary/30' : 'bg-muted/50 border-border hover:bg-muted'}`}
                                             >
                                                 <div className="flex flex-col">
-                                                    <span className="text-[11px] font-bold text-white">
+                                                    <span className="text-[11px] font-bold text-foreground">
                                                         Factura #{alloc.invoice?.number || alloc.invoice_id.slice(0, 8)}
                                                         {alloc.invoice_id === id && <Badge className="ml-2 text-[8px] bg-primary text-primary-foreground h-4 py-0">Actual</Badge>}
                                                     </span>
                                                     <span className="text-[9px] text-muted-foreground uppercase">{formatPeriod(`${alloc.invoice?.year}-${alloc.invoice?.month}`)}</span>
                                                 </div>
-                                                <span className="font-black text-sm text-white tabular-nums">{formatCurrency(alloc.amount)}</span>
+                                                <span className="font-black text-sm text-foreground tabular-nums">{formatCurrency(alloc.amount)}</span>
                                             </div>
                                         ))
                                     ) : (
@@ -359,7 +359,7 @@ export default function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
                             {detailedPayment.proof_url && (
                                 <Button
                                     variant="outline"
-                                    className="w-full gap-2 border-white/10 hover:bg-white/5"
+                                    className="w-full gap-2 border-border hover:bg-muted"
                                     onClick={() => setProofUrl(detailedPayment.proof_url!)}
                                 >
                                     <Eye className="h-4 w-4" /> Ver comprobante completo

@@ -21,31 +21,31 @@ interface StatusBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
 const STATUS_CONFIG: Record<StatusValue, { label: string; className: string }> = {
   PAID: {
     label: "Pagado",
-    className: "bg-chart-1/15 text-chart-1 border-chart-1/30 hover:bg-chart-1/25",
+    className: "bg-chart-1/20 text-chart-1 border-chart-1/40 hover:bg-chart-1/30",
   },
   APPROVED: {
     label: "Aprobado",
-    className: "bg-chart-1/15 text-chart-1 border-chart-1/30 hover:bg-chart-1/25",
+    className: "bg-chart-1/20 text-chart-1 border-chart-1/40 hover:bg-chart-1/30",
   },
   SOLVENT: {
     label: "Solvente",
-    className: "bg-chart-1/15 text-chart-1 border-chart-1/30 hover:bg-chart-1/25",
+    className: "bg-chart-1/20 text-chart-1 border-chart-1/40 hover:bg-chart-1/30",
   },
   PENDING: {
     label: "Pendiente",
-    className: "bg-chart-2/15 text-chart-2 border-chart-2/30 hover:bg-chart-2/25",
+    className: "bg-chart-2/20 text-chart-2 border-chart-2/40 hover:bg-chart-2/30",
   },
   PARTIAL: {
     label: "Parcial",
-    className: "bg-chart-2/15 text-chart-2 border-chart-2/30 hover:bg-chart-2/25",
+    className: "bg-chart-2/20 text-chart-2 border-chart-2/40 hover:bg-chart-2/30",
   },
   OVERDUE: {
     label: "Vencido",
-    className: "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/25",
+    className: "bg-destructive/20 text-destructive border-destructive/40 hover:bg-destructive/30",
   },
   REJECTED: {
     label: "Rechazado",
-    className: "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/25",
+    className: "bg-destructive/20 text-destructive border-destructive/40 hover:bg-destructive/30",
   },
   CANCELLED: {
     label: "Cancelado",
@@ -53,7 +53,7 @@ const STATUS_CONFIG: Record<StatusValue, { label: string; className: string }> =
   },
   UNPAID: {
     label: "Impago",
-    className: "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/25",
+    className: "bg-destructive/20 text-destructive border-destructive/40 hover:bg-destructive/30",
   },
 }
 
