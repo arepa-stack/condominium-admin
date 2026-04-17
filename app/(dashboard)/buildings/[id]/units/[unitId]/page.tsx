@@ -23,7 +23,8 @@ import {
     Download,
     ExternalLink
 } from 'lucide-react';
-import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
+import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod, formatUserRole } from '@/lib/utils/format';
+import { getEffectiveRole } from '@/lib/utils/roles';
 import {
     Dialog,
     DialogContent,
@@ -289,7 +290,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                                     <p className="text-xs text-muted-foreground truncate opacity-70">{resident.email}</p>
                                                 </div>
                                                 <Badge variant="outline" className="h-5 text-[10px] uppercase font-black border-primary/20 bg-primary/5 text-primary shrink-0">
-                                                    {resident.role}
+                                                    {formatUserRole(getEffectiveRole(resident, buildingId))}
                                                 </Badge>
                                             </div>
                                         </div>

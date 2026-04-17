@@ -26,14 +26,23 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
+import { getEffectiveRole } from '@/lib/utils/roles';
+import { formatUserRole } from '@/lib/utils/format';
 
-const navigation = [
-    { name: 'Panel', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'board'] },
-    { name: 'Edificios', href: '/buildings', icon: Building2, roles: ['admin'] },
-    { name: 'Unidades', href: '/units', icon: Home, roles: ['admin', 'board'] },
-    { name: 'Usuarios', href: '/users', icon: Users, roles: ['admin', 'board'] },
-    { name: 'Facturación', href: '/billing', icon: FileText, roles: ['admin', 'board', 'resident'] },
-    { name: 'Finanzas', href: '/finances', icon: Wallet, roles: ['admin', 'board'] },
+type NavAccess = 'admin-only' | 'board-or-admin';
+
+const navigation: Array<{
+    name: string;
+    href: string;
+    icon: typeof LayoutDashboard;
+    access: NavAccess;
+}> = [
+    { name: 'Panel', href: '/dashboard', icon: LayoutDashboard, access: 'board-or-admin' },
+    { name: 'Edificios', href: '/buildings', icon: Building2, access: 'admin-only' },
+    { name: 'Unidades', href: '/units', icon: Home, access: 'board-or-admin' },
+    { name: 'Usuarios', href: '/users', icon: Users, access: 'board-or-admin' },
+    { name: 'Facturación', href: '/billing', icon: FileText, access: 'board-or-admin' },
+    { name: 'Finanzas', href: '/finances', icon: Wallet, access: 'board-or-admin' },
 ];
 
 export function Sidebar() {
@@ -55,7 +64,11 @@ export function Sidebar() {
 
     // Filter navigation based on user role and adjust hrefs for contextual routing
     const filteredNavigation = navigation
-        .filter(item => user && item.roles.includes(user.role))
+        .filter(item => {
+            if (!user) return false;
+            if (item.access === 'admin-only') return isSuperAdmin;
+            return isSuperAdmin || isBoardMember;
+        })
         .map(item => {
             // Dashboard is handled specifically: /dashboard is global, /buildings/[id]/dashboard is contextual
             if (item.href === '/dashboard') {
@@ -200,7 +213,9 @@ export function Sidebar() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate text-foreground">{displayName}</p>
-                            <p className="text-xs text-muted-foreground truncate capitalize">{user?.role}</p>
+                            <p className="text-xs text-muted-foreground truncate capitalize">
+                                {user ? formatUserRole(getEffectiveRole(user, selectedBuildingId || undefined)) : ''}
+                            </p>
                         </div>
                     </div>
                 </div>
