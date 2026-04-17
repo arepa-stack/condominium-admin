@@ -12,6 +12,7 @@ import { usersService } from '@/lib/services/users.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { billingService } from '@/lib/services/billing.service';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { isBoardInBuilding as isBoardInBuildingHelper, getEffectiveRole } from '@/lib/utils/roles';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -282,7 +283,11 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                     </p>
                                 ) : (
                                     <div className="space-y-4 pt-4">
-                                        {filteredUsers.map((user) => (
+                                        {filteredUsers.map((user) => {
+                                            const effectiveRole = getEffectiveRole(user, effectiveBuildingId);
+                                            const isBoardHere = effectiveRole === 'board';
+                                            const isAdminUser = effectiveRole === 'admin';
+                                            return (
                                             <div
                                                 key={user.id}
                                                 onClick={() => {
@@ -298,22 +303,22 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                         router.push(`${basePath}?user_id=${user.id}`);
                                                     }
                                                 }}
-                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg transition-all duration-200 cursor-pointer gap-4 sm:gap-0 ${user.role === 'board'
+                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg transition-all duration-200 cursor-pointer gap-4 sm:gap-0 ${isBoardHere
                                                     ? 'bg-primary/5 border-primary/20 shadow-sm hover:shadow-md'
                                                     : 'border-border/50 hover:bg-accent/50 hover:shadow-md'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${user.role === 'board' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${isBoardHere ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
                                                         }`}>
                                                         <Users className="h-5 w-5" />
                                                     </div>
                                                     <div>
                                                         <p className="font-medium text-foreground flex items-center gap-2">
                                                             {user.name}
-                                                            {user.role === 'board' && (
+                                                            {isBoardHere && (
                                                                 <Badge variant="default" className="text-[10px] h-5 px-2">
-                                                                    Junta
+                                                                    Directiva
                                                                 </Badge>
                                                             )}
                                                         </p>
@@ -326,18 +331,19 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                                     <Badge
                                                         variant="outline"
                                                         className={
-                                                            user.role === 'board'
+                                                            isBoardHere
                                                                 ? 'capitalize bg-primary/10 text-primary border-primary/20'
-                                                                : user.role === 'admin'
+                                                                : isAdminUser
                                                                     ? 'capitalize bg-chart-2/10 text-chart-2 border-chart-2/20'
                                                                     : 'capitalize'
                                                         }
                                                     >
-                                                        {user.role}
+                                                        {effectiveRole}
                                                     </Badge>
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </CardContent>
@@ -361,7 +367,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                                     <p className="text-xs text-muted-foreground font-normal">Gestioná las deudas del edificio</p>
                                 </div>
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
-                                    {(isSuperAdmin || user?.role === 'board') && (
+                                    {(isSuperAdmin || (effectiveBuildingId && isBoardInBuildingHelper(user, effectiveBuildingId))) && (
                                         <div className="flex gap-2 w-full sm:w-auto">
                                             <Button
                                                 size="sm"

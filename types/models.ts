@@ -4,6 +4,7 @@ export type InvoiceStatus = "PENDING" | "PARTIAL" | "PAID" | "CANCELLED";
 export type InvoiceTag = "NORMAL" | "PETTY_CASH";
 export type InvoiceType = "EXPENSE" | "DEBT" | "EXTRAORDINARY" | "PETTY_CASH_REPLENISHMENT";
 export type UserRole = "resident" | "board" | "admin";
+export type AppRole = "admin" | "user";
 export type UserStatus = "pending" | "active" | "inactive" | "rejected";
 
 export interface UserUnit {
@@ -23,10 +24,9 @@ export interface User {
   // Deprecating single unit_id/unit checks
   unit?: string;
   unit_id?: string;
-  // New Swagger structure
   units?: UserUnit[];
   buildingRoles?: { building_id: string; role: string }[];
-  role: UserRole;
+  app_role: AppRole;
   status?: UserStatus;
   created_at: string;
   updated_at: string;
@@ -154,9 +154,9 @@ export interface UpdateUserDto {
   name?: string;
   phone?: string;
   unit?: string;
-  unit_id?: string; // [NEW]
+  unit_id?: string;
   building_id?: string;
-  role?: UserRole;
+  app_role?: AppRole;
   buildingRoles?: { building_id: string; role: string }[];
   status?: UserStatus;
 }

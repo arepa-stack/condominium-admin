@@ -15,13 +15,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { formatUserRole } from '@/lib/utils/format';
+import { getEffectiveRole } from '@/lib/utils/roles';
 import { BuildingSelector } from './BuildingSelector';
 import { buildingsService } from '@/lib/services/buildings.service';
+import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import type { Building } from '@/types/models';
 
 export function Header() {
     const { logout } = useAuth();
     const { displayName, buildingName, isBoardMember, user } = usePermissions();
+    const { selectedBuildingId } = useBuildingContext();
 
     const getInitials = (name: string) => {
         return name
@@ -48,7 +51,7 @@ export function Header() {
                     <div className="text-right hidden sm:block">
                         <p className="text-sm font-medium text-foreground">{displayName}</p>
                         <p className="text-xs text-muted-foreground">
-                            {user?.role && formatUserRole(user.role)}
+                            {user && formatUserRole(getEffectiveRole(user, selectedBuildingId || undefined))}
                         </p>
                     </div>
                     <Avatar className="h-8 w-8 border border-border/50 transition-colors hover:border-primary/30">
