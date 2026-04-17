@@ -35,6 +35,7 @@ interface PaymentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     buildingId?: string;
+    unitId?: string;
     buildings?: Building[];
     onSuccess?: () => void;
 }
@@ -43,6 +44,7 @@ export function PaymentDialog({
     open,
     onOpenChange,
     buildingId,
+    unitId,
     buildings = [],
     onSuccess,
 }: PaymentDialogProps) {
@@ -77,10 +79,11 @@ export function PaymentDialog({
     })), [pendingInvoices]);
 
     useEffect(() => {
-        if (open && buildingId) {
-            setSelectedBuildingId(buildingId);
+        if (open) {
+            if (buildingId) setSelectedBuildingId(buildingId);
+            if (unitId) setSelectedUnitId(unitId);
         }
-    }, [open, buildingId]);
+    }, [open, buildingId, unitId]);
 
     useEffect(() => {
         const fetchUnits = async () => {
@@ -156,8 +159,8 @@ export function PaymentDialog({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedUnitId || !amount || !date || !method) {
-            toast.error("Completá todos los campos obligatorios");
+        if (!selectedUnitId || !amount || !date || !method || !proofFile) {
+            toast.error("Completá todos los campos obligatorios y adjuntá el comprobante");
             return;
         }
 
@@ -400,15 +403,23 @@ export function PaymentDialog({
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             <Upload className="h-4 w-4 text-muted-foreground" />
-                            Comprobante de pago (opcional)
+                            Comprobante de pago <span className="text-destructive">*</span>
                         </Label>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                type="file"
-                                accept="image/*,application/pdf"
-                                onChange={handleFileChange}
-                                className="cursor-pointer"
-                            />
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={handleFileChange}
+                                    className="cursor-pointer"
+                                    required
+                                />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                                {method === 'CASH' 
+                                    ? 'Requerido: Sube una foto del recibo de caja firmado como comprobante del efectivo.' 
+                                    : 'Requerido: Sube una captura o PDF de la transferencia bancaria / pago móvil.'}
+                            </span>
                         </div>
                     </div>
 

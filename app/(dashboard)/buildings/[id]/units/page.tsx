@@ -13,10 +13,14 @@ import {
     MapPin,
     Users,
     AlertCircle,
-    AlertTriangle
+    AlertTriangle,
+    Plus,
+    Wand2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
+import { CreateUnitDialog } from '@/components/buildings/CreateUnitDialog';
+import { BatchUnitWizard } from '@/components/buildings/BatchUnitWizard';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { Unit, Building } from '@/types/models';
@@ -29,6 +33,8 @@ export default function BuildingUnitsPage() {
     const [units, setUnits] = useState<Unit[]>([]);
     const [building, setBuilding] = useState<Building | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isBatchOpen, setIsBatchOpen] = useState(false);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -84,6 +90,16 @@ export default function BuildingUnitsPage() {
                 <div>
                     <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Unidades</h1>
                     <p className="text-muted-foreground mt-1">Gestioná los detalles de las unidades de {building?.name}</p>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsCreateOpen(true)} className="bg-card">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Agregar unidad
+                    </Button>
+                    <Button onClick={() => setIsBatchOpen(true)} className="bg-primary hover:bg-primary/90">
+                        <Wand2 className="mr-2 h-4 w-4" />
+                        Auto-generar
+                    </Button>
                 </div>
             </div>
 
@@ -187,6 +203,19 @@ export default function BuildingUnitsPage() {
             </div>
 
 
+            <CreateUnitDialog
+                buildingId={buildingId}
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+                onSuccess={fetchData}
+            />
+
+            <BatchUnitWizard
+                buildingId={buildingId}
+                isOpen={isBatchOpen}
+                onClose={() => setIsBatchOpen(false)}
+                onSuccess={fetchData}
+            />
         </div>
     );
 }
