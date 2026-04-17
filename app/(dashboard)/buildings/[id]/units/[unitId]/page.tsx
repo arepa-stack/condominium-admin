@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, use } from 'react';
+import { useEffect, useState, useMemo, use, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,8 @@ import {
     Eye,
     Info,
     Download,
-    ExternalLink
+    ExternalLink,
+    Plus
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod, formatUserRole } from '@/lib/utils/format';
 import { getEffectiveRole } from '@/lib/utils/roles';
@@ -36,13 +37,15 @@ import { unitsService } from '@/lib/services/units.service';
 import { usersService } from '@/lib/services/users.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { billingService } from '@/lib/services/billing.service';
-import type { Unit, User, Payment, Invoice, UnitBalance } from '@/types/models';
+import type { Unit, Building, User, Payment, Invoice, UnitBalance } from '@/types/models';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
+import { UserDialog } from '@/components/users/UserDialog';
 import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { buildingsService } from '@/lib/services/buildings.service';
 
 export default function UnitDetailsPage({ params }: { params: Promise<{ id: string; unitId: string }> }) {
     const { id: buildingId, unitId } = use(params);
@@ -54,6 +57,11 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [balance, setBalance] = useState<UnitBalance | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [buildings, setBuildings] = useState<Building[]>([]);
+
+    // Quick Actions States
+    const [isNewPaymentOpen, setIsNewPaymentOpen] = useState(false);
+    const [isNewResidentOpen, setIsNewResidentOpen] = useState(false);
 
     // Dialog States
     const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -88,6 +96,10 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                 if (unitInvoices.status === 'fulfilled') setInvoices(unitInvoices.value);
                 if (unitBalance.status === 'fulfilled') setBalance(unitBalance.value);
 
+                // Fetch buildings for dialogs
+                const buildingsResult = await buildingsService.getBuildings();
+                setBuildings(buildingsResult);
+
             } catch (error) {
                 console.error("Critical failure fetching unit data:", error);
                 setUnit(null);
@@ -97,6 +109,24 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
         };
 
         fetchAllData();
+    }, [buildingId, unitId]);
+
+    const fetchData = useCallback(async () => {
+        try {
+            const [unitResidents, unitPayments, unitInvoices, unitBalance] = await Promise.allSettled([
+                usersService.getUsers({ building_id: buildingId, unit_id: unitId }),
+                paymentsService.getPayments({ building_id: buildingId, unit_id: unitId }),
+                billingService.getUnitInvoices(unitId),
+                billingService.getUnitBalance(unitId)
+            ]);
+
+            if (unitResidents.status === 'fulfilled') setResidents(unitResidents.value);
+            if (unitPayments.status === 'fulfilled') setPayments(unitPayments.value);
+            if (unitInvoices.status === 'fulfilled') setInvoices(unitInvoices.value);
+            if (unitBalance.status === 'fulfilled') setBalance(unitBalance.value);
+        } catch (error) {
+            console.error("Failed to refresh unit data:", error);
+        }
     }, [buildingId, unitId]);
 
     const handleOpenPaymentDetail = async (payment: Payment) => {
@@ -195,12 +225,34 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                         </div>
                     </div>
 
-                    <Link href={`/buildings/${buildingId}/billing?unit_id=${unitId}`} passHref>
-                        <Button className="shadow-lg shadow-primary/20 gap-2 px-6">
-                            <FileText className="h-4 w-4" />
-                            Generar estado de cuenta
+                    <div className="flex items-center gap-3">
+                        <Link href={`/buildings/${buildingId}/billing?unit_id=${unitId}`} passHref>
+                            <Button variant="outline" className="bg-white/5 border-white/5 gap-2 hover:bg-primary/20">
+                                <FileText className="h-4 w-4" />
+                                <span className="hidden sm:inline">Estado de cuenta</span>
+                            </Button>
+                        </Link>
+
+                        <div className="w-px h-8 bg-white/10 mx-1" />
+
+                        <Button
+                            onClick={() => setIsNewPaymentOpen(true)}
+                            variant="outline"
+                            className="bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20 gap-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span className="hidden sm:inline">Registrar Pago</span>
                         </Button>
-                    </Link>
+
+                        <Button
+                            onClick={() => setIsNewResidentOpen(true)}
+                            variant="outline"
+                            className="bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 gap-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span className="hidden sm:inline">Añadir Residente</span>
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -527,6 +579,23 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                     )}
                 </DialogContent>
             </Dialog>
+            <PaymentDialog
+                open={isNewPaymentOpen}
+                onOpenChange={setIsNewPaymentOpen}
+                buildingId={buildingId}
+                unitId={unitId}
+                buildings={buildings}
+                onSuccess={fetchData}
+            />
+
+            <UserDialog
+                open={isNewResidentOpen}
+                onOpenChange={setIsNewResidentOpen}
+                user={null}
+                buildings={buildings}
+                defaultBuildingId={buildingId}
+                onSuccess={fetchData}
+            />
         </div>
     );
 }
