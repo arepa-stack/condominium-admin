@@ -13,6 +13,7 @@ import {
     Menu,
     Wallet,
     Settings,
+    Vote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -44,6 +45,7 @@ const navigation: Array<{
     { name: 'Usuarios', href: '/users', icon: Users, access: 'board-or-admin' },
     { name: 'Facturación', href: '/billing', icon: FileText, access: 'board-or-admin' },
     { name: 'Finanzas', href: '/finances', icon: Wallet, access: 'board-or-admin' },
+    { name: 'Presupuestos', href: '/decisions', icon: Vote, access: 'board-or-admin' },
     { name: 'Ajustes', href: '/settings', icon: Settings, access: 'board-or-admin' },
 ];
 
@@ -55,14 +57,17 @@ export function Sidebar() {
     const { user, isSuperAdmin, isBoardMember, displayName } = usePermissions();
     const { selectedBuildingId, setSelectedBuildingId, availableBuildings } = useBuildingContext();
     const [open, setOpen] = useState(false);
-    const buildingId = params?.id as string;
+    // Solo sincronizamos params.id como buildingId cuando estamos en /buildings/<id>/...
+    // En otras rutas con [id] (ej. /decisions/[id]) el id no es un edificio.
+    const urlBuildingId =
+        pathname.startsWith('/buildings/') ? (params?.id as string | undefined) : undefined;
 
     // Sync context with URL if user deep-links into a specific building
     useEffect(() => {
-        if (buildingId && buildingId !== selectedBuildingId) {
-            setSelectedBuildingId(buildingId);
+        if (urlBuildingId && urlBuildingId !== selectedBuildingId) {
+            setSelectedBuildingId(urlBuildingId);
         }
-    }, [buildingId, selectedBuildingId, setSelectedBuildingId]);
+    }, [urlBuildingId, selectedBuildingId, setSelectedBuildingId]);
 
     // Filter navigation based on user role and adjust hrefs for contextual routing
     const filteredNavigation = navigation
@@ -73,8 +78,8 @@ export function Sidebar() {
         })
         .map(item => {
             // Other functional pages: if in building context, use contextual route
-            const contextualPages = ['/units', '/users', '/billing'];
-            const activeBuildingId = buildingId || selectedBuildingId;
+            const contextualPages = ['/units', '/users', '/billing', '/decisions'];
+            const activeBuildingId = urlBuildingId || selectedBuildingId;
             if (activeBuildingId && contextualPages.includes(item.href)) {
                 return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
             }
@@ -126,7 +131,7 @@ export function Sidebar() {
                                         router.push(`/buildings/${id}/${action}`);
                                     } else {
                                         // Global page to contextual page if applicable
-                                        const contextualPages = ['units', 'users', 'billing'];
+                                        const contextualPages = ['units', 'users', 'billing', 'decisions'];
                                         const currentAction = pathname.replace('/', '');
                                         if (contextualPages.includes(currentAction)) {
                                             router.push(`/buildings/${id}/${currentAction}`);
