@@ -67,6 +67,13 @@ export function resolvePrimaryAction(
             };
         case 'RESOLVED':
             if (!decision.resulting_id) {
+                // Guard: generate-charge is only valid when a winning quote exists.
+                // If winner_quote_id is null (manual resolve without a matched quote,
+                // or edge states), emit no primary CTA — let admin use overflow actions
+                // or resolve via other surfaces.
+                if (!decision.winner_quote_id) {
+                    return null;
+                }
                 return {
                     kind: 'generate-charge',
                     label: 'Generar cargo',
