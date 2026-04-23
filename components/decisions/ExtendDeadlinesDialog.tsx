@@ -89,7 +89,7 @@ export function ExtendDeadlinesDialog({
     };
 
     const form = useForm<FormValues>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: {
             reception_deadline: isVoting ? '' : toLocalDatetime(currentReceptionDeadline),
             voting_deadline: toLocalDatetime(currentVotingDeadline),

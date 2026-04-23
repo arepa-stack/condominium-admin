@@ -350,12 +350,12 @@ export default function DecisionDetailPage() {
             </div>
 
             {/* Tally / Results */}
-            {(decision.status === 'VOTING' || decision.status === 'RESOLVED' || decision.status === 'TIEBREAK_PENDING') && tally && (
+            {(decision.status === 'RECEPTION' || decision.status === 'VOTING' || decision.status === 'RESOLVED' || decision.status === 'TIEBREAK_PENDING') && tally && (
                 <TallyCard tally={tally} />
             )}
 
             {/* Votes list */}
-            {(decision.status === 'VOTING' || decision.status === 'RESOLVED' || decision.status === 'TIEBREAK_PENDING') && (
+            {(decision.status === 'RECEPTION' || decision.status === 'VOTING' || decision.status === 'RESOLVED' || decision.status === 'TIEBREAK_PENDING') && (
                 <VotesList decisionId={decision.id} currentRound={decision.current_round} />
             )}
 

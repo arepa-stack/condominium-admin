@@ -64,7 +64,7 @@ export function GenerateChargeDialog({
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<FormValues>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: { type: 'INVOICE', amount_override: undefined, category: '' },
     });
 

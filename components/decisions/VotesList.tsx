@@ -62,7 +62,7 @@ export function VotesList({ decisionId, currentRound }: VotesListProps) {
 
             {isLoading ? (
                 <TableSkeleton />
-            ) : votes.length === 0 ? (
+            ) : (votes?.length ?? 0) === 0 ? (
                 <EmptyState
                     icon={Vote}
                     title="Sin votos"
@@ -81,7 +81,7 @@ export function VotesList({ decisionId, currentRound }: VotesListProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {votes.map((vote) => (
+                            {votes?.map((vote) => (
                                 <TableRow key={vote.id}>
                                     <TableCell className="font-medium">
                                         {vote.apartment_label}

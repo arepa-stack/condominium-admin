@@ -45,12 +45,7 @@ const schema = z
         description: z.string().optional(),
         reception_deadline: z.string().min(1, 'La fecha límite de recepción es obligatoria'),
         voting_deadline: z.string().min(1, 'La fecha límite de votación es obligatoria'),
-        tiebreak_duration_hours: z.coerce
-            .number()
-            .int()
-            .min(1)
-            .max(720)
-            .default(48),
+        tiebreak_duration_hours: z.coerce.number().int().min(1).max(720),
         photo: z.instanceof(File).optional(),
     })
     .superRefine((val, ctx) => {
@@ -73,7 +68,15 @@ const schema = z
         }
     });
 
-type FormValues = z.infer<typeof schema>;
+interface FormValues {
+    building_id: string;
+    title: string;
+    description: string;
+    reception_deadline: string;
+    voting_deadline: string;
+    tiebreak_duration_hours: number;
+    photo?: File;
+}
 
 interface DecisionDialogProps {
     open: boolean;
@@ -95,7 +98,7 @@ export function DecisionDialog({
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<FormValues>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: {
             building_id: buildingId ?? '',
             title: '',
@@ -103,6 +106,7 @@ export function DecisionDialog({
             reception_deadline: '',
             voting_deadline: '',
             tiebreak_duration_hours: 48,
+            photo: undefined,
         },
     });
 

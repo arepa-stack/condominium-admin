@@ -16,24 +16,25 @@ export function TallyCard({ tally }: TallyCardProps) {
         <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold">
-                    Resultados{tally.round > 1 ? ` — Ronda ${tally.round}` : ''}
+                    {tally.status === 'RECEPTION' ? 'Votación (No iniciada)' : 'Resultados'}
+                    {tally.round > 1 ? ` — Ronda ${tally.round}` : ''}
                 </h3>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Users className="h-4 w-4" />
                     <span>
-                        {tally.total_votes} / {tally.total_apartments} votos (
-                        {tally.participation_pct.toFixed(1)}%)
+                        {tally.total_votes ?? 0} / {tally.total_apartments ?? 0} votos (
+                        {(tally.participation_pct ?? 0).toFixed(1)}%)
                     </span>
                 </div>
             </div>
 
-            {tally.tallies.length === 0 ? (
+            {(tally.tallies?.length ?? 0) === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                     Aún no hay votos registrados.
                 </p>
             ) : (
                 <div className="space-y-3">
-                    {tally.tallies.map((entry) => {
+                    {tally.tallies?.map((entry) => {
                         const isWinner = entry.quote_id === tally.winner_quote_id;
                         return (
                             <div key={entry.quote_id} className="space-y-1.5">
@@ -61,12 +62,12 @@ export function TallyCard({ tally }: TallyCardProps) {
                                                     : ''
                                             }
                                         >
-                                            {entry.pct.toFixed(1)}%
+                                            {(entry.pct ?? 0).toFixed(1)}%
                                         </Badge>
                                     </div>
                                 </div>
                                 <Progress
-                                    value={entry.pct}
+                                    value={entry.pct ?? 0}
                                     className={
                                         isWinner
                                             ? '[&>div]:bg-green-500 dark:[&>div]:bg-green-400'

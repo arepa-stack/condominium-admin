@@ -38,15 +38,14 @@ export const decisionsService = {
     async list(params?: ListDecisionsParams): Promise<PaginatedResponse<Decision>> {
         const { data } = await apiClient.get<{ items: Decision[]; metadata: any }>(P, { params });
         
-        // Normalize backend response to match PaginatedResponse shape
-        const meta = data.metadata;
+        const meta = data?.metadata || {};
         return {
-            data: data.items,
+            data: data?.items || [],
             metadata: {
-                total: meta.total,
-                page: meta.page,
-                limit: meta.limit,
-                totalPages: meta.total_pages ?? meta.totalPages,
+                total: meta.total ?? 0,
+                page: meta.page ?? 1,
+                limit: meta.limit ?? 20,
+                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
                 hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
                 hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
             },
@@ -104,11 +103,22 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionQuote>> {
-        const { data } = await apiClient.get<PaginatedResponse<DecisionQuote>>(
+        const { data } = await apiClient.get<{ items: DecisionQuote[]; metadata: any }>(
             `${P}/${id}/quotes`,
             { params },
         );
-        return data;
+        const meta = data?.metadata || {};
+        return {
+            data: data?.items || [],
+            metadata: {
+                total: meta.total ?? 0,
+                page: meta.page ?? 1,
+                limit: meta.limit ?? 20,
+                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
+                hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
+                hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
+            },
+        };
     },
 
     async uploadQuote(id: string, fd: FormData): Promise<DecisionQuote> {
@@ -128,11 +138,22 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionVote>> {
-        const { data } = await apiClient.get<PaginatedResponse<DecisionVote>>(
+        const { data } = await apiClient.get<{ items: DecisionVote[]; metadata: any }>(
             `${P}/${id}/votes`,
             { params },
         );
-        return data;
+        const meta = data?.metadata || {};
+        return {
+            data: data?.items || [],
+            metadata: {
+                total: meta.total ?? 0,
+                page: meta.page ?? 1,
+                limit: meta.limit ?? 20,
+                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
+                hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
+                hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
+            },
+        };
     },
 
     async getResults(id: string): Promise<DecisionTally> {
@@ -144,10 +165,21 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionAuditEntry>> {
-        const { data } = await apiClient.get<PaginatedResponse<DecisionAuditEntry>>(
+        const { data } = await apiClient.get<{ items: DecisionAuditEntry[]; metadata: any }>(
             `${P}/${id}/audit-log`,
             { params },
         );
-        return data;
+        const meta = data?.metadata || {};
+        return {
+            data: data?.items || [],
+            metadata: {
+                total: meta.total ?? 0,
+                page: meta.page ?? 1,
+                limit: meta.limit ?? 20,
+                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
+                hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
+                hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
+            },
+        };
     },
 };

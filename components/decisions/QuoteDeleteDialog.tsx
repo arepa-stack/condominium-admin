@@ -55,7 +55,7 @@ export function QuoteDeleteDialog({
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<ReasonValues>({
-        resolver: isSelfDelete ? undefined : zodResolver(reasonSchema),
+        resolver: isSelfDelete ? undefined : (zodResolver(reasonSchema) as any),
         defaultValues: { reason: '' },
     });
 
