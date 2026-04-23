@@ -48,6 +48,13 @@ const ERROR_MESSAGES: Record<string, string> = {
         'La decisión no se encuentra en el estado correcto para esta operación.',
     TIEBREAK_MANUAL_NOT_ALLOWED:
         'El desempate manual no está habilitado en este momento.',
+
+    // Terminal-state codes: backend emite estos cuando la fase cierra sin votos o
+    // sin quotes activos (distinto de DECISION_NO_ACTIVE_QUOTES, que es precondition al finalizar).
+    NO_VOTES_CAST:
+        'La votación cerró sin votos. Resolvé manual eligiendo ganador o cancelá la decisión.',
+    NO_ACTIVE_QUOTES:
+        'No quedan cotizaciones activas. Cancelá esta decisión para cerrarla.',
 };
 
 /**
