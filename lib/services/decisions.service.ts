@@ -15,6 +15,16 @@ import type {
     PaginationParams,
 } from '@/types/models';
 
+interface RawPaginationMetadata {
+    total?: number;
+    page?: number;
+    limit?: number;
+    total_pages?: number;
+    totalPages?: number;
+    has_next_page?: boolean;
+    has_prev_page?: boolean;
+}
+
 interface ListDecisionsParams extends PaginationParams {
     building_id?: string;
     status?: string;
@@ -36,7 +46,7 @@ interface GenerateChargeResponse {
 
 export const decisionsService = {
     async list(params?: ListDecisionsParams): Promise<PaginatedResponse<Decision>> {
-        const { data } = await apiClient.get<{ items: Decision[]; metadata: any }>(P, { params });
+        const { data } = await apiClient.get<{ items: Decision[]; metadata: RawPaginationMetadata }>(P, { params });
         
         const meta = data?.metadata || {};
         return {
@@ -46,8 +56,8 @@ export const decisionsService = {
                 page: meta.page ?? 1,
                 limit: meta.limit ?? 20,
                 totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
-                hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
+                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
+                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
             },
         };
     },
@@ -103,7 +113,7 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionQuote>> {
-        const { data } = await apiClient.get<{ items: DecisionQuote[]; metadata: any }>(
+        const { data } = await apiClient.get<{ items: DecisionQuote[]; metadata: RawPaginationMetadata }>(
             `${P}/${id}/quotes`,
             { params },
         );
@@ -115,8 +125,8 @@ export const decisionsService = {
                 page: meta.page ?? 1,
                 limit: meta.limit ?? 20,
                 totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
-                hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
+                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
+                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
             },
         };
     },
@@ -138,7 +148,7 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionVote>> {
-        const { data } = await apiClient.get<{ items: DecisionVote[]; metadata: any }>(
+        const { data } = await apiClient.get<{ items: DecisionVote[]; metadata: RawPaginationMetadata }>(
             `${P}/${id}/votes`,
             { params },
         );
@@ -150,8 +160,8 @@ export const decisionsService = {
                 page: meta.page ?? 1,
                 limit: meta.limit ?? 20,
                 totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
-                hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
+                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
+                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
             },
         };
     },
@@ -165,7 +175,7 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionAuditEntry>> {
-        const { data } = await apiClient.get<{ items: DecisionAuditEntry[]; metadata: any }>(
+        const { data } = await apiClient.get<{ items: DecisionAuditEntry[]; metadata: RawPaginationMetadata }>(
             `${P}/${id}/audit-log`,
             { params },
         );
@@ -177,8 +187,8 @@ export const decisionsService = {
                 page: meta.page ?? 1,
                 limit: meta.limit ?? 20,
                 totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? (meta.page < (meta.total_pages ?? meta.totalPages)),
-                hasPrevPage: meta.has_prev_page ?? (meta.page > 1),
+                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
+                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
             },
         };
     },
