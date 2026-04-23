@@ -35,6 +35,13 @@ import { decisionsService } from '@/lib/services/decisions.service';
 import { getDecisionErrorMessage } from '@/lib/utils/decision-errors';
 import type { Decision } from '@/types/models';
 
+const DECISION_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const DECISION_PHOTO_MIME_ALLOWED = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+] as const;
+
 const schema = z
     .object({
         building_id: z.string().min(1, 'Selecciona un edificio'),
@@ -46,7 +53,19 @@ const schema = z
         reception_deadline: z.string().min(1, 'La fecha límite de recepción es obligatoria'),
         voting_deadline: z.string().min(1, 'La fecha límite de votación es obligatoria'),
         tiebreak_duration_hours: z.coerce.number().int().min(1).max(720),
-        photo: z.instanceof(File).optional(),
+        photo: z
+            .instanceof(File)
+            .optional()
+            .refine(
+                (f) =>
+                    !f ||
+                    (DECISION_PHOTO_MIME_ALLOWED as readonly string[]).includes(f.type),
+                'Solo se aceptan JPEG, PNG o WebP.',
+            )
+            .refine(
+                (f) => !f || f.size <= DECISION_PHOTO_MAX_BYTES,
+                'La foto supera el tamaño máximo de 5 MB.',
+            ),
     })
     .superRefine((val, ctx) => {
         if (val.reception_deadline && val.voting_deadline) {
@@ -121,6 +140,19 @@ export function DecisionDialog({
     useEffect(() => {
         if (!open) form.reset();
     }, [open, form]);
+
+    const photoFile = form.watch('photo') as File | undefined;
+    const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!photoFile) {
+            setPhotoPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(photoFile);
+        setPhotoPreviewUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [photoFile]);
 
     const handleSubmit = async (values: FormValues) => {
         setIsLoading(true);
@@ -268,22 +300,44 @@ export function DecisionDialog({
                         <FormField
                             control={form.control}
                             name="photo"
-                            render={({ field: { onChange, value: _value, ...rest } }) => (
-                                <FormItem>
-                                    <FormLabel>Foto de referencia (opcional)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp"
-                                            onChange={(e) =>
-                                                onChange(e.target.files?.[0] ?? undefined)
-                                            }
-                                            {...rest}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+                            render={({ field: { onChange, value, ...rest } }) => {
+                                const file = value as File | undefined;
+                                return (
+                                    <FormItem>
+                                        <FormLabel>Foto de referencia (opcional)</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp"
+                                                onChange={(e) =>
+                                                    onChange(e.target.files?.[0] ?? undefined)
+                                                }
+                                                {...rest}
+                                            />
+                                        </FormControl>
+                                        {photoPreviewUrl && file && (
+                                            <div className="mt-2 flex items-center gap-3 rounded-md border border-border/50 bg-muted/30 p-2">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={photoPreviewUrl}
+                                                    alt={`Vista previa de ${file.name}`}
+                                                    className="h-16 w-16 rounded object-cover"
+                                                />
+                                                <div className="min-w-0 text-xs text-muted-foreground">
+                                                    <p className="truncate font-medium text-foreground">
+                                                        {file.name}
+                                                    </p>
+                                                    <p>
+                                                        <span className="sr-only">Tamaño: </span>
+                                                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <FormMessage />
+                                    </FormItem>
+                                );
+                            }}
                         />
 
                         <DialogFooter>
