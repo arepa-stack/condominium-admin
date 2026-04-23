@@ -1,241 +1,207 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { TableSkeleton } from '@/components/ui/skeletons';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Paginator } from '@/components/ui/paginator';
 import { Card } from '@/components/ui/card';
-import { DecisionStatusBadge } from '@/components/decisions/DecisionStatusBadge';
+import { Paginator } from '@/components/ui/paginator';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ActionFilterChips, filterByView, type DecisionView } from '@/components/decisions/ActionFilterChips';
+import { DecisionCard } from '@/components/decisions/DecisionCard';
+import { DecisionCardSkeleton } from '@/components/decisions/DecisionCardSkeleton';
 import { DecisionDialog } from '@/components/decisions/DecisionDialog';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { decisionsService } from '@/lib/services/decisions.service';
-import { formatDate } from '@/lib/utils/format';
-import { DECISION_STATUSES } from '@/lib/utils/constants';
-import { toast } from 'sonner';
 import { getDecisionErrorMessage } from '@/lib/utils/decision-errors';
-import { Plus, Vote, Eye, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+import { Plus, Search, Vote } from 'lucide-react';
 import type { Decision, PaginationMetadata } from '@/types/models';
 
-const PAGE_SIZE = 20;
+const PAGE_LIMIT = 24;
 
-export default function DecisionsPage() {
-    const { isSuperAdmin, isBoardMember, buildingId, canManageDecisions } = usePermissions();
-    const { availableBuildings, selectedBuildingId } = useBuildingContext();
+export default function DecisionsListPage() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const viewFromUrl = (searchParams.get('view') as DecisionView) || 'activas';
 
-    const [decisions, setDecisions] = useState<Decision[]>([]);
+    const { isSuperAdmin, canManageDecisions } = usePermissions();
+    const { selectedBuildingId, availableBuildings } = useBuildingContext();
+
+    const [allDecisions, setAllDecisions] = useState<Decision[]>([]);
     const [metadata, setMetadata] = useState<PaginationMetadata | null>(null);
     const [page, setPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
-    const [filterStatus, setFilterStatus] = useState<string>('');
-    const [filterTitle, setFilterTitle] = useState('');
+    const [view, setView] = useState<DecisionView>(viewFromUrl);
     const [titleInput, setTitleInput] = useState('');
+    const [search, setSearch] = useState('');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-    const effectiveBuildingId = buildingId ?? undefined;
+    const effectiveBuildingId = selectedBuildingId;
 
     const load = useCallback(async () => {
         setIsLoading(true);
         try {
             const res = await decisionsService.list({
+                building_id: effectiveBuildingId ?? undefined,
+                search: search || undefined,
                 page,
-                limit: PAGE_SIZE,
-                building_id: effectiveBuildingId,
-                status: filterStatus || undefined,
-                search: filterTitle || undefined,
+                limit: PAGE_LIMIT,
             });
-            setDecisions(res.data);
+            setAllDecisions(res.data);
             setMetadata(res.metadata);
         } catch (err) {
             toast.error(getDecisionErrorMessage(err));
+            setAllDecisions([]);
+            setMetadata(null);
         } finally {
             setIsLoading(false);
         }
-    }, [page, effectiveBuildingId, filterStatus, filterTitle]);
+    }, [effectiveBuildingId, search, page]);
 
     useEffect(() => {
         load();
     }, [load]);
 
-    const handleSearch = () => {
-        setPage(1);
-        setFilterTitle(titleInput);
-    };
+    useEffect(() => {
+        const current = searchParams.get('view') || 'activas';
+        if (current !== view) {
+            const sp = new URLSearchParams(searchParams.toString());
+            sp.set('view', view);
+            router.replace(`/decisions?${sp.toString()}`, { scroll: false });
+        }
+    }, [view, searchParams, router]);
 
-    const handleStatusChange = (val: string) => {
-        setPage(1);
-        setFilterStatus(val === 'ALL' ? '' : val);
+    const filtered = useMemo(
+        () => filterByView(allDecisions, view),
+        [allDecisions, view],
+    );
+
+    const canCreate = canManageDecisions(effectiveBuildingId ?? undefined);
+
+    const emptyMessage: Record<DecisionView, { title: string; message: string; showCta: boolean }> = {
+        activas: {
+            title: 'Ninguna decisión activa',
+            message: '¿Creamos una?',
+            showCta: true,
+        },
+        pendientes: {
+            title: '✓ Todo al día',
+            message: 'No hay decisiones pendientes de acción.',
+            showCta: false,
+        },
+        archivadas: {
+            title: 'Sin historial aún',
+            message: 'Acá vas a ver decisiones cerradas o canceladas.',
+            showCta: false,
+        },
     };
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">
-                        Presupuestos
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Presupuestos competitivos y votaciones del condominio.
+                    <h1 className="text-2xl font-semibold text-foreground">Presupuestos</h1>
+                    <p className="text-sm text-muted-foreground">
+                        Decisiones con cotizaciones competitivas y votación de apartamentos.
                     </p>
                 </div>
-                {canManageDecisions(effectiveBuildingId) && (
+                {canCreate && (
                     <Button onClick={() => setIsCreateOpen(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
+                        <Plus className="mr-2 h-4 w-4" />
                         Nueva decisión
                     </Button>
                 )}
-            </div>
+            </header>
 
-            {/* No building selected warning for board members */}
-            {!effectiveBuildingId && !isSuperAdmin && (
-                <Card className="p-6 border-dashed text-center text-muted-foreground">
-                    Selecciona un edificio para gestionar sus decisiones.
+            {isSuperAdmin && !effectiveBuildingId && (
+                <Card className="border-amber-400/40 bg-amber-50/50 p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    Vista global: se listan decisiones de todos los edificios.
                 </Card>
             )}
 
-            {/* Filters */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex gap-2 flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <ActionFilterChips
+                    decisions={allDecisions}
+                    selected={view}
+                    onChange={(v) => {
+                        setPage(1);
+                        setView(v);
+                    }}
+                />
+                <form
+                    className="relative w-full sm:w-64"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        setPage(1);
+                        setSearch(titleInput.trim());
+                    }}
+                >
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        placeholder="Buscar por título…"
                         value={titleInput}
                         onChange={(e) => setTitleInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        className="max-w-xs"
+                        placeholder="Buscar por título…"
+                        className="pl-9"
                     />
-                    <Button variant="outline" onClick={handleSearch}>
-                        Buscar
-                    </Button>
-                </div>
-                <Select value={filterStatus || 'ALL'} onValueChange={handleStatusChange}>
-                    <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL">Todos los estados</SelectItem>
-                        {DECISION_STATUSES.map((s) => (
-                            <SelectItem key={s} value={s}>
-                                {s}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                </form>
             </div>
 
-            {/* Table */}
             {isLoading ? (
-                <TableSkeleton rows={6} columns={7} />
-            ) : decisions.length === 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <DecisionCardSkeleton key={i} />
+                    ))}
+                </div>
+            ) : filtered.length === 0 ? (
                 <EmptyState
                     icon={Vote}
-                    title="Sin decisiones"
-                    message="No se encontraron decisiones con los filtros seleccionados."
-                    variant="card"
+                    title={emptyMessage[view].title}
+                    message={emptyMessage[view].message}
+                    action={
+                        emptyMessage[view].showCta && canCreate ? (
+                            <Button onClick={() => setIsCreateOpen(true)}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Crear decisión
+                            </Button>
+                        ) : undefined
+                    }
                 />
             ) : (
-                <Card className="overflow-hidden">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Título</TableHead>
-                                {isSuperAdmin && <TableHead>Edificio</TableHead>}
-                                <TableHead>Estado</TableHead>
-                                <TableHead className="text-center">Ronda</TableHead>
-                                <TableHead className="text-center">Cotizaciones</TableHead>
-                                <TableHead>Recepción</TableHead>
-                                <TableHead>Votación</TableHead>
-                                <TableHead />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {decisions.map((d) => {
-                                const needsAction =
-                                    d.is_deadline_passed &&
-                                    (d.status === 'RECEPTION' || d.status === 'VOTING');
-                                return (
-                                    <TableRow
-                                        key={d.id}
-                                        className={needsAction ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''}
-                                    >
-                                        <TableCell className="font-medium max-w-xs">
-                                            <div className="flex items-center gap-2 truncate">
-                                                {needsAction && (
-                                                    <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 shrink-0" />
-                                                )}
-                                                <span className="truncate" title={d.title}>
-                                                    {d.title}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        {isSuperAdmin && (
-                                            <TableCell className="text-sm text-muted-foreground">
-                                                {availableBuildings.find((b) => b.id === d.building_id)
-                                                    ?.name ?? d.building_id.slice(0, 8)}
-                                            </TableCell>
-                                        )}
-                                        <TableCell>
-                                            <DecisionStatusBadge status={d.status} />
-                                        </TableCell>
-                                        <TableCell className="text-center">{d.current_round}</TableCell>
-                                        <TableCell className="text-center">{d.quote_count}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                            {formatDate(d.reception_deadline, 'dd/MM/yy HH:mm')}
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                            {formatDate(d.voting_deadline, 'dd/MM/yy HH:mm')}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Link href={`/decisions/${d.id}`}>
-                                                <Button size="sm" variant="ghost">
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                            </Link>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-
-                    <Paginator
-                        metadata={metadata}
-                        isLoading={isLoading}
-                        onPageChange={setPage}
-                        className="border-t border-border/60"
-                    />
-                </Card>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filtered.map((decision) => (
+                        <DecisionCard
+                            key={decision.id}
+                            decision={decision}
+                            buildingLabel={
+                                isSuperAdmin
+                                    ? availableBuildings.find(
+                                          (b) => b.id === decision.building_id,
+                                      )?.name
+                                    : undefined
+                            }
+                            hrefSuffix={`?view=${view}`}
+                        />
+                    ))}
+                </div>
             )}
 
-            {/* Create dialog: se monta solo cuando está abierto para evitar conflictos de portal durante navegación */}
-            {isCreateOpen && (
+            {metadata && metadata.totalPages > 1 && (
+                <Paginator
+                    metadata={metadata}
+                    isLoading={isLoading}
+                    onPageChange={(p) => setPage(p)}
+                />
+            )}
+
+            {canCreate && (
                 <DecisionDialog
                     open={isCreateOpen}
                     onOpenChange={setIsCreateOpen}
-                    buildingId={effectiveBuildingId}
+                    buildingId={effectiveBuildingId ?? undefined}
                     availableBuildings={availableBuildings}
-                    onCreated={(_d) => {
-                        setPage(1);
-                        load();
-                    }}
+                    onCreated={() => load()}
                 />
             )}
         </div>
