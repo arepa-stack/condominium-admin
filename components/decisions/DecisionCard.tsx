@@ -136,7 +136,10 @@ export function DecisionCard({
                     )}
                 >
                     {isLivingPhase && (
-                        <p>📋 {decision.quote_count} cotización{decision.quote_count === 1 ? '' : 'es'}</p>
+                        <p>
+                            📋 {decision.quote_count ?? 0}{' '}
+                            {decision.quote_count === 1 ? 'cotización' : 'cotizaciones'}
+                        </p>
                     )}
                     {isTiebreak && (
                         <p className="inline-flex items-center gap-1 text-amber-900 dark:text-amber-200">
