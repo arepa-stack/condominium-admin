@@ -390,3 +390,145 @@ export interface ReversePettyCashEntryDto {
   reason: string;
 }
 
+// ─── Decisions (Presupuestos y Votaciones) ─────────────────────────────────
+
+export type DecisionStatus =
+  | 'RECEPTION'
+  | 'VOTING'
+  | 'TIEBREAK_PENDING'
+  | 'RESOLVED'
+  | 'CANCELLED';
+
+export type DecisionChargeType = 'INVOICE' | 'ASSESSMENT';
+
+export interface DecisionActorRef {
+  id: string;
+  name: string;
+}
+
+export interface Decision {
+  id: string;
+  building_id: string;
+  title: string;
+  description: string | null;
+  photo_url: string | null;
+  status: DecisionStatus;
+  current_round: number;
+  reception_deadline: string;
+  voting_deadline: string;
+  tiebreak_duration_hours: number;
+  winner_quote_id: string | null;
+  resulting_type: DecisionChargeType | null;
+  resulting_id: string | null;
+  finalized_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  /** Null cuando el usuario creador fue eliminado (FK SET NULL en backend). */
+  created_by: DecisionActorRef | null;
+  created_at: string;
+  updated_at: string;
+  /** Computado por el backend: deadline de la fase actual ya pasó pero no se finalizó */
+  is_deadline_passed: boolean;
+  /** Cantidad de quotes activos (no eliminados) */
+  quote_count: number;
+}
+
+export interface DecisionQuote {
+  id: string;
+  decision_id: string;
+  /** Null cuando el usuario uploader fue eliminado (FK SET NULL en backend). */
+  uploader: DecisionActorRef | null;
+  uploader_unit_id: string | null;
+  provider_name: string;
+  amount: number;
+  notes: string | null;
+  /** Signed URL con TTL corto (5-10 min). No cachear entre fetches. */
+  file_url: string;
+  deleted_at: string | null;
+  deleted_by: DecisionActorRef | null;
+  deletion_reason: string | null;
+  created_at: string;
+}
+
+export interface DecisionVote {
+  id: string;
+  decision_id: string;
+  round: number;
+  apartment_id: string;
+  apartment_label: string;
+  quote_id: string;
+  /** Null cuando el usuario votante fue eliminado (FK SET NULL en backend). */
+  voted_by: DecisionActorRef | null;
+  created_at: string;
+}
+
+export interface DecisionTallyEntry {
+  quote_id: string;
+  provider_name: string;
+  amount: number;
+  votes: number;
+  pct: number;
+}
+
+export interface DecisionTally {
+  round: number;
+  status: DecisionStatus;
+  total_apartments: number;
+  total_votes: number;
+  participation_pct: number;
+  tallies: DecisionTallyEntry[];
+  winner_quote_id: string | null;
+  is_tied: boolean;
+}
+
+export type DecisionAuditEvent =
+  | 'CREATED'
+  | 'DEADLINE_EXTENDED'
+  | 'CANCELLED'
+  | 'QUOTE_DELETED'
+  | 'FINALIZED'
+  | 'TIEBREAK_OPENED'
+  | 'WINNER_SET_MANUAL'
+  | 'CHARGE_GENERATED'
+  | 'PHASE_ADVANCED';
+
+export interface DecisionAuditEntry {
+  id: string;
+  decision_id: string;
+  event: DecisionAuditEvent;
+  /** Null cuando el actor fue eliminado (FK SET NULL en backend). */
+  actor: DecisionActorRef | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface CreateDecisionDto {
+  building_id: string;
+  title: string;
+  description?: string;
+  reception_deadline: string;
+  voting_deadline: string;
+  tiebreak_duration_hours?: number;
+}
+
+export interface ExtendDeadlinesDto {
+  reception_deadline?: string;
+  voting_deadline?: string;
+  reason: string;
+}
+
+export interface CancelDecisionDto {
+  reason: string;
+}
+
+export interface ResolveTiebreakDto {
+  quote_id: string;
+  reason: string;
+}
+
+export interface GenerateChargeDto {
+  type: DecisionChargeType;
+  amount_override?: number;
+  category?: string;
+}
+
