@@ -29,7 +29,7 @@ export function DecisionHero({
     const [photoError, setPhotoError] = useState(false);
 
     const titleClass = cn(
-        'text-2xl font-semibold leading-tight text-white',
+        'text-2xl font-semibold leading-tight text-foreground',
         decision.status === 'CANCELLED' && 'line-through opacity-90',
     );
 
@@ -46,9 +46,11 @@ export function DecisionHero({
     return (
         <section
             className={cn(
-                'relative overflow-hidden rounded-xl p-6 text-white shadow-lg',
-                theme.gradientClass,
-                decision.status === 'TIEBREAK_PENDING' && 'ring-2 ring-amber-300/80',
+                'relative overflow-hidden rounded-xl border border-border/60 bg-card p-6 shadow-sm',
+                theme.gradientClass, // Faint glow
+                'border-l-4',
+                theme.accentClass.split(' ')[0], // only the border class
+                decision.status === 'TIEBREAK_PENDING' && 'ring-2 ring-amber-300/40',
             )}
         >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -58,7 +60,7 @@ export function DecisionHero({
                             type="button"
                             onClick={onPhotoClick}
                             aria-label="Ver foto de la decisión"
-                            className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-white/30 bg-white/10 transition hover:ring-2 hover:ring-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                            className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted transition hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -70,7 +72,10 @@ export function DecisionHero({
                         </button>
                     )}
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-white/80">
+                        <div className={cn(
+                            'flex items-center gap-2 text-xs font-medium uppercase tracking-wide',
+                            theme.accentClass.split(' ')[1] || 'text-muted-foreground' // only the text class
+                        )}>
                             <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>
                                 {theme.label} {roundLabel}
@@ -78,7 +83,7 @@ export function DecisionHero({
                         </div>
                         <h2 className={titleClass}>{decision.title}</h2>
                         {buildingLabel && (
-                            <p className="mt-1 text-sm text-white/80">{buildingLabel}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{buildingLabel}</p>
                         )}
                     </div>
                 </div>
@@ -87,7 +92,7 @@ export function DecisionHero({
                 )}
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/90">
+            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
                 {decision.status === 'RECEPTION' && (
                     <CountdownBadge
                         deadline={decision.reception_deadline}
@@ -102,12 +107,12 @@ export function DecisionHero({
                     />
                 )}
                 {decision.status === 'RESOLVED' && decision.finalized_at && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-xs">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                         ✓ Finalizada
                     </span>
                 )}
                 {decision.status === 'CANCELLED' && decision.cancel_reason && (
-                    <span className="text-xs text-white/80">
+                    <span className="text-xs text-muted-foreground">
                         Motivo: {decision.cancel_reason}
                     </span>
                 )}
@@ -115,7 +120,7 @@ export function DecisionHero({
 
             {showParticipation && (
                 <div className="mt-4">
-                    <div className="mb-1 flex items-center justify-between text-xs text-white/85">
+                    <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                         <span>
                             {tally.total_votes}/{tally.total_apartments} aptos votaron
                         </span>
@@ -124,8 +129,12 @@ export function DecisionHero({
                     <Progress
                         value={Math.min(100, tally.participation_pct)}
                         aria-label="Participación"
-                        className="h-2 bg-white/20"
-                        indicatorClassName="bg-white"
+                        className="h-2 bg-muted"
+                        indicatorClassName={cn(
+                            theme.tone === 'hot' || theme.tone === 'amber' || theme.tone === 'warning'
+                                ? 'bg-amber-600'
+                                : 'bg-primary'
+                        )}
                     />
                 </div>
             )}
