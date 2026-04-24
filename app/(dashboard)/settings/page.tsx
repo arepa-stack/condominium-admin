@@ -4,13 +4,19 @@ import { useTheme } from 'next-themes';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Monitor, Moon, Sun, Palette } from 'lucide-react';
+import { Monitor, Moon, Sun, Palette, Lock, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { authService } from '@/lib/services/auth.service';
 
 export default function SettingsPage() {
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Evitar errores de hidratación mostrando nada hasta que esté montado el cliente
     useEffect(() => {
@@ -113,6 +119,63 @@ export default function SettingsPage() {
                             );
                         })}
                     </RadioGroup>
+                </CardContent>
+            </Card>
+
+            <Card className="border-border/50 bg-card backdrop-blur shadow-sm">
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <Lock className="h-5 w-5 text-primary" />
+                        Seguridad
+                    </CardTitle>
+                    <CardDescription>
+                        Gestiona el acceso a tu cuenta y cambia tu contraseña.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-4 max-w-md">
+                        <div className="space-y-2">
+                            <Label htmlFor="new-password">Nueva Contraseña</Label>
+                            <div className="relative group">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                <Input
+                                    id="new-password"
+                                    type="password"
+                                    placeholder="Mínimo 6 caracteres"
+                                    className="pl-10"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                El backend requiere al menos 6 caracteres.
+                            </p>
+                        </div>
+                        
+                        <Button 
+                            className="w-full sm:w-auto font-bold"
+                            disabled={isSubmitting || newPassword.length < 6}
+                            onClick={async () => {
+                                try {
+                                    setIsSubmitting(true);
+                                    const res = await authService.changePassword(newPassword);
+                                    if (res.success) {
+                                        toast.success('Contraseña actualizada correctamente', {
+                                            icon: <ShieldCheck className="h-5 w-5 text-green-500" />
+                                        });
+                                        setNewPassword('');
+                                    }
+                                } catch (error: any) {
+                                    console.error('Error changing password:', error);
+                                    toast.error(error.message || 'Error al actualizar la contraseña');
+                                } finally {
+                                    setIsSubmitting(false);
+                                }
+                            }}
+                        >
+                            {isSubmitting ? 'Actualizando...' : 'Actualizar Contraseña'}
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 
