@@ -22,6 +22,7 @@ export interface DecisionActionsHandlers {
     onUploadQuote: () => void;
     onExtendDeadlines: () => void;
     onFinalize: () => void;
+    onForceFinalizeReception: () => void;
     onResolveTiebreak: () => void;
     onGenerateCharge: () => void;
     onCancel: () => void;
@@ -47,9 +48,11 @@ function dispatchPrimary(
             handlers.onUploadQuote();
             return;
         case 'finalize-reception':
-        case 'finalize-voting-early':
         case 'finalize-voting-now':
             handlers.onFinalize();
+            return;
+        case 'force-finalize-reception':
+            handlers.onForceFinalizeReception();
             return;
         case 'resolve-tiebreak':
             handlers.onResolveTiebreak();

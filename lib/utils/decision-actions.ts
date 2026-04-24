@@ -3,7 +3,7 @@ import type { Decision } from '@/types/models';
 export type PrimaryActionKind =
     | 'upload-first-quote'
     | 'finalize-reception'
-    | 'finalize-voting-early'
+    | 'force-finalize-reception'
     | 'finalize-voting-now'
     | 'resolve-tiebreak'
     | 'generate-charge'
@@ -41,9 +41,17 @@ export function resolvePrimaryAction(
                     variant: 'solid',
                 };
             }
+            if (decision.is_deadline_passed) {
+                return {
+                    kind: 'finalize-reception',
+                    label: 'Finalizar recepción → Abrir votación',
+                    variant: 'solid',
+                };
+            }
+            // Deadline aún no vence: backend acepta force+reason para saltar el wait.
             return {
-                kind: 'finalize-reception',
-                label: 'Finalizar recepción → Abrir votación',
+                kind: 'force-finalize-reception',
+                label: 'Pasar a votación ahora',
                 variant: 'solid',
             };
         case 'VOTING':
@@ -54,11 +62,8 @@ export function resolvePrimaryAction(
                     variant: 'solid',
                 };
             }
-            return {
-                kind: 'finalize-voting-early',
-                label: 'Finalizar votación ahora',
-                variant: 'outline',
-            };
+            // Backend no acepta force en VOTING; sin CTA hasta que venza deadline.
+            return null;
         case 'TIEBREAK_PENDING':
             return {
                 kind: 'resolve-tiebreak',
