@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -23,6 +23,7 @@ const PAGE_LIMIT = 24;
 
 export default function DecisionsListPage() {
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
     const viewFromUrl = (searchParams.get('view') as DecisionView) || 'activas';
 
@@ -69,9 +70,9 @@ export default function DecisionsListPage() {
         if (current !== view) {
             const sp = new URLSearchParams(searchParams.toString());
             sp.set('view', view);
-            router.replace(`/decisions?${sp.toString()}`, { scroll: false });
+            router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
         }
-    }, [view, searchParams, router]);
+    }, [view, searchParams, router, pathname]);
 
     const filtered = useMemo(
         () => filterByView(allDecisions, view),
