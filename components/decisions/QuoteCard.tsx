@@ -1,45 +1,94 @@
 'use client';
 
 import { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, ExternalLink, FileText } from 'lucide-react';
-import { formatCurrency, formatDate } from '@/lib/utils/format';
-import { QuoteDeleteDialog } from './QuoteDeleteDialog';
-import type { DecisionQuote, DecisionStatus } from '@/types/models';
-import { decisionsService } from '@/lib/services/decisions.service';
-import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils/format';
 import { getDecisionErrorMessage } from '@/lib/utils/decision-errors';
+import { decisionsService } from '@/lib/services/decisions.service';
+import { QuoteDeleteDialog } from '@/components/decisions/QuoteDeleteDialog';
+import { toast } from 'sonner';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import type { DecisionQuote, DecisionStatus } from '@/types/models';
+import { ExternalLink, Loader2, MoreVertical, Trophy, Trash2 } from 'lucide-react';
+import { formatDistanceStrict } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface QuoteCardProps {
     quote: DecisionQuote;
     decisionId: string;
     decisionStatus: DecisionStatus;
+    currentRound: number;
     isWinner: boolean;
+    /** IDs of quotes still eligible in the current (tiebreak) round. When empty, every quote is eligible. */
+    tiebreakEligibleIds?: string[];
     canDelete: boolean;
     isSelfDelete: boolean;
+    isOwnedByMe?: boolean;
     onDeleted: (quoteId: string) => void;
+    onRequestImagePreview?: (url: string, filename: string) => void;
+}
+
+function isProbablyImage(url: string): boolean {
+    const lower = url.toLowerCase();
+    return (
+        lower.includes('.png') ||
+        lower.includes('.jpg') ||
+        lower.includes('.jpeg') ||
+        lower.includes('.webp')
+    );
 }
 
 export function QuoteCard({
     quote,
     decisionId,
     decisionStatus,
+    currentRound,
     isWinner,
+    tiebreakEligibleIds,
     canDelete,
     isSelfDelete,
+    isOwnedByMe,
     onDeleted,
+    onRequestImagePreview,
 }: QuoteCardProps) {
-    const [deleteOpen, setDeleteOpen] = useState(false);
     const [loadingFile, setLoadingFile] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [notesExpanded, setNotesExpanded] = useState(false);
 
     const isDeleted = !!quote.deleted_at;
+    const isTiebreakPhase = decisionStatus === 'TIEBREAK_PENDING';
+    const isInTiebreakSet =
+        !isTiebreakPhase ||
+        !tiebreakEligibleIds ||
+        tiebreakEligibleIds.length === 0 ||
+        tiebreakEligibleIds.includes(quote.id);
+    const dimmedOutOfRound = isTiebreakPhase && !isInTiebreakSet && !isDeleted;
+    const notesLong = (quote.notes ?? '').length > 200;
+
+    const shell = cn(
+        'relative rounded-xl border p-4 transition',
+        isDeleted && 'opacity-50 grayscale-[30%]',
+        !isDeleted && isWinner &&
+            'ring-2 ring-emerald-500 border-emerald-200/60 bg-gradient-to-br from-emerald-50/60 to-card dark:from-emerald-950/30 dark:to-card',
+        !isDeleted && !isWinner && isTiebreakPhase && isInTiebreakSet &&
+            'ring-1 ring-amber-400 bg-amber-50/40 dark:bg-amber-950/20',
+        !isDeleted && !isWinner && !isInTiebreakSet &&
+            'border-border/60 bg-card',
+        !isDeleted && !isWinner && !isTiebreakPhase &&
+            'border-border/60 bg-card',
+        !isDeleted && isOwnedByMe && 'border-l-4 border-l-amber-700',
+        dimmedOutOfRound && 'opacity-30',
+    );
 
     const handleViewFile = async () => {
         setLoadingFile(true);
         try {
-            // Re-fetch para obtener una signed URL fresca (TTL 5-10 min)
             const quotes = await decisionsService.listQuotes(decisionId, { limit: 50 });
             const fresh = (quotes?.data ?? []).find((q) => q.id === quote.id);
             const url = fresh?.file_url ?? quote.file_url;
@@ -47,7 +96,11 @@ export function QuoteCard({
                 toast.error('No se encontró el archivo de esta cotización.');
                 return;
             }
-            window.open(url, '_blank', 'noopener,noreferrer');
+            if (isProbablyImage(url) && onRequestImagePreview) {
+                onRequestImagePreview(url, `${quote.provider_name}.img`);
+            } else {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
         } catch (err) {
             toast.error(getDecisionErrorMessage(err));
         } finally {
@@ -57,84 +110,133 @@ export function QuoteCard({
 
     return (
         <>
-            <Card
-                className={`p-4 flex flex-col gap-3 ${isDeleted ? 'opacity-50' : ''} ${isWinner ? 'ring-2 ring-green-500 dark:ring-green-400' : ''}`}
-            >
+            <div className={shell}>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                    {isWinner && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                            <Trophy className="h-3 w-3" /> Ganadora
+                        </span>
+                    )}
+                    {isTiebreakPhase && isInTiebreakSet && !isWinner && (
+                        <span className="inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-900/60 dark:text-amber-100">
+                            ⚖ Empatada
+                        </span>
+                    )}
+                    {isTiebreakPhase && !isInTiebreakSet && (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            No en ronda {currentRound}
+                        </span>
+                    )}
+                    {isDeleted && (
+                        <span
+                            className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-800 dark:bg-red-950/60 dark:text-red-200"
+                            title={quote.deletion_reason ?? 'Eliminada'}
+                        >
+                            Eliminada
+                        </span>
+                    )}
+                    {isOwnedByMe && !isDeleted && (
+                        <span className="inline-flex items-center rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-stone-700 dark:bg-stone-800 dark:text-stone-200">
+                            Tuya
+                        </span>
+                    )}
+                </div>
+
                 <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="font-medium truncate">{quote.provider_name}</span>
-                        {isWinner && (
-                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 shrink-0">
-                                Ganadora
-                            </Badge>
-                        )}
-                        {isDeleted && (
-                            <Badge variant="destructive" className="shrink-0">
-                                Eliminada
-                            </Badge>
-                        )}
+                    <div className="min-w-0 flex-1">
+                        <h3
+                            className={cn(
+                                'text-base font-semibold text-foreground',
+                                isDeleted && 'line-through',
+                            )}
+                        >
+                            {quote.provider_name}
+                        </h3>
+                        <p className="mt-0.5 text-lg font-semibold text-primary">
+                            {formatCurrency(quote.amount)}
+                        </p>
                     </div>
-                    <span className="text-lg font-bold text-foreground whitespace-nowrap">
-                        {formatCurrency(quote.amount)}
-                    </span>
+                    {canDelete && !isDeleted && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Más acciones de cotización"
+                                >
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onSelect={() => setDeleteOpen(true)}
+                                    className="text-red-600 focus:text-red-700 dark:text-red-400"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </div>
 
                 {quote.notes && (
-                    <p className="text-sm text-muted-foreground">{quote.notes}</p>
-                )}
-
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                        Subida por{' '}
-                        <span className="font-medium text-foreground">{quote.uploader?.name ?? '—'}</span>
-                        {' · '}
-                        {formatDate(quote.created_at)}
-                    </span>
-                </div>
-
-                {isDeleted && quote.deleted_by && (
-                    <p className="text-xs text-destructive">
-                        Eliminada por {quote.deleted_by.name}
-                        {quote.deletion_reason ? ` — ${quote.deletion_reason}` : ''}
+                    <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
+                        {notesLong && !notesExpanded
+                            ? `${quote.notes.slice(0, 200)}…`
+                            : quote.notes}
+                        {notesLong && (
+                            <button
+                                type="button"
+                                className="ml-1 text-primary underline-offset-2 hover:underline"
+                                onClick={() => setNotesExpanded((s) => !s)}
+                            >
+                                {notesExpanded ? 'Ver menos' : 'Ver más'}
+                            </button>
+                        )}
                     </p>
                 )}
 
-                {!isDeleted && (
-                    <div className="flex gap-2 pt-1">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleViewFile}
-                            disabled={loadingFile}
-                            className="flex-1"
-                        >
-                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                            Ver archivo
-                        </Button>
-                        {canDelete && decisionStatus !== 'RESOLVED' && decisionStatus !== 'CANCELLED' && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => setDeleteOpen(true)}
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleViewFile}
+                        disabled={loadingFile}
+                    >
+                        {loadingFile ? (
+                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                            <ExternalLink className="mr-2 h-3.5 w-3.5" />
                         )}
-                    </div>
-                )}
-            </Card>
+                        Ver archivo
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                        {quote.uploader?.name ?? 'Usuario eliminado'} · hace{' '}
+                        {formatDistanceStrict(new Date(quote.created_at), new Date(), {
+                            locale: es,
+                            addSuffix: false,
+                        })}
+                    </p>
+                </div>
 
-            <QuoteDeleteDialog
-                open={deleteOpen}
-                onOpenChange={setDeleteOpen}
-                decisionId={decisionId}
-                quoteId={quote.id}
-                providerName={quote.provider_name}
-                isSelfDelete={isSelfDelete}
-                onDeleted={onDeleted}
-            />
+                {isDeleted && quote.deletion_reason && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                        Motivo: {quote.deletion_reason}
+                    </p>
+                )}
+            </div>
+
+            {canDelete && (
+                <QuoteDeleteDialog
+                    open={deleteOpen}
+                    onOpenChange={setDeleteOpen}
+                    decisionId={decisionId}
+                    quoteId={quote.id}
+                    providerName={quote.provider_name}
+                    isSelfDelete={isSelfDelete}
+                    onDeleted={() => onDeleted(quote.id)}
+                />
+            )}
         </>
     );
 }

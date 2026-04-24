@@ -18,12 +18,13 @@ import { QuoteCard } from '@/components/decisions/QuoteCard';
 import { QuoteUploadDialog } from '@/components/decisions/QuoteUploadDialog';
 import { TallyCard } from '@/components/decisions/TallyCard';
 import { VotesList } from '@/components/decisions/VotesList';
+import { PhotoLightbox } from '@/components/decisions/PhotoLightbox';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { decisionsService } from '@/lib/services/decisions.service';
 import { getDecisionErrorMessage } from '@/lib/utils/decision-errors';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
 import type { Decision, DecisionQuote, DecisionTally } from '@/types/models';
 
 export default function DecisionDetailPage() {
@@ -39,6 +40,12 @@ export default function DecisionDetailPage() {
     const [quotes, setQuotes] = useState<DecisionQuote[]>([]);
     const [tally, setTally] = useState<DecisionTally | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    // New state for Phase 5
+    const [tallyRefreshing, setTallyRefreshing] = useState(false);
+    const [lastTallyAt, setLastTallyAt] = useState<Date | null>(null);
+    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+    const [votesKey, setVotesKey] = useState(0);
 
     // Dialog states
     const [extendOpen, setExtendOpen] = useState(false);
@@ -67,14 +74,28 @@ export default function DecisionDetailPage() {
         load();
     }, [load]);
 
-    const refreshResults = async () => {
+    // Auto-set lastTallyAt on first tally load
+    useEffect(() => {
+        if (tally) setLastTallyAt((prev) => prev ?? new Date());
+    }, [tally]);
+
+    const refreshTally = useCallback(async () => {
+        setTallyRefreshing(true);
         try {
-            const updated = await decisionsService.getResults(id);
-            setTally(updated);
-        } catch {
-            // silently ignore tally refresh errors
+            const [detail, results] = await Promise.all([
+                decisionsService.getById(id),
+                decisionsService.getResults(id),
+            ]);
+            setDecision(detail.decision);
+            setQuotes(detail.quotes);
+            setTally(results);
+            setLastTallyAt(new Date());
+        } catch (err) {
+            toast.error(getDecisionErrorMessage(err));
+        } finally {
+            setTallyRefreshing(false);
         }
-    };
+    }, [id]);
 
     if (isLoading) {
         return (
@@ -99,14 +120,24 @@ export default function DecisionDetailPage() {
     const winnerQuote = quotes.find((q) => q.id === decision.winner_quote_id);
 
     const handleQuoteDeleted = (quoteId: string) => {
+        // Optimistic update — backend soft-deletes, so the quote stays in the array but gets deleted_at.
         setQuotes((prev) =>
             prev.map((q) =>
                 q.id === quoteId
-                    ? { ...q, deleted_at: new Date().toISOString(), deleted_by: user ? { id: user.id, name: user.name } : null }
+                    ? {
+                          ...q,
+                          deleted_at: new Date().toISOString(),
+                          deleted_by: user ? { id: user.id, name: user.name } : null,
+                      }
                     : q,
             ),
         );
-        load();
+        // Also decrement the activeQuotes-derived count source; re-fetch the decision to update quote_count.
+        decisionsService.getById(id).then((res) => {
+            setDecision(res.decision);
+        }).catch(() => {
+            // Silent: optimistic update already reflects the change.
+        });
     };
 
     return (
@@ -128,7 +159,23 @@ export default function DecisionDetailPage() {
                     availableBuildings.find((b) => b.id === decision.building_id)?.name ??
                     undefined
                 }
-                onPhotoClick={() => setLightboxOpen(true)}
+                onPhotoClick={async () => {
+                    try {
+                        // Re-fetch the decision so the signed photo URL is fresh
+                        // (also incidentally refreshes quotes — acceptable for this surface).
+                        const refreshed = await decisionsService.getById(id);
+                        setDecision(refreshed.decision);
+                        setQuotes(refreshed.quotes);
+                        if (!refreshed.decision.photo_url) {
+                            toast.error('No se pudo obtener la URL de la foto.');
+                            return;
+                        }
+                        setLightboxUrl(refreshed.decision.photo_url);
+                        setLightboxOpen(true);
+                    } catch (err) {
+                        toast.error(getDecisionErrorMessage(err));
+                    }
+                }}
                 actionsSlot={
                     <DecisionActions
                         decision={decision}
@@ -191,10 +238,21 @@ export default function DecisionDetailPage() {
                                     quote={q}
                                     decisionId={decision.id}
                                     decisionStatus={decision.status}
+                                    currentRound={decision.current_round}
                                     isWinner={q.id === decision.winner_quote_id}
+                                    tiebreakEligibleIds={
+                                        decision.status === 'TIEBREAK_PENDING' && tally
+                                            ? tally.tallies.map((e) => e.quote_id)
+                                            : []
+                                    }
                                     canDelete={canDel}
                                     isSelfDelete={isSelf}
+                                    isOwnedByMe={q.uploader?.id === user?.id}
                                     onDeleted={handleQuoteDeleted}
+                                    onRequestImagePreview={(url) => {
+                                        setLightboxUrl(url);
+                                        setLightboxOpen(true);
+                                    }}
                                 />
                             );
                         })}
@@ -203,13 +261,36 @@ export default function DecisionDetailPage() {
             </div>
 
             {/* Tally / Results */}
-            {(decision.status === 'RECEPTION' || decision.status === 'VOTING' || decision.status === 'RESOLVED' || decision.status === 'TIEBREAK_PENDING') && tally && (
-                <TallyCard tally={tally} />
+            {decision.status !== 'RECEPTION' && (
+                <TallyCard
+                    decision={decision}
+                    tally={tally}
+                    lastUpdatedAt={lastTallyAt}
+                    isRefreshing={tallyRefreshing}
+                    onRefresh={refreshTally}
+                    onResolveManual={() => setTiebreakOpen(true)}
+                    onCancel={() => setCancelOpen(true)}
+                />
             )}
 
             {/* Votes list */}
-            {(decision.status === 'RECEPTION' || decision.status === 'VOTING' || decision.status === 'RESOLVED' || decision.status === 'TIEBREAK_PENDING') && (
-                <VotesList decisionId={decision.id} currentRound={decision.current_round} />
+            {decision.status !== 'RECEPTION' && (
+                <div className="space-y-2">
+                    <div className="flex justify-end">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVotesKey((k) => k + 1)}
+                        >
+                            <RefreshCw className="mr-1 h-3.5 w-3.5" /> Actualizar votos
+                        </Button>
+                    </div>
+                    <VotesList
+                        key={votesKey}
+                        decisionId={decision.id}
+                        currentRound={decision.current_round}
+                    />
+                </div>
             )}
 
             {/* Dialogs */}
@@ -238,7 +319,7 @@ export default function DecisionDetailPage() {
                 currentStatus={decision.status}
                 onFinalized={(updated) => {
                     setDecision(updated);
-                    refreshResults();
+                    refreshTally();
                 }}
             />
 
@@ -249,7 +330,7 @@ export default function DecisionDetailPage() {
                 activeQuotes={activeQuotes}
                 onResolved={(updated) => {
                     setDecision(updated);
-                    refreshResults();
+                    refreshTally();
                 }}
             />
 
@@ -276,6 +357,16 @@ export default function DecisionDetailPage() {
                 onUploaded={(newQuote) => {
                     setQuotes((prev) => [...prev, newQuote]);
                     setDecision((prev) => prev ? { ...prev, quote_count: prev.quote_count + 1 } : prev);
+                }}
+            />
+
+            <PhotoLightbox
+                open={lightboxOpen}
+                url={lightboxUrl}
+                alt="Archivo adjunto"
+                onClose={() => {
+                    setLightboxOpen(false);
+                    setLightboxUrl(null);
                 }}
             />
         </div>

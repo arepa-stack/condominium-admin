@@ -435,7 +435,8 @@ export interface Decision {
 export interface DecisionQuote {
   id: string;
   decision_id: string;
-  uploader: DecisionActorRef;
+  /** Null cuando el usuario uploader fue eliminado (FK SET NULL en backend). */
+  uploader: DecisionActorRef | null;
   uploader_unit_id: string | null;
   provider_name: string;
   amount: number;
