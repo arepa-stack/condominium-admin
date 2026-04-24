@@ -57,20 +57,6 @@ const THEMES: Record<DecisionStatus, PhaseTheme> = {
     },
 };
 
-const FALLBACK_THEME: PhaseTheme = {
-    label: 'Estado desconocido',
-    icon: AlertTriangle,
-    gradientClass: 'bg-gradient-to-br from-stone-600 to-stone-800',
-    toneClass: 'bg-stone-100 text-stone-700 dark:bg-stone-900/60 dark:text-stone-300',
-    tone: 'muted',
-};
-
-/**
- * Returns the phase theme for a given status. Falls back to a neutral "unknown"
- * theme if the status is missing or doesn't match a known value — defensive
- * against backend drift (new statuses, casing mismatches, null/undefined).
- */
-export function getPhaseTheme(status: DecisionStatus | string | null | undefined): PhaseTheme {
-    if (!status) return FALLBACK_THEME;
-    return THEMES[status as DecisionStatus] ?? FALLBACK_THEME;
+export function getPhaseTheme(status: DecisionStatus): PhaseTheme {
+    return THEMES[status];
 }

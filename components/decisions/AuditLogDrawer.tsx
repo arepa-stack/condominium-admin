@@ -92,7 +92,9 @@ export function AuditLogDrawer({ open, onOpenChange, decisionId }: AuditLogDrawe
                                     </span>
                                 </div>
                                 <p className="text-sm">
-                                    <span className="font-medium">{entry.actor.name}</span>
+                                    <span className="font-medium">
+                                        {entry.actor?.name ?? 'Usuario eliminado'}
+                                    </span>
                                 </p>
                                 {Object.keys(entry.payload).length > 0 && (
                                     <pre className="text-xs bg-muted/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
