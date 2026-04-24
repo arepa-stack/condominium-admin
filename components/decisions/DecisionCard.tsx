@@ -95,7 +95,7 @@ export function DecisionCard({
                                 : 'bg-muted',
                         )}
                     >
-                        {decision.photo_url ? (
+                        {decision.photo_url && /^https?:\/\//i.test(decision.photo_url) ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                                 src={decision.photo_url}
