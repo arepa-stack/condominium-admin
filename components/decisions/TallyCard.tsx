@@ -21,9 +21,9 @@ interface TallyCardProps {
 
 function barClasses(entry: DecisionTallyEntry, winnerId: string | null) {
     if (winnerId && entry.quote_id === winnerId) {
-        return 'bg-emerald-500';
+        return 'bg-emerald-500/80';
     }
-    return 'bg-amber-600 dark:bg-amber-500';
+    return 'bg-amber-500/80 dark:bg-amber-500/60';
 }
 
 export function TallyCard({

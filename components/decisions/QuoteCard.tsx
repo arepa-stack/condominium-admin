@@ -75,7 +75,7 @@ export function QuoteCard({
         'relative rounded-xl border p-4 transition',
         isDeleted && 'opacity-50 grayscale-[30%]',
         !isDeleted && isWinner &&
-            'ring-2 ring-emerald-500 border-emerald-200/60 bg-gradient-to-br from-emerald-50/60 to-card dark:from-emerald-950/30 dark:to-card',
+            'ring-1 ring-emerald-500/50 border-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/20',
         !isDeleted && !isWinner && isTiebreakPhase && isInTiebreakSet &&
             'ring-1 ring-amber-400 bg-amber-50/40 dark:bg-amber-950/20',
         !isDeleted && !isWinner && !isInTiebreakSet &&
