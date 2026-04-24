@@ -47,6 +47,7 @@ export interface User {
   buildingRoles?: { building_id: string; role: string }[];
   app_role: AppRole;
   status?: UserStatus;
+  must_change_password?: boolean;
   created_at: string;
   updated_at: string;
   // Legacy/Optional fields from older versions or specific endpoints
@@ -152,6 +153,7 @@ export interface AuthResponse {
     expires_in: number;
   };
   user: User;
+  must_change_password?: boolean;
 }
 
 export interface LoginCredentials {
@@ -190,6 +192,7 @@ export interface CreateUserDto {
   unit?: string;
   unit_id?: string; // [NEW]
   phone?: string;
+  board_position?: string;
 }
 
 export interface UpdatePaymentDto {
@@ -530,5 +533,43 @@ export interface GenerateChargeDto {
   type: DecisionChargeType;
   amount_override?: number;
   category?: string;
+}
+
+// ─── Onboarding & Registration ─────────────────────────────────────────────
+
+export interface RegistrationRequest {
+  id: string;
+  building_id: string;
+  unit_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  document_id: string;
+  phone: string | null;
+  source: "qr" | "invitation";
+  status: "pending" | "approved" | "rejected";
+  invited_by_profile_id: string | null;
+  invitation_id: string | null;
+  reviewed_by_profile_id: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  // For UI display
+  building_name?: string;
+  unit_name?: string;
+}
+
+export interface UnitInvitation {
+  id: string;
+  unit_id: string;
+  building_id: string;
+  inviter_profile_id: string;
+  invitee_email: string;
+  invitee_name: string | null;
+  token: string;
+  status: "pending" | "claimed" | "expired" | "cancelled";
+  expires_at: string;
+  claimed_at: string | null;
+  created_at: string;
 }
 

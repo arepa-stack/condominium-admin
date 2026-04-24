@@ -37,6 +37,7 @@ import { getEffectiveRole } from '@/lib/utils/roles';
 import type { User, Building, Unit, PaginationMetadata } from '@/types/models';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { Paginator } from '@/components/ui/paginator';
+import { CreateBoardMemberDialog } from '@/components/users/CreateBoardMemberDialog';
 
 const PAGE_SIZE = 20;
 
@@ -62,6 +63,7 @@ export default function UsersPage() {
     const [roleManagerUser, setRoleManagerUser] = useState<User | null>(null);
     const [isUnitsManagerOpen, setIsUnitsManagerOpen] = useState(false);
     const [unitsManagerUser, setUnitsManagerUser] = useState<User | null>(null);
+    const [isBoardMemberDialogOpen, setIsBoardMemberDialogOpen] = useState(false);
 
     // Explicit filter wins, else fall back to globally selected building
     const activeBuildingId =
@@ -180,9 +182,14 @@ export default function UsersPage() {
                     <p className="text-muted-foreground mt-1">Gestioná usuarios y permisos</p>
                 </div>
                 {isSuperAdmin && (
-                    <Button onClick={() => { setSelectedUser(null); setIsDialogOpen(true); }}>
-                        <CheckCircle className="mr-2 h-4 w-4" /> Agregar Usuario
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setIsBoardMemberDialogOpen(true)}>
+                            <Crown className="mr-2 h-4 w-4" /> Crear Miembro de Junta
+                        </Button>
+                        <Button onClick={() => { setSelectedUser(null); setIsDialogOpen(true); }}>
+                            <CheckCircle className="mr-2 h-4 w-4" /> Agregar Usuario
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -511,6 +518,14 @@ export default function UsersPage() {
                 open={isRoleManagerOpen}
                 onOpenChange={setIsRoleManagerOpen}
                 user={roleManagerUser}
+                onSuccess={fetchData}
+            />
+
+            {/* Board Member Dialog */}
+            <CreateBoardMemberDialog
+                open={isBoardMemberDialogOpen}
+                onOpenChange={setIsBoardMemberDialogOpen}
+                buildings={buildings}
                 onSuccess={fetchData}
             />
         </div>

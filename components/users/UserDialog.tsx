@@ -77,6 +77,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
         unit_id: z.string().optional(),
         role: z.enum(['resident', 'board', 'admin']),
         status: z.enum(['active', 'pending', 'inactive', 'rejected']),
+        board_position: z.string().optional(),
     });
 
     const editSchema = z.object({
@@ -109,10 +110,12 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
             unit_id: '',
             role: 'resident',
             status: 'active',
+            board_position: '',
         },
     });
 
     const selectedBuildingId = form.watch('building_id');
+    const selectedRole = form.watch('role');
 
     // Fetch units when building is selected (only for create mode)
     useEffect(() => {
@@ -159,6 +162,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
                 unit_id: '',
                 role: 'resident',
                 status: 'active',
+                board_position: '',
             });
         }
 
@@ -207,6 +211,7 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
                     building_id: data.building_id,
                     unit_id: data.unit_id, // Optional
                     role: data.role,
+                    board_position: data.role === 'board' ? data.board_position : undefined,
                 });
                 toast.success('¡Usuario creado correctamente! Usá "Gestionar roles" para agregar más unidades.');
             }
@@ -560,6 +565,33 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
                                                             Administrador
                                                         </Badge>
                                                     </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+
+                            {!user && selectedRole === 'board' && (
+                                <FormField
+                                    control={form.control}
+                                    name="board_position"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Cargo en la junta (Opcional)</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-background/50 border-border/50">
+                                                        <SelectValue placeholder="Seleccionar cargo" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="Presidente">Presidente</SelectItem>
+                                                    <SelectItem value="Vicepresidente">Vicepresidente</SelectItem>
+                                                    <SelectItem value="Tesorero">Tesorero</SelectItem>
+                                                    <SelectItem value="Secretario">Secretario</SelectItem>
+                                                    <SelectItem value="Vocal">Vocal</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />

@@ -41,7 +41,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = async (email: string, password: string) => {
         const response = await authService.login({ email, password });
         setUser(response.user);
-        router.push('/dashboard');
+        
+        if (response.must_change_password || response.user.must_change_password) {
+            router.push('/change-password-first-login');
+        } else {
+            router.push('/dashboard');
+        }
     };
 
     const logout = () => {

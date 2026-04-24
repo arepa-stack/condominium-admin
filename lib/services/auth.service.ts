@@ -96,4 +96,11 @@ export const authService = {
         });
         return data;
     },
+
+    async changePasswordFirstLogin(newPassword: string): Promise<{ success: boolean }> {
+        const { data } = await apiClient.post('/auth/change-password-first-login', {
+            newPassword,
+        });
+        return data;
+    },
 };

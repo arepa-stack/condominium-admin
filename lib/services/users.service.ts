@@ -63,6 +63,16 @@ export const usersService = {
     return data;
   },
 
+  async createBoardMember(payload: {
+    name: string;
+    email: string;
+    phone?: string;
+    buildingId: string;
+  }): Promise<User> {
+    const { data } = await apiClient.post<User>(`${P}/board-members`, payload);
+    return data;
+  },
+
   async deleteUser(id: string): Promise<void> {
     await apiClient.delete(`${P}/users/${id}`);
   },

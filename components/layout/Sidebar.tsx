@@ -14,6 +14,7 @@ import {
     Wallet,
     Settings,
     Vote,
+    UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -40,6 +41,7 @@ const navigation: Array<{
     access: NavAccess;
 }> = [
     { name: 'Panel', href: '/dashboard', icon: LayoutDashboard, access: 'board-or-admin' },
+    { name: 'Solicitudes', href: '/onboarding/requests', icon: UserPlus, access: 'board-or-admin' },
     { name: 'Edificios', href: '/buildings', icon: Building2, access: 'admin-only' },
     { name: 'Unidades', href: '/units', icon: Home, access: 'board-or-admin' },
     { name: 'Usuarios', href: '/users', icon: Users, access: 'board-or-admin' },
@@ -78,7 +80,7 @@ export function Sidebar() {
         })
         .map(item => {
             // Other functional pages: if in building context, use contextual route
-            const contextualPages = ['/units', '/users', '/billing', '/decisions'];
+            const contextualPages = ['/units', '/users', '/billing', '/decisions', '/onboarding/requests'];
             const activeBuildingId = urlBuildingId || selectedBuildingId;
             if (activeBuildingId && contextualPages.includes(item.href)) {
                 return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
