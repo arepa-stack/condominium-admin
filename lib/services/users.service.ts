@@ -70,7 +70,13 @@ export const usersService = {
     phone?: string;
     buildingId: string;
   }): Promise<User> {
-    const { data } = await apiClient.post<User>(`${P}/board-members`, payload);
+    const { name, email, phone, buildingId } = payload;
+    const { data } = await apiClient.post<User>(`${P}/board-members`, {
+      name,
+      email,
+      ...(phone ? { phone } : {}),
+      building_id: buildingId,
+    });
     return data;
   },
 
