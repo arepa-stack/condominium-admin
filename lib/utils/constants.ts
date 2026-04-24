@@ -17,6 +17,24 @@ export const USER_ROLES = ["resident", "board", "admin"] as const;
 export const USER_STATUSES = ["pending", "active"] as const;
 export const INVOICE_TAGS = ["NORMAL", "PETTY_CASH"] as const;
 
+export const DECISIONS_API_PREFIX = "/api/v1/admin/decisions/decisions";
+
+export const DECISION_STATUSES = [
+  "RECEPTION",
+  "VOTING",
+  "TIEBREAK_PENDING",
+  "RESOLVED",
+  "CANCELLED",
+] as const;
+
+export const DECISION_QUOTE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+export const DECISION_QUOTE_MIME_ALLOWED = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
 export const ROUTES = {
   LOGIN: "/login",
   DASHBOARD: "/dashboard",
@@ -24,6 +42,7 @@ export const ROUTES = {
   USERS: "/users",
   PAYMENTS: "/payments",
   PETTY_CASH: "/petty-cash",
+  DECISIONS: "/decisions",
 } as const;
 
 export const PETTY_CASH_CATEGORIES = [

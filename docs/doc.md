@@ -597,7 +597,7 @@ Convierte cadenas `YYYY-MM` a formato legible (ej: `2024-03` → `March 2024`).
 
 ---
 
-## 14. Decisiones Arquitectónicas y Patrones
+## 14. Presupuestos Arquitectónicas y Patrones
 
 ### Renderizado Solo del Lado del Cliente
 Todas las páginas usan directivas `'use client'`. No hay renderizado del lado del servidor ni Server Components. Esto simplifica el manejo de auth (acceso a localStorage) pero significa que no hay beneficios de SEO ni obtención de datos del lado del servidor.
