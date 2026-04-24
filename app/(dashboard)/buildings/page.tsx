@@ -6,8 +6,9 @@ import { unitsService } from '@/lib/services/units.service';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Building2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, QrCode } from 'lucide-react';
 import { BuildingDialog } from '@/components/buildings/BuildingDialog';
+import { BuildingQrDialog } from '@/components/buildings/BuildingQrDialog';
 import type { Building } from '@/types/models';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,9 @@ export default function BuildingsPage() {
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+
+    const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+    const [selectedQrBuilding, setSelectedQrBuilding] = useState<Building | null>(null);
 
     const fetchBuildings = async () => {
         try {
@@ -87,6 +91,11 @@ export default function BuildingsPage() {
         setIsDialogOpen(true);
     };
 
+    const handleViewQr = (building: Building) => {
+        setSelectedQrBuilding(building);
+        setIsQrDialogOpen(true);
+    };
+
     const handleDelete = async (buildingId: string) => {
         if (!confirm('¿Seguro que querés eliminar este edificio? Esta acción no se puede deshacer.')) return;
         try {
@@ -137,6 +146,15 @@ export default function BuildingsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
+                                                onClick={() => handleViewQr(building)}
+                                                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                                title="Ver QR de Registro"
+                                            >
+                                                <QrCode className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={() => handleEdit(building)}
                                                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
                                             >
@@ -176,6 +194,12 @@ export default function BuildingsPage() {
                 onOpenChange={setIsDialogOpen}
                 building={selectedBuilding}
                 onSuccess={fetchBuildings}
+            />
+
+            <BuildingQrDialog
+                open={isQrDialogOpen}
+                onOpenChange={setIsQrDialogOpen}
+                building={selectedQrBuilding}
             />
         </div>
     );
