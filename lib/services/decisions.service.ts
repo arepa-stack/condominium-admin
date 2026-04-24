@@ -91,8 +91,14 @@ export const decisionsService = {
         return data;
     },
 
-    async finalize(id: string): Promise<Decision> {
-        const { data } = await apiClient.post<Decision>(`${P}/${id}/finalize`);
+    async finalize(
+        id: string,
+        body?: { force?: boolean; reason?: string },
+    ): Promise<Decision> {
+        const { data } = await apiClient.post<Decision>(
+            `${P}/${id}/finalize`,
+            body ?? {},
+        );
         return data;
     },
 

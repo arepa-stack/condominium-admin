@@ -16,6 +16,7 @@ import { GenerateChargeDialog } from '@/components/decisions/GenerateChargeDialo
 import { AuditLogDrawer } from '@/components/decisions/AuditLogDrawer';
 import { QuoteCard } from '@/components/decisions/QuoteCard';
 import { QuoteUploadDialog } from '@/components/decisions/QuoteUploadDialog';
+import { ForceFinalizeReceptionDialog } from '@/components/decisions/ForceFinalizeReceptionDialog';
 import { TallyCard } from '@/components/decisions/TallyCard';
 import { VotesList } from '@/components/decisions/VotesList';
 import { PhotoLightbox } from '@/components/decisions/PhotoLightbox';
@@ -55,6 +56,7 @@ export default function DecisionDetailPage() {
     const [chargeOpen, setChargeOpen] = useState(false);
     const [auditOpen, setAuditOpen] = useState(false);
     const [quoteUploadOpen, setQuoteUploadOpen] = useState(false);
+    const [forceFinalizeOpen, setForceFinalizeOpen] = useState(false);
 
     const load = useCallback(async () => {
         setIsLoading(true);
@@ -191,6 +193,8 @@ export default function DecisionDetailPage() {
                             onUploadQuote: () => setQuoteUploadOpen(true),
                             onExtendDeadlines: () => setExtendOpen(true),
                             onFinalize: () => setFinalizeOpen(true),
+                            onForceFinalizeReception: () =>
+                                setForceFinalizeOpen(true),
                             onResolveTiebreak: () => setTiebreakOpen(true),
                             onGenerateCharge: () => setChargeOpen(true),
                             onCancel: () => setCancelOpen(true),
@@ -386,6 +390,17 @@ export default function DecisionDetailPage() {
                 onUploaded={(newQuote) => {
                     setQuotes((prev) => [...prev, newQuote]);
                     setDecision((prev) => prev ? { ...prev, quote_count: prev.quote_count + 1 } : prev);
+                }}
+            />
+
+            <ForceFinalizeReceptionDialog
+                open={forceFinalizeOpen}
+                onOpenChange={setForceFinalizeOpen}
+                decisionId={decision.id}
+                activeQuoteCount={activeQuotes.length}
+                onFinalized={(updated) => {
+                    setDecision(updated);
+                    refreshTally();
                 }}
             />
 
