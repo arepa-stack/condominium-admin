@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api/client";
+import { mapPaginatedResponse } from "@/lib/api/mappers";
 import { ADMIN_API_PREFIX } from "@/lib/utils/constants";
 import type {
   User,
@@ -21,19 +22,19 @@ interface UserListFilters {
 
 export const usersService = {
   async getUsers(params?: UserListFilters): Promise<User[]> {
-    const { data } = await apiClient.get<PaginatedResponse<User>>(`${P}/users`, {
+    const { data } = await apiClient.get(`${P}/users`, {
       params: { limit: "all", ...params },
     });
-    return data?.data ?? [];
+    return mapPaginatedResponse<User>(data).data;
   },
 
   async getUsersPaginated(
     params?: UserListFilters & PaginationParams,
   ): Promise<PaginatedResponse<User>> {
-    const { data } = await apiClient.get<PaginatedResponse<User>>(`${P}/users`, {
+    const { data } = await apiClient.get(`${P}/users`, {
       params,
     });
-    return data;
+    return mapPaginatedResponse<User>(data);
   },
 
   async getUserById(id: string): Promise<User> {
@@ -79,11 +80,11 @@ export const usersService = {
   },
 
   async getUserUnits(userId: string): Promise<UserUnit[]> {
-    const { data } = await apiClient.get<PaginatedResponse<UserUnit>>(
+    const { data } = await apiClient.get(
       `${P}/users/${userId}/units`,
       { params: { limit: "all" } },
     );
-    return data?.data ?? [];
+    return mapPaginatedResponse<UserUnit>(data).data;
   },
 
   async removeUnit(userId: string, unitId: string): Promise<void> {

@@ -101,13 +101,7 @@ export function ExcelInvoiceLoader({
         setIsLoading(true);
         setStep('processing');
         try {
-            // Map invoices to ensure receiptNumber is set (might come as receipt_number from API)
-            const invoicesToConfirm = previewData.invoices.map(inv => ({
-                ...inv,
-                receiptNumber: inv.receiptNumber || inv.receipt_number || ''
-            }));
-
-            await billingService.confirmInvoices(selectedBuildingId, invoicesToConfirm);
+            await billingService.confirmInvoices(selectedBuildingId, previewData.invoices);
             toast.success('Facturas y unidades procesadas exitosamente');
             onSuccess?.();
             onOpenChange(false);
@@ -270,7 +264,7 @@ export function ExcelInvoiceLoader({
                                                         )}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-xs font-mono">{inv.receipt_number || inv.receiptNumber}</TableCell>
+                                                <TableCell className="text-xs font-mono">{inv.receiptNumber}</TableCell>
                                                 <TableCell>{inv.period}</TableCell>
                                                 <TableCell>{formatCurrency(inv.amount)}</TableCell>
                                                 <TableCell>

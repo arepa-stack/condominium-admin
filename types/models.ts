@@ -256,9 +256,8 @@ export interface ProposedInvoice {
   amount: number;
   period: string; // Formato YYYY-MM
   issueDate: string;
-  receiptNumber: string; // Required now
-  receipt_number?: string; // Optional field from backend preview
-  warning?: string; // Warning message from backend
+  receiptNumber: string;
+  warning?: string;
   status: "EXISTS" | "TO_BE_CREATED";
 }
 

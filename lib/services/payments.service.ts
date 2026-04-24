@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import { mapPaginatedResponse } from '@/lib/api/mappers';
 import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
 import type {
     Payment,
@@ -25,24 +26,21 @@ const normalizePayment = (p: Payment): Payment => ({
 
 export const paymentsService = {
     async getAdminPayments(params?: AdminPaymentListFilters): Promise<Payment[]> {
-        const { data } = await apiClient.get<PaginatedResponse<Payment>>(
+        const { data } = await apiClient.get(
             `${P}/payments/admin/payments`,
             { params: { limit: 'all', ...params } },
         );
-        return (data?.data ?? []).map(normalizePayment);
+        return mapPaginatedResponse<Payment>(data, normalizePayment).data;
     },
 
     async getAdminPaymentsPaginated(
         params?: AdminPaymentListFilters & PaginationParams,
     ): Promise<PaginatedResponse<Payment>> {
-        const { data } = await apiClient.get<PaginatedResponse<Payment>>(
+        const { data } = await apiClient.get(
             `${P}/payments/admin/payments`,
             { params },
         );
-        return {
-            data: (data?.data ?? []).map(normalizePayment),
-            metadata: data.metadata,
-        };
+        return mapPaginatedResponse<Payment>(data, normalizePayment);
     },
 
     async getUserPayments(params?: {
