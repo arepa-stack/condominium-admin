@@ -270,7 +270,7 @@ export default function DecisionDetailPage() {
                                     currentRound={decision.current_round}
                                     isWinner={q.id === decision.winner_quote_id}
                                     tiebreakEligibleIds={
-                                        decision.status === 'TIEBREAK_PENDING' && tally?.tallies
+                                        decision.status === 'TIEBREAK_PENDING' && tally
                                             ? tally.tallies.map((e) => e.quote_id)
                                             : []
                                     }

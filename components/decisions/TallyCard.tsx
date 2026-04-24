@@ -36,9 +36,8 @@ export function TallyCard({
     onCancel,
 }: TallyCardProps) {
     const isTiebreak = decision.status === 'TIEBREAK_PENDING';
-    const entries = tally?.tallies ?? [];
-    const noVotes = tally !== null && (tally.total_votes ?? 0) === 0;
-    const noActiveQuotes = tally !== null && entries.length === 0;
+    const noVotes = tally !== null && tally.total_votes === 0;
+    const noActiveQuotes = tally !== null && tally.tallies.length === 0;
 
     const showNoVotesEmptyState =
         tally !== null &&
@@ -128,13 +127,13 @@ export function TallyCard({
                         )}
                     </div>
                 </div>
-            ) : !tally || entries.length === 0 ? (
+            ) : !tally || tally.tallies.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     Aún no hay votos emitidos.
                 </p>
             ) : (
                 <ol className="space-y-3" aria-live="polite">
-                    {entries.map((entry) => {
+                    {tally.tallies.map((entry) => {
                         const isWinner =
                             tally.winner_quote_id === entry.quote_id &&
                             decision.status === 'RESOLVED';
@@ -198,7 +197,7 @@ export function TallyCard({
                 </ol>
             )}
 
-            {isTiebreak && tally && entries.length > 0 && tally.is_tied && (
+            {isTiebreak && tally && tally.tallies.length > 0 && tally.is_tied && (
                 <p className="mt-4 flex items-center gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                     <AlertTriangle className="h-4 w-4" />
                     Empate detectado — se abrió ronda {decision.current_round}. Votá nuevamente o resolvé manual.
