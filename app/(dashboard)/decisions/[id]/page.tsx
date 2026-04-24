@@ -24,7 +24,7 @@ import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { decisionsService } from '@/lib/services/decisions.service';
 import { getDecisionErrorMessage } from '@/lib/utils/decision-errors';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, Vote } from 'lucide-react';
 import type { Decision, DecisionQuote, DecisionTally } from '@/types/models';
 
 export default function DecisionDetailPage() {
@@ -99,10 +99,16 @@ export default function DecisionDetailPage() {
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
-                <Skeleton className="h-8 w-1/3" />
-                <Skeleton className="h-32 w-full" />
-                <Skeleton className="h-48 w-full" />
+            <div className="space-y-6 max-w-4xl">
+                <Skeleton className="h-8 w-32" />
+                <div className="rounded-xl bg-gradient-to-br from-stone-700 to-stone-900 p-6">
+                    <Skeleton className="h-4 w-24 bg-white/20" />
+                    <Skeleton className="mt-2 h-6 w-2/3 bg-white/20" />
+                    <Skeleton className="mt-4 h-8 w-40 bg-white/20" />
+                </div>
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-40 w-full" />
+                <Skeleton className="h-40 w-full" />
             </div>
         );
     }
@@ -195,10 +201,16 @@ export default function DecisionDetailPage() {
             />
 
             {decision.description && (
-                <section className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
-                    <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <section
+                    aria-labelledby="decision-description-heading"
+                    className="rounded-xl border border-border/60 bg-card p-5 shadow-sm"
+                >
+                    <h2
+                        id="decision-description-heading"
+                        className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
                         Descripción
-                    </h3>
+                    </h2>
                     <p className="whitespace-pre-line text-sm text-foreground">
                         {decision.description}
                     </p>
@@ -222,9 +234,26 @@ export default function DecisionDetailPage() {
                     )}
                 </div>
 
-                {quotes.length === 0 ? (
-                    <Card className="p-8 text-center text-muted-foreground border-dashed">
-                        No hay cotizaciones para esta decisión.
+                {/* activeQuotes excludes soft-deleted tombstones. Empty-state renders even when
+                    tombstones exist below so admins see "nothing actionable" + the archive. */}
+                {activeQuotes.length === 0 ? (
+                    <Card className="border-dashed p-8 text-center">
+                        <Vote
+                            className="mx-auto mb-3 h-8 w-8 text-muted-foreground"
+                            aria-hidden="true"
+                        />
+                        <p className="mb-2 font-medium text-foreground">Sin cotizaciones todavía</p>
+                        <p className="mb-4 text-sm text-muted-foreground">
+                            {decision.status === 'RECEPTION'
+                                ? 'Subí la primera para avanzar.'
+                                : 'Ya no hay cotizaciones activas.'}
+                        </p>
+                        {decision.status === 'RECEPTION' &&
+                            canUploadQuote(decision.building_id) && (
+                                <Button onClick={() => setQuoteUploadOpen(true)}>
+                                    <Plus className="mr-2 h-4 w-4" /> Subir primera
+                                </Button>
+                            )}
                     </Card>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
