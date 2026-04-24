@@ -6,10 +6,13 @@ export interface PhaseTheme {
     label: string;
     icon: LucideIcon;
     /**
-     * Tailwind class for a gradient background that reads on white text.
-     * Used on Hero and list Card variants where white text sits on the gradient.
+     * Subtle gradient for Hero background.
      */
     gradientClass: string;
+    /**
+     * Color for primary accents (left borders, prominently colored text).
+     */
+    accentClass: string;
     /**
      * Muted tone class for non-gradient surfaces (chips, card borders),
      * using theme tokens so it respects dark mode.
@@ -23,36 +26,41 @@ const THEMES: Record<DecisionStatus, PhaseTheme> = {
     RECEPTION: {
         label: 'Recepción',
         icon: Clock,
-        gradientClass: 'bg-gradient-to-br from-amber-700 to-amber-900',
-        toneClass: 'bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
+        gradientClass: 'bg-gradient-to-br from-amber-500/10 to-amber-600/5',
+        accentClass: 'border-amber-800 text-amber-800 dark:border-amber-700 dark:text-amber-500',
+        toneClass: 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200',
         tone: 'amber',
     },
     VOTING: {
         label: 'Votación',
         icon: Vote,
-        gradientClass: 'bg-gradient-to-br from-amber-600 to-orange-800',
-        toneClass: 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100',
+        gradientClass: 'bg-gradient-to-br from-amber-500/20 to-orange-600/5',
+        accentClass: 'border-amber-600 text-amber-600 dark:border-amber-500 dark:text-amber-500',
+        toneClass: 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200',
         tone: 'hot',
     },
     TIEBREAK_PENDING: {
         label: 'Empate pendiente',
         icon: AlertTriangle,
-        gradientClass: 'bg-gradient-to-br from-yellow-500 to-amber-700',
-        toneClass: 'bg-yellow-50 text-yellow-900 dark:bg-yellow-950/40 dark:text-yellow-200',
+        gradientClass: 'bg-gradient-to-br from-yellow-400/20 to-amber-500/5',
+        accentClass: 'border-amber-500 text-amber-600 dark:border-amber-500 dark:text-amber-400',
+        toneClass: 'bg-yellow-50 text-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-200',
         tone: 'warning',
     },
     RESOLVED: {
         label: 'Resuelta',
         icon: CheckCircle2,
-        gradientClass: 'bg-gradient-to-br from-emerald-700 to-emerald-900',
-        toneClass: 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200',
+        gradientClass: 'bg-gradient-to-br from-emerald-500/10 to-emerald-600/5',
+        accentClass: 'border-emerald-600 text-emerald-700 dark:border-emerald-500 dark:text-emerald-500',
+        toneClass: 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200',
         tone: 'success',
     },
     CANCELLED: {
         label: 'Cancelada',
         icon: XCircle,
-        gradientClass: 'bg-gradient-to-br from-stone-600 to-stone-800',
-        toneClass: 'bg-stone-100 text-stone-700 dark:bg-stone-900/60 dark:text-stone-300',
+        gradientClass: 'bg-gradient-to-br from-stone-500/10 to-stone-600/5',
+        accentClass: 'border-stone-500 text-stone-600 dark:border-stone-500 dark:text-stone-400',
+        toneClass: 'bg-stone-100 text-stone-700 dark:bg-stone-900/40 dark:text-stone-300',
         tone: 'muted',
     },
 };

@@ -33,22 +33,24 @@ export function DecisionCard({
     const isCancelled = decision.status === 'CANCELLED';
     const isTiebreak = decision.status === 'TIEBREAK_PENDING';
 
-    const useGradient = isVoting; // list cards match detail hero palette on the "hot" phase only
+    // Cards no longer use full-saturated gradients for the background to keep a "sutil" look.
+    // They now use a themed background tint (in shell) and standard muted foregrounds.
 
     const shell = cn(
         'group block overflow-hidden rounded-xl border transition hover:shadow-md',
         isCancelled && 'bg-stone-100 opacity-70 dark:bg-stone-900/60',
-        !isCancelled &&
-            !useGradient &&
-            'border-border/60 bg-card hover:border-border',
-        useGradient &&
-            'border-transparent bg-gradient-to-br from-amber-600 to-amber-900 text-white hover:shadow-lg',
-        isTiebreak && 'ring-2 ring-amber-400/70',
+        !isCancelled && 'bg-card hover:border-border',
+        // Subtle background tint for the "living" or "hot" phases
+        decision.status === 'RECEPTION' && 'bg-stone-50/50 border-l-4 border-amber-800 dark:bg-stone-900/20 dark:border-amber-800/50',
+        decision.status === 'VOTING' && 'bg-amber-50/50 border-l-4 border-amber-600 dark:bg-amber-900/10 dark:border-amber-600/50',
+        isTiebreak && 'ring-2 ring-amber-400/70 bg-amber-50 dark:bg-amber-950/40',
+        isResolvedPendingCharge && 'bg-amber-50/30 border-l-4 border-amber-500 dark:bg-amber-900/10 dark:border-amber-500/50',
+        isResolvedCharged && 'bg-emerald-50/30 border-l-4 border-emerald-600 dark:bg-emerald-900/10 dark:border-emerald-600/50',
     );
 
     const titleClass = cn(
         'text-base font-semibold leading-snug line-clamp-2',
-        useGradient ? 'text-white' : 'text-foreground',
+        'text-foreground',
         isCancelled && 'line-through',
     );
 
@@ -65,10 +67,7 @@ export function DecisionCard({
                 {/* Header row: phase/round + countdown */}
                 <div className="flex items-start justify-between gap-2">
                     <div
-                        className={cn(
-                            'inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider',
-                            useGradient ? 'text-white/85' : 'text-muted-foreground',
-                        )}
+                        className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
                     >
                         <PhaseIcon className="h-3 w-3" aria-hidden="true" />
                         <span>
@@ -87,14 +86,7 @@ export function DecisionCard({
 
                 {/* Photo thumb */}
                 <div className="flex items-start gap-3">
-                    <div
-                        className={cn(
-                            'flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg',
-                            useGradient
-                                ? 'bg-white/10'
-                                : 'bg-muted',
-                        )}
-                    >
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                         {decision.photo_url ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img
@@ -104,10 +96,7 @@ export function DecisionCard({
                             />
                         ) : (
                             <Vote
-                                className={cn(
-                                    'h-6 w-6',
-                                    useGradient ? 'text-white/70' : 'text-muted-foreground',
-                                )}
+                                className="h-6 w-6 text-muted-foreground"
                                 aria-hidden="true"
                             />
                         )}
@@ -116,12 +105,7 @@ export function DecisionCard({
                     <div className="min-w-0 flex-1">
                         <h3 className={titleClass}>{decision.title}</h3>
                         {buildingLabel && (
-                            <p
-                                className={cn(
-                                    'mt-0.5 text-xs',
-                                    useGradient ? 'text-white/80' : 'text-muted-foreground',
-                                )}
-                            >
+                            <p className="mt-0.5 text-xs text-muted-foreground">
                                 {buildingLabel}
                             </p>
                         )}
@@ -129,12 +113,7 @@ export function DecisionCard({
                 </div>
 
                 {/* Phase-specific metadata */}
-                <div
-                    className={cn(
-                        'space-y-1.5 text-xs',
-                        useGradient ? 'text-white/90' : 'text-muted-foreground',
-                    )}
-                >
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                     {isLivingPhase && (
                         <p>
                             📋 {decision.quote_count}{' '}
