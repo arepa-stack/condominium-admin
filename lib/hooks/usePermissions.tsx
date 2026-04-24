@@ -3,6 +3,7 @@
 import { useBuildingContext } from '../contexts/BuildingContext';
 import { useAuth } from './useAuth';
 import { isAdmin, isBoardAnywhere, isBoardInBuilding as isBoardInBuildingHelper } from '../utils/roles';
+import type { DecisionQuote } from '@/types/models';
 
 export function usePermissions() {
     const { user } = useAuth();
@@ -51,6 +52,24 @@ export function usePermissions() {
     const canManageBuildingUsers = isSuperAdmin || isBoardMember;
     const canViewAllPayments = isSuperAdmin;
 
+    /** admin o board del edificio pueden crear/extender/cancelar/finalizar decisions */
+    const canManageDecisions = (bId?: string) => isSuperAdmin || isBoardInBuilding(bId);
+
+    /** admin o board pueden subir quotes desde el panel admin */
+    const canUploadQuote = (bId?: string) => canManageDecisions(bId);
+
+    /**
+     * Un usuario puede eliminar su propio quote sin reason solo si es el uploader
+     * y la decision está en RECEPTION. Admin/board pueden eliminar en cualquier fase.
+     */
+    const canDeleteQuoteAsOwner = (
+        quote: DecisionQuote,
+        decisionStatus: string,
+    ): boolean => {
+        if (!user) return false;
+        return quote.uploader?.id === user.id && decisionStatus === 'RECEPTION';
+    };
+
     return {
         user,
         buildingId,
@@ -68,5 +87,8 @@ export function usePermissions() {
         canManageAllUsers,
         canManageBuildingUsers,
         canViewAllPayments,
+        canManageDecisions,
+        canUploadQuote,
+        canDeleteQuoteAsOwner,
     };
 }
