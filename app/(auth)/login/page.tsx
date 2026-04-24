@@ -21,6 +21,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { authService } from '@/lib/services/auth.service';
+import { toast } from 'sonner';
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
