@@ -8,43 +8,38 @@ import type {
 } from '@/types/models';
 
 interface RawPaginationMetadata {
-    total?: number;
-    page?: number;
-    limit?: number;
-    total_pages?: number;
-    has_next_page?: boolean;
-    has_prev_page?: boolean;
+    total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
+    has_next_page: boolean;
+    has_prev_page: boolean;
 }
 
 interface RawPaginatedResponse<T> {
-    data?: T[];
-    items?: T[];
-    metadata?: RawPaginationMetadata;
+    data: T[];
+    metadata: RawPaginationMetadata;
 }
 
-export function mapPaginationMetadata(raw?: RawPaginationMetadata): PaginationMetadata {
-    const meta = raw ?? {};
-    const page = meta.page ?? 1;
-    const totalPages = meta.total_pages ?? 1;
+export function mapPaginationMetadata(raw: RawPaginationMetadata): PaginationMetadata {
     return {
-        total: meta.total ?? 0,
-        page,
-        limit: meta.limit ?? 20,
-        totalPages,
-        hasNextPage: meta.has_next_page ?? page < totalPages,
-        hasPrevPage: meta.has_prev_page ?? page > 1,
+        total: raw.total,
+        page: raw.page,
+        limit: raw.limit,
+        totalPages: raw.total_pages,
+        hasNextPage: raw.has_next_page,
+        hasPrevPage: raw.has_prev_page,
     };
 }
 
 export function mapPaginatedResponse<T, U = T>(
-    raw: RawPaginatedResponse<T> | undefined,
+    raw: RawPaginatedResponse<T>,
     mapItem?: (item: T) => U,
 ): PaginatedResponse<U> {
-    const items = raw?.data ?? raw?.items ?? [];
-    const data = mapItem ? items.map(mapItem) : (items as unknown as U[]);
+    const data = mapItem ? raw.data.map(mapItem) : (raw.data as unknown as U[]);
     return {
         data,
-        metadata: mapPaginationMetadata(raw?.metadata),
+        metadata: mapPaginationMetadata(raw.metadata),
     };
 }
 
