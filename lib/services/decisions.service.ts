@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import { mapPaginatedResponse } from '@/lib/api/mappers';
 import { DECISIONS_API_PREFIX as P } from '@/lib/utils/constants';
 import type {
     Decision,
@@ -14,16 +15,6 @@ import type {
     PaginatedResponse,
     PaginationParams,
 } from '@/types/models';
-
-interface RawPaginationMetadata {
-    total?: number;
-    page?: number;
-    limit?: number;
-    total_pages?: number;
-    totalPages?: number;
-    has_next_page?: boolean;
-    has_prev_page?: boolean;
-}
 
 interface ListDecisionsParams extends PaginationParams {
     building_id?: string;
@@ -46,20 +37,8 @@ interface GenerateChargeResponse {
 
 export const decisionsService = {
     async list(params?: ListDecisionsParams): Promise<PaginatedResponse<Decision>> {
-        const { data } = await apiClient.get<{ items: Decision[]; metadata: RawPaginationMetadata }>(P, { params });
-        
-        const meta = data?.metadata || {};
-        return {
-            data: data?.items || [],
-            metadata: {
-                total: meta.total ?? 0,
-                page: meta.page ?? 1,
-                limit: meta.limit ?? 20,
-                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
-                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
-            },
-        };
+        const { data } = await apiClient.get(P, { params });
+        return mapPaginatedResponse<Decision>(data);
     },
 
     async getById(id: string): Promise<DecisionDetailResponse> {
@@ -119,22 +98,8 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionQuote>> {
-        const { data } = await apiClient.get<{ items: DecisionQuote[]; metadata: RawPaginationMetadata }>(
-            `${P}/${id}/quotes`,
-            { params },
-        );
-        const meta = data?.metadata || {};
-        return {
-            data: data?.items || [],
-            metadata: {
-                total: meta.total ?? 0,
-                page: meta.page ?? 1,
-                limit: meta.limit ?? 20,
-                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
-                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
-            },
-        };
+        const { data } = await apiClient.get(`${P}/${id}/quotes`, { params });
+        return mapPaginatedResponse<DecisionQuote>(data);
     },
 
     async uploadQuote(id: string, fd: FormData): Promise<DecisionQuote> {
@@ -154,22 +119,8 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionVote>> {
-        const { data } = await apiClient.get<{ items: DecisionVote[]; metadata: RawPaginationMetadata }>(
-            `${P}/${id}/votes`,
-            { params },
-        );
-        const meta = data?.metadata || {};
-        return {
-            data: data?.items || [],
-            metadata: {
-                total: meta.total ?? 0,
-                page: meta.page ?? 1,
-                limit: meta.limit ?? 20,
-                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
-                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
-            },
-        };
+        const { data } = await apiClient.get(`${P}/${id}/votes`, { params });
+        return mapPaginatedResponse<DecisionVote>(data);
     },
 
     async getResults(id: string): Promise<DecisionTally> {
@@ -181,21 +132,7 @@ export const decisionsService = {
         id: string,
         params?: PaginationParams,
     ): Promise<PaginatedResponse<DecisionAuditEntry>> {
-        const { data } = await apiClient.get<{ items: DecisionAuditEntry[]; metadata: RawPaginationMetadata }>(
-            `${P}/${id}/audit-log`,
-            { params },
-        );
-        const meta = data?.metadata || {};
-        return {
-            data: data?.items || [],
-            metadata: {
-                total: meta.total ?? 0,
-                page: meta.page ?? 1,
-                limit: meta.limit ?? 20,
-                totalPages: meta.total_pages ?? meta.totalPages ?? 1,
-                hasNextPage: meta.has_next_page ?? ((meta.page ?? 1) < (meta.total_pages ?? meta.totalPages ?? 1)),
-                hasPrevPage: meta.has_prev_page ?? ((meta.page ?? 1) > 1),
-            },
-        };
+        const { data } = await apiClient.get(`${P}/${id}/audit-log`, { params });
+        return mapPaginatedResponse<DecisionAuditEntry>(data);
     },
 };

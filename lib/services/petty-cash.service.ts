@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import { mapPaginatedResponse } from '@/lib/api/mappers';
 import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
 import type {
     PettyCashBalance,
@@ -41,25 +42,22 @@ export const pettyCashService = {
         buildingId: string,
         params?: PettyCashEntryFilters,
     ): Promise<PettyCashEntry[]> {
-        const { data } = await apiClient.get<PaginatedResponse<PettyCashEntry>>(
+        const { data } = await apiClient.get(
             `${P}/petty-cash/funds/${buildingId}/entries`,
             { params: { limit: 'all', ...params } },
         );
-        return (data?.data ?? []).map(normalizeEntry);
+        return mapPaginatedResponse<PettyCashEntry>(data, normalizeEntry).data;
     },
 
     async getHistoryPaginated(
         buildingId: string,
         params?: PettyCashEntryFilters & PaginationParams,
     ): Promise<PaginatedResponse<PettyCashEntry>> {
-        const { data } = await apiClient.get<PaginatedResponse<PettyCashEntry>>(
+        const { data } = await apiClient.get(
             `${P}/petty-cash/funds/${buildingId}/entries`,
             { params },
         );
-        return {
-            data: (data?.data ?? []).map(normalizeEntry),
-            metadata: data.metadata,
-        };
+        return mapPaginatedResponse<PettyCashEntry>(data, normalizeEntry);
     },
 
     async registerIncome(payload: CreatePettyCashIncomeDto): Promise<PettyCashEntry> {
