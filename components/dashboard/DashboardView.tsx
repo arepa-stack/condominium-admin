@@ -9,6 +9,7 @@ import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { UserDialog } from '@/components/users/UserDialog';
 import { UnitsTab } from '@/components/buildings/UnitsTab';
+import { BuildingQrDialog } from '@/components/buildings/BuildingQrDialog';
 
 import { buildingsService } from '@/lib/services/buildings.service';
 import { usersService } from '@/lib/services/users.service';
@@ -54,6 +55,7 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
     const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
     const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
     
     // Quick Actions - Handler for query params
@@ -68,6 +70,8 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
         } else if (openParam === 'resident') {
             setSelectedUser(null);
             setIsUserDialogOpen(true);
+        } else if (openParam === 'qr') {
+            setIsQrDialogOpen(true);
         }
     }, [openParam]);
 
@@ -663,6 +667,12 @@ export function DashboardView({ buildingId, showBuildingFilter = false }: Dashbo
                 buildings={isSuperAdmin ? buildings : (buildings.length > 0 ? buildings : (effectiveBuildingId ? [{ id: effectiveBuildingId, name: currentBuildingName || buildingName || 'Edificio Actual', address: '' }] : []))}
                 onSuccess={fetchData}
                 defaultBuildingId={effectiveBuildingId}
+            />
+
+            <BuildingQrDialog
+                open={isQrDialogOpen}
+                onOpenChange={setIsQrDialogOpen}
+                building={effectiveBuildingId ? (buildings.find(b => b.id === effectiveBuildingId) || { id: effectiveBuildingId, name: currentBuildingName || buildingName || 'Edificio Actual', address: '' } as Building) : null}
             />
 
         </div>

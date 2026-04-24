@@ -61,6 +61,7 @@ export interface Building {
   name: string;
   address: string;
   rif?: string; // Added if needed, but keeping basic for now based on prompt
+  building_code?: string;
   total_units?: number;
   monthly_fee?: number;
   created_at?: string;

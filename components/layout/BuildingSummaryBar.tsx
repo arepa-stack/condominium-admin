@@ -5,7 +5,7 @@ import { buildingsService } from '@/lib/services/buildings.service';
 import { billingService } from '@/lib/services/billing.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { formatCurrency } from '@/lib/utils/format';
-import { Building2, Wallet, Clock, CheckCircle2, Plus, FileSpreadsheet, Users, CreditCard } from 'lucide-react';
+import { Building2, Wallet, Clock, CheckCircle2, Plus, FileSpreadsheet, Users, CreditCard, QrCode } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip-simple';
@@ -150,6 +150,15 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
                                         <Users className="h-3.5 w-3.5" />
                                         <span>Residente</span>
+                                    </Button>
+                                </Link>
+                            </Tooltip>
+
+                            <Tooltip content="Ver QR de Registro">
+                                <Link href={`${pathname}?open=qr`} scroll={false}>
+                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+                                        <QrCode className="h-3.5 w-3.5" />
+                                        <span>QR</span>
                                     </Button>
                                 </Link>
                             </Tooltip>
