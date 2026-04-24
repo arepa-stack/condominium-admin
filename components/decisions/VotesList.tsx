@@ -86,7 +86,7 @@ export function VotesList({ decisionId, currentRound }: VotesListProps) {
                                     <TableCell className="font-medium">
                                         {vote.apartment_label}
                                     </TableCell>
-                                    <TableCell>{vote.voted_by.name}</TableCell>
+                                    <TableCell>{vote.voted_by?.name ?? 'Usuario eliminado'}</TableCell>
                                     <TableCell className="text-muted-foreground text-xs font-mono">
                                         {vote.quote_id.slice(0, 8)}…
                                     </TableCell>

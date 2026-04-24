@@ -53,9 +53,7 @@ export function DecisionHero({
         >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 items-start gap-4">
-                    {decision.photo_url &&
-                        /^https?:\/\//i.test(decision.photo_url) &&
-                        !photoError && (
+                    {decision.photo_url && !photoError && (
                         <button
                             type="button"
                             onClick={onPhotoClick}

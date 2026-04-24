@@ -423,7 +423,8 @@ export interface Decision {
   finalized_at: string | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
-  created_by: DecisionActorRef;
+  /** Null cuando el usuario creador fue eliminado (FK SET NULL en backend). */
+  created_by: DecisionActorRef | null;
   created_at: string;
   updated_at: string;
   /** Computado por el backend: deadline de la fase actual ya pasó pero no se finalizó */
@@ -456,7 +457,8 @@ export interface DecisionVote {
   apartment_id: string;
   apartment_label: string;
   quote_id: string;
-  voted_by: DecisionActorRef;
+  /** Null cuando el usuario votante fue eliminado (FK SET NULL en backend). */
+  voted_by: DecisionActorRef | null;
   created_at: string;
 }
 
@@ -494,7 +496,8 @@ export interface DecisionAuditEntry {
   id: string;
   decision_id: string;
   event: DecisionAuditEvent;
-  actor: DecisionActorRef;
+  /** Null cuando el actor fue eliminado (FK SET NULL en backend). */
+  actor: DecisionActorRef | null;
   payload: Record<string, unknown>;
   created_at: string;
 }
