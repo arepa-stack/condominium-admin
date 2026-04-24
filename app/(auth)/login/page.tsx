@@ -9,9 +9,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
 import { loginSchema } from '@/lib/utils/validation';
-import { Building2 } from 'lucide-react';
+import { Building2, Mail, Loader2, KeyRound } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { authService } from '@/lib/services/auth.service';
+import { toast } from 'sonner';
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
@@ -27,6 +37,10 @@ export default function LoginPage() {
         resolver: zodResolver(loginSchema),
     });
 
+    const [resetEmail, setResetEmail] = useState('');
+    const [isResetting, setIsResetting] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+
     const onSubmit = async (data: LoginFormData) => {
         setIsLoading(true);
         try {
@@ -36,6 +50,23 @@ export default function LoginPage() {
             toast.error(error instanceof Error ? error.message : 'Error al iniciar sesión');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const onResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!resetEmail) return;
+
+        setIsResetting(true);
+        try {
+            await authService.requestPasswordReset(resetEmail);
+            toast.success('Si la cuenta existe, recibirás un correo con instrucciones.');
+            setIsDialogOpen(false);
+            setResetEmail('');
+        } catch (error: any) {
+            toast.error(error.message || 'Error al solicitar el restablecimiento');
+        } finally {
+            setIsResetting(false);
         }
     };
 
@@ -96,7 +127,7 @@ export default function LoginPage() {
                             <Button type="submit" className="w-full mt-2" disabled={isLoading}>
                                 {isLoading ? (
                                     <span className="flex items-center gap-2">
-                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <Loader2 className="h-4 w-4 animate-spin" />
                                         Iniciando sesión...
                                     </span>
                                 ) : (
@@ -104,6 +135,58 @@ export default function LoginPage() {
                                 )}
                             </Button>
                         </form>
+
+                        <div className="mt-4 text-center">
+                            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <button className="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+                                        ¿Olvidaste tu contraseña?
+                                    </button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-md">
+                                    <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2">
+                                            <KeyRound className="h-5 w-5 text-primary" />
+                                            Recuperar Contraseña
+                                        </DialogTitle>
+                                        <DialogDescription>
+                                            Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={onResetPassword} className="space-y-4 pt-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="reset-email">Email</Label>
+                                            <div className="relative">
+                                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    id="reset-email"
+                                                    type="email"
+                                                    placeholder="tu@email.com"
+                                                    className="pl-10"
+                                                    value={resetEmail}
+                                                    onChange={(e) => setResetEmail(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button 
+                                                type="submit" 
+                                                className="w-full" 
+                                                disabled={isResetting || !resetEmail}
+                                            >
+                                                {isResetting ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Enviando...
+                                                    </>
+                                                ) : 'Enviar instrucciones'}
+                                            </Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
                     </CardContent>
                 </Card>
 

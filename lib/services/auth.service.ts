@@ -82,4 +82,18 @@ export const authService = {
     isAuthenticated(): boolean {
         return !!this.getAccessToken();
     },
+
+    async changePassword(newPassword: string): Promise<{ success: boolean }> {
+        const { data } = await apiClient.patch('/api/v1/app/users/me/password', {
+            new_password: newPassword,
+        });
+        return data;
+    },
+
+    async requestPasswordReset(email: string): Promise<{ success: boolean }> {
+        const { data } = await apiClient.post('/auth/reset-password', {
+            email,
+        });
+        return data;
+    },
 };
