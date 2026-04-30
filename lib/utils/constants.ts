@@ -1,6 +1,6 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_ENVIOREMENT === "DEV"
-    ? "http://localhost:5000/"
+    ? "http://localhost:3000/"
     : process.env.NEXT_PUBLIC_API_URL ||
       "https://condominium-api.nibs-tech.com/";
 
@@ -18,6 +18,8 @@ export const USER_STATUSES = ["pending", "active"] as const;
 export const INVOICE_TAGS = ["NORMAL", "PETTY_CASH"] as const;
 
 export const DECISIONS_API_PREFIX = "/api/v1/admin/decisions/decisions";
+export const INFORMATION_CENTER_ADMIN_API_PREFIX = "/api/v1/admin/information-center";
+export const INFORMATION_CENTER_APP_API_PREFIX = "/api/v1/app/information-center";
 
 export const DECISION_STATUSES = [
   "RECEPTION",
@@ -35,6 +37,22 @@ export const DECISION_QUOTE_MIME_ALLOWED = [
   "image/webp",
 ] as const;
 
+export const INFORMATION_CENTER_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+export const INFORMATION_CENTER_ATTACHMENT_MIME_ALLOWED = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+export const ANNOUNCEMENT_CATEGORIES = [
+  "INFO",
+  "URGENT",
+  "FINANCIAL",
+  "MAINTENANCE",
+  "NEWS",
+] as const;
+
 export const ROUTES = {
   LOGIN: "/login",
   DASHBOARD: "/dashboard",
@@ -43,6 +61,7 @@ export const ROUTES = {
   PAYMENTS: "/payments",
   PETTY_CASH: "/petty-cash",
   DECISIONS: "/decisions",
+  INFORMATION_CENTER: "/information-center",
 } as const;
 
 export const PETTY_CASH_CATEGORIES = [

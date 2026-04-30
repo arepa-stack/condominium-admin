@@ -573,3 +573,204 @@ export interface UnitInvitation {
   created_at: string;
 }
 
+// ─── Information Center ─────────────────────────────────────────────────────
+
+export type AnnouncementCategory =
+  | "INFO"
+  | "URGENT"
+  | "FINANCIAL"
+  | "MAINTENANCE"
+  | "NEWS";
+
+export interface AnnouncementMetricsSummary {
+  reads_count: number;
+  reactions_count: number;
+}
+
+export interface Announcement {
+  id: string;
+  building_id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  content_preview?: string;
+  category: AnnouncementCategory;
+  attachment_url: string | null;
+  is_pinned: boolean;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+  read_by_current_user?: boolean;
+  reacted_by_current_user?: boolean;
+  metrics?: AnnouncementMetricsSummary;
+}
+
+export interface AnnouncementMetrics {
+  announcement_id: string;
+  title: string;
+  total_residents: number;
+  reads_count: number;
+  pending_count: number;
+  read_percentage: number;
+  reactions_count: number;
+}
+
+export interface AnnouncementReader {
+  user_id: string;
+  full_name: string;
+  apartment: string | null;
+  tower: string | null;
+  read_at: string | null;
+  status: "read" | "pending";
+}
+
+export interface AnnouncementListParams extends PaginationParams {
+  building_id?: string;
+  category?: AnnouncementCategory;
+  search?: string;
+  is_pinned?: boolean;
+  read_status?: "read" | "unread";
+}
+
+export interface CreateAnnouncementDto {
+  building_id: string;
+  title: string;
+  content: string;
+  category?: AnnouncementCategory;
+  attachment?: File | null;
+  is_pinned?: boolean;
+  expires_at?: string | null;
+}
+
+export interface UpdateAnnouncementDto {
+  title?: string;
+  content?: string;
+  category?: AnnouncementCategory;
+  attachment?: File | null;
+  is_pinned?: boolean;
+  expires_at?: string | null;
+}
+
+export interface RuleCategory {
+  id: string;
+  building_id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Rule {
+  id: string;
+  building_id: string;
+  category_id: string | null;
+  title: string;
+  content: string;
+  attachment_url: string | null;
+  is_published: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRuleCategoryDto {
+  building_id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface UpdateRuleCategoryDto {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface RuleListParams {
+  building_id?: string;
+  include_unpublished?: boolean;
+}
+
+export interface RuleCategoryListParams {
+  building_id?: string;
+  include_inactive?: boolean;
+}
+
+export interface CreateRuleDto {
+  building_id: string;
+  category_id?: string | null;
+  title: string;
+  content: string;
+  attachment?: File | null;
+  is_published?: boolean;
+  sort_order?: number;
+}
+
+export interface UpdateRuleDto {
+  category_id?: string | null;
+  title?: string;
+  content?: string;
+  attachment?: File | null;
+  is_published?: boolean;
+  sort_order?: number;
+}
+
+export interface RecommendedService {
+  id: string;
+  building_id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  phone: string | null;
+  email: string | null;
+  availability: string | null;
+  rating: number | null;
+  is_recommended: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecommendedServiceListParams {
+  building_id?: string;
+  include_inactive?: boolean;
+}
+
+export interface CreateRecommendedServiceDto {
+  building_id: string;
+  name: string;
+  category: string;
+  description?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  availability?: string | null;
+  rating?: number | null;
+  is_recommended?: boolean;
+  is_active?: boolean;
+}
+
+export type UpdateRecommendedServiceDto = Partial<CreateRecommendedServiceDto>;
+
+export interface BoardMember {
+  member_id: string;
+  role: string;
+  building_id: string;
+  profile: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+  };
+  unit: {
+    id: string;
+    name: string;
+  } | null;
+}
+
