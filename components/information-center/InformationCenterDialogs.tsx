@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -186,6 +187,8 @@ export function AnnouncementDialog({
         }
     };
 
+    const { isSubmitting } = form.formState;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-2xl">
@@ -310,7 +313,10 @@ export function AnnouncementDialog({
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">Guardar</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>
@@ -388,6 +394,8 @@ export function RuleCategoryDialog({
             toast.error(error instanceof Error ? error.message : 'No se pudo guardar la categoría');
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -490,7 +498,10 @@ export function RuleCategoryDialog({
                             />
                         </div>
                         <DialogFooter>
-                            <Button type="submit">Guardar</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>
@@ -580,6 +591,8 @@ export function RuleDialog({
             toast.error(error instanceof Error ? error.message : 'No se pudo guardar la regla');
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -711,7 +724,10 @@ export function RuleDialog({
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">Guardar</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>
@@ -814,6 +830,8 @@ export function RecommendedServiceDialog({
             toast.error(error instanceof Error ? error.message : 'No se pudo guardar el servicio');
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -964,7 +982,10 @@ export function RecommendedServiceDialog({
                             />
                         </div>
                         <DialogFooter>
-                            <Button type="submit">Guardar</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>

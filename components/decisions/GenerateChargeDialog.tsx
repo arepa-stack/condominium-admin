@@ -61,8 +61,6 @@ export function GenerateChargeDialog({
     winnerAmount,
     onGenerated,
 }: GenerateChargeDialogProps) {
-    const [isLoading, setIsLoading] = useState(false);
-
     const form = useForm<FormValues>({
         resolver: zodResolver(schema) as any,
         defaultValues: { type: 'INVOICE', amount_override: undefined, category: '' },
@@ -71,7 +69,6 @@ export function GenerateChargeDialog({
     const selectedType = form.watch('type') as DecisionChargeType;
 
     const handleSubmit = async (values: FormValues) => {
-        setIsLoading(true);
         try {
             const result = await decisionsService.generateCharge(decisionId, {
                 type: values.type,
@@ -94,10 +91,10 @@ export function GenerateChargeDialog({
             onGenerated(decision.decision);
         } catch (err) {
             toast.error(getDecisionErrorMessage(err));
-        } finally {
-            setIsLoading(false);
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -220,12 +217,12 @@ export function GenerateChargeDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                disabled={isLoading}
+                                disabled={isSubmitting}
                             >
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Generar cargo
                             </Button>
                         </DialogFooter>

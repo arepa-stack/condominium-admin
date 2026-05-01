@@ -77,8 +77,6 @@ export function ExtendDeadlinesDialog({
     currentVotingDeadline,
     onExtended,
 }: ExtendDeadlinesDialogProps) {
-    const [isLoading, setIsLoading] = useState(false);
-
     const isVoting = currentStatus === 'VOTING';
 
     const toLocalDatetime = (iso: string) => {
@@ -98,7 +96,6 @@ export function ExtendDeadlinesDialog({
     });
 
     const handleSubmit = async (values: FormValues) => {
-        setIsLoading(true);
         try {
             const decision = await decisionsService.extendDeadlines(decisionId, {
                 reception_deadline: values.reception_deadline
@@ -115,10 +112,10 @@ export function ExtendDeadlinesDialog({
             onExtended(decision);
         } catch (err) {
             toast.error(getDecisionErrorMessage(err));
-        } finally {
-            setIsLoading(false);
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -185,12 +182,12 @@ export function ExtendDeadlinesDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                disabled={isLoading}
+                                disabled={isSubmitting}
                             >
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Extender plazos
                             </Button>
                         </DialogFooter>

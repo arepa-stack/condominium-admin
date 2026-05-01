@@ -49,15 +49,12 @@ export function CancelDecisionDialog({
     decisionTitle,
     onCancelled,
 }: CancelDecisionDialogProps) {
-    const [isLoading, setIsLoading] = useState(false);
-
     const form = useForm<FormValues>({
         resolver: zodResolver(schema) as any,
         defaultValues: { reason: '' },
     });
 
     const handleSubmit = async (values: FormValues) => {
-        setIsLoading(true);
         try {
             const decision = await decisionsService.cancel(decisionId, { reason: values.reason });
             toast.success('Decisión cancelada.');
@@ -66,10 +63,10 @@ export function CancelDecisionDialog({
             onCancelled(decision);
         } catch (err) {
             toast.error(getDecisionErrorMessage(err));
-        } finally {
-            setIsLoading(false);
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -111,12 +108,12 @@ export function CancelDecisionDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                disabled={isLoading}
+                                disabled={isSubmitting}
                             >
                                 Volver
                             </Button>
-                            <Button type="submit" variant="destructive" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button type="submit" variant="destructive" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Cancelar decisión
                             </Button>
                         </AlertDialogFooter>
