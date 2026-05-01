@@ -35,7 +35,7 @@ import { billingService } from '@/lib/services/billing.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Building2, Home, DollarSign, FileText, Calendar } from 'lucide-react';
+import { Building2, Home, DollarSign, FileText, Calendar, Loader2 } from 'lucide-react';
 import type { Unit, Building } from '@/types/models';
 
 // Schema defined outside component to avoid re-creation
@@ -370,7 +370,8 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 disabled={form.formState.isSubmitting}
                                 className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30"
                             >
-                                {form.formState.isSubmitting ? 'Creando...' : 'Crear factura'}
+                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Crear factura
                             </Button>
                         </DialogFooter>
                     </form>

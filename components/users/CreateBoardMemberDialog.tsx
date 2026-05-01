@@ -50,15 +50,13 @@ export function CreateBoardMemberDialog({
     buildings,
     onSuccess
 }: CreateBoardMemberDialogProps) {
-    const [isLoading, setIsLoading] = useState(false);
-
     const {
         register,
         handleSubmit,
         setValue,
         watch,
         reset,
-        formState: { errors },
+        formState: { errors, isSubmitting },
     } = useForm<BoardMemberFormData>({
         resolver: zodResolver(boardMemberSchema),
     });
@@ -66,7 +64,6 @@ export function CreateBoardMemberDialog({
     const buildingId = watch('buildingId');
 
     const onSubmit = async (data: BoardMemberFormData) => {
-        setIsLoading(true);
         try {
             await usersService.createBoardMember(data);
             toast.success('Miembro de junta creado. Se ha enviado un correo con sus credenciales.');
@@ -75,8 +72,6 @@ export function CreateBoardMemberDialog({
             reset();
         } catch (error: any) {
             toast.error(error.message || 'Error al crear el miembro de junta');
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -180,8 +175,8 @@ export function CreateBoardMemberDialog({
                         <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                             Cancelar
                         </Button>
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Crown className="mr-2 h-4 w-4" />}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Crown className="mr-2 h-4 w-4" />}
                             Crear y Enviar Acceso
                         </Button>
                     </DialogFooter>

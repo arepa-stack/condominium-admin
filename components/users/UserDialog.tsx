@@ -61,7 +61,6 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
     const { isSuperAdmin } = usePermissions();
     const [units, setUnits] = useState<Unit[]>([]);
     const [loadingUnits, setLoadingUnits] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Phone parsing state
     const [phoneOperator, setPhoneOperator] = useState('412');
@@ -180,7 +179,6 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
 
     const onSubmit = async (data: any) => {
         try {
-            setIsSubmitting(true);
             if (user) {
                 // PATCH /users/:id - Only profile data
                 const combinedPhone = phoneBody ? `+58${phoneOperator}${phoneBody}` : '';
@@ -220,10 +218,10 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
         } catch (error) {
             console.error(error);
             toast.error(user ? 'Error al actualizar el usuario' : 'Error al crear el usuario');
-        } finally {
-            setIsSubmitting(false);
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     const getRoleBadgeColor = (role: string) => {
         switch (role) {

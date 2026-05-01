@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/form';
 import { unitsService } from '@/lib/services/units.service';
 import { toast } from 'sonner';
-
+import { Loader2 } from 'lucide-react';
 const schema = z.object({
     name: z.string().min(1, 'El nombre de la unidad es obligatorio'),
     floor: z.string().min(1, 'El piso es obligatorio'),
@@ -39,8 +39,6 @@ interface CreateUnitDialogProps {
 }
 
 export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: CreateUnitDialogProps) {
-    const [isLoading, setIsLoading] = useState(false);
-
     const form = useForm<FormData>({
         resolver: zodResolver(schema),
         defaultValues: {
@@ -52,7 +50,6 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
 
     const onSubmit = async (data: FormData) => {
         try {
-            setIsLoading(true);
             await unitsService.createUnit(buildingId, data);
             toast.success('Unidad creada correctamente');
             onSuccess();
@@ -61,10 +58,10 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
         } catch (error) {
             console.error(error);
             toast.error('Error al crear la unidad');
-        } finally {
-            setIsLoading(false);
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -118,8 +115,9 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
                             <Button type="button" variant="outline" onClick={onClose}>
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading ? 'Creando...' : 'Crear unidad'}
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Crear unidad
                             </Button>
                         </DialogFooter>
                     </form>

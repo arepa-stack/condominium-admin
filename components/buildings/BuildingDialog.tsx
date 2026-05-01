@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { buildingsService } from '@/lib/services/buildings.service';
 import type { Building } from '@/types/models';
 
@@ -84,6 +85,8 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
         }
     };
 
+    const { isSubmitting } = form.formState;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -135,7 +138,10 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">Guardar cambios</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar cambios
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>

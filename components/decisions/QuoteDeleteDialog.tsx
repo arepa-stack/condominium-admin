@@ -52,15 +52,12 @@ export function QuoteDeleteDialog({
     isSelfDelete,
     onDeleted,
 }: QuoteDeleteDialogProps) {
-    const [isLoading, setIsLoading] = useState(false);
-
     const form = useForm<ReasonValues>({
         resolver: isSelfDelete ? undefined : (zodResolver(reasonSchema) as any),
         defaultValues: { reason: '' },
     });
 
     const handleDelete = async (values: ReasonValues) => {
-        setIsLoading(true);
         try {
             await decisionsService.deleteQuote(
                 decisionId,
@@ -73,10 +70,10 @@ export function QuoteDeleteDialog({
             onDeleted(quoteId);
         } catch (err) {
             toast.error(getDecisionErrorMessage(err));
-        } finally {
-            setIsLoading(false);
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -120,12 +117,12 @@ export function QuoteDeleteDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                disabled={isLoading}
+                                disabled={isSubmitting}
                             >
                                 Cancelar
                             </Button>
-                            <Button type="submit" variant="destructive" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button type="submit" variant="destructive" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Eliminar cotización
                             </Button>
                         </AlertDialogFooter>

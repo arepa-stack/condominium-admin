@@ -49,15 +49,12 @@ export function ForceFinalizeReceptionDialog({
     activeQuoteCount,
     onFinalized,
 }: ForceFinalizeReceptionDialogProps) {
-    const [isLoading, setIsLoading] = useState(false);
-
     const form = useForm<FormValues>({
         resolver: zodResolver(schema) as any,
         defaultValues: { reason: '' },
     });
 
     const handleSubmit = async (values: FormValues) => {
-        setIsLoading(true);
         try {
             const decision = await decisionsService.finalize(decisionId, {
                 force: true,
@@ -69,10 +66,10 @@ export function ForceFinalizeReceptionDialog({
             onFinalized(decision);
         } catch (err) {
             toast.error(getDecisionErrorMessage(err));
-        } finally {
-            setIsLoading(false);
         }
     };
+
+    const { isSubmitting } = form.formState;
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -117,12 +114,12 @@ export function ForceFinalizeReceptionDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                disabled={isLoading}
+                                disabled={isSubmitting}
                             >
                                 Volver
                             </Button>
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading && (
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 )}
                                 Abrir votación
