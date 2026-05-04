@@ -122,6 +122,7 @@ export function getChargeDeepLink(decision: Decision): string {
     if (decision.resulting_type === 'INVOICE') {
         return `/billing/invoices/${decision.resulting_id}`;
     }
-    // ASSESSMENT — route prefix is confirmed during Phase 4 QA; default kept consistent with finances module
-    return `/finances/petty-cash/assessments/${decision.resulting_id}`;
+    // ASSESSMENT batches live inside the building's petty-cash page (TransparencyView).
+    // Anchor scrolls to and highlights the matching BatchCard.
+    return `/buildings/${decision.building_id}/petty-cash#batch-${decision.resulting_id}`;
 }

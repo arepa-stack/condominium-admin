@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -73,15 +73,34 @@ interface BatchCardProps {
 
 function BatchCard({ batch }: BatchCardProps) {
     const [expanded, setExpanded] = useState(false);
+    const [highlighted, setHighlighted] = useState(false);
+    const cardRef = useRef<HTMLDivElement | null>(null);
     const isLegacy = batch.id === '__legacy__';
+    const anchorId = `batch-${batch.id}`;
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (window.location.hash !== `#${anchorId}`) return;
+        setExpanded(true);
+        setHighlighted(true);
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const t = window.setTimeout(() => setHighlighted(false), 2000);
+        return () => window.clearTimeout(t);
+    }, [anchorId]);
 
     return (
         <Card
-            className={
+            id={anchorId}
+            ref={cardRef}
+            className={[
                 isLegacy
                     ? 'border-amber-500/30 bg-amber-500/5 p-4'
-                    : 'border-border bg-muted/30 p-4'
-            }
+                    : 'border-border bg-muted/30 p-4',
+                'scroll-mt-24 transition-shadow',
+                highlighted ? 'ring-2 ring-primary' : '',
+            ]
+                .filter(Boolean)
+                .join(' ')}
         >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex-1 min-w-0">
