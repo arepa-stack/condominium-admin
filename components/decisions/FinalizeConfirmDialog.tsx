@@ -14,11 +14,21 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { decisionsService } from '@/lib/services/decisions.service';
 import { getDecisionErrorMessage } from '@/lib/utils/decision-errors';
-import type { Decision, DecisionStatus } from '@/types/models';
+import type {
+    Decision,
+    DecisionEarlyFinalizeReason,
+    DecisionStatus,
+} from '@/types/models';
 
 const PHASE_LABELS: Partial<Record<DecisionStatus, string>> = {
     RECEPTION: 'recepción de cotizaciones',
     VOTING: 'votación',
+};
+
+const EARLY_FINALIZE_COPY: Record<DecisionEarlyFinalizeReason, string> = {
+    ALL_VOTED: 'Todos los apartamentos ya emitieron su voto.',
+    MATHEMATICALLY_DECIDED:
+        'El resultado ya está matemáticamente decidido — los votos restantes no pueden cambiar al ganador.',
 };
 
 interface FinalizeConfirmDialogProps {
@@ -27,6 +37,8 @@ interface FinalizeConfirmDialogProps {
     decisionId: string;
     currentStatus: DecisionStatus;
     onFinalized: (decision: Decision) => void;
+    /** When set, dialog shows the reason early finalize is enabled (advisory). */
+    earlyFinalizeReason?: DecisionEarlyFinalizeReason | null;
 }
 
 export function FinalizeConfirmDialog({
@@ -35,10 +47,15 @@ export function FinalizeConfirmDialog({
     decisionId,
     currentStatus,
     onFinalized,
+    earlyFinalizeReason,
 }: FinalizeConfirmDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
 
     const phaseLabel = PHASE_LABELS[currentStatus] ?? 'fase actual';
+    const earlyCopy =
+        currentStatus === 'VOTING' && earlyFinalizeReason
+            ? EARLY_FINALIZE_COPY[earlyFinalizeReason]
+            : null;
 
     const handleFinalize = async () => {
         setIsLoading(true);
@@ -66,6 +83,12 @@ export function FinalizeConfirmDialog({
                         {currentStatus === 'RECEPTION' ? 'cotizaciones' : 'votos'}.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
+
+                {earlyCopy && (
+                    <p className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+                        {earlyCopy}
+                    </p>
+                )}
 
                 <AlertDialogFooter>
                     <Button

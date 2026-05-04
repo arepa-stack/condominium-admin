@@ -1,4 +1,4 @@
-import type { Decision } from '@/types/models';
+import type { Decision, DecisionTally } from '@/types/models';
 
 export type PrimaryActionKind =
     | 'upload-first-quote'
@@ -28,9 +28,15 @@ export interface PrimaryAction {
  * Returns `null` when no primary action applies (e.g. CANCELLED, or user has no manage permission).
  * The caller is responsible for gating `null` by permissions (this function doesn't know about roles).
  */
+export type EarlyFinalizeSignal = Pick<
+    DecisionTally,
+    'is_early_finalizable' | 'early_finalize_reason'
+> | null;
+
 export function resolvePrimaryAction(
     decision: Decision,
     activeQuoteCount: number,
+    earlyFinalize: EarlyFinalizeSignal = null,
 ): PrimaryAction | null {
     switch (decision.status) {
         case 'RECEPTION':
@@ -62,7 +68,13 @@ export function resolvePrimaryAction(
                     variant: 'solid',
                 };
             }
-            // Backend no acepta force en VOTING; sin CTA hasta que venza deadline.
+            if (earlyFinalize?.is_early_finalizable) {
+                return {
+                    kind: 'finalize-voting-now',
+                    label: 'Finalizar votación ahora',
+                    variant: 'solid',
+                };
+            }
             return null;
         case 'TIEBREAK_PENDING':
             return {

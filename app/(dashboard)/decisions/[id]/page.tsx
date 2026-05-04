@@ -189,6 +189,14 @@ export default function DecisionDetailPage() {
                         decision={decision}
                         activeQuoteCount={activeQuotes.length}
                         canManage={canManage}
+                        earlyFinalize={
+                            tally
+                                ? {
+                                      is_early_finalizable: tally.is_early_finalizable,
+                                      early_finalize_reason: tally.early_finalize_reason,
+                                  }
+                                : null
+                        }
                         handlers={{
                             onUploadQuote: () => setQuoteUploadOpen(true),
                             onExtendDeadlines: () => setExtendOpen(true),
@@ -350,6 +358,11 @@ export default function DecisionDetailPage() {
                 onOpenChange={setFinalizeOpen}
                 decisionId={decision.id}
                 currentStatus={decision.status}
+                earlyFinalizeReason={
+                    tally && !decision.is_deadline_passed
+                        ? tally.early_finalize_reason
+                        : null
+                }
                 onFinalized={(updated) => {
                     setDecision(updated);
                     refreshTally();
