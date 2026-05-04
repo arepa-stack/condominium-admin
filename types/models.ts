@@ -473,6 +473,8 @@ export interface DecisionTallyEntry {
   pct: number;
 }
 
+export type DecisionEarlyFinalizeReason = 'ALL_VOTED' | 'MATHEMATICALLY_DECIDED';
+
 export interface DecisionTally {
   round: number;
   status: DecisionStatus;
@@ -482,6 +484,8 @@ export interface DecisionTally {
   tallies: DecisionTallyEntry[];
   winner_quote_id: string | null;
   is_tied: boolean;
+  is_early_finalizable: boolean;
+  early_finalize_reason: DecisionEarlyFinalizeReason | null;
 }
 
 export type DecisionAuditEvent =

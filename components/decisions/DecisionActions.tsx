@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import {
     resolvePrimaryAction,
     getChargeDeepLink,
+    type EarlyFinalizeSignal,
     type PrimaryAction,
 } from '@/lib/utils/decision-actions';
 import type { Decision } from '@/types/models';
@@ -37,6 +38,8 @@ interface DecisionActionsProps {
     handlers: DecisionActionsHandlers;
     /** Applies on the primary CTA only — caller can size it to match the hero layout. */
     primaryClassName?: string;
+    /** Advisory tally signal to enable "Finalizar ahora" CTA in VOTING before deadline. */
+    earlyFinalize?: EarlyFinalizeSignal;
 }
 
 function dispatchPrimary(
@@ -72,10 +75,11 @@ export function DecisionActions({
     canManage,
     handlers,
     primaryClassName,
+    earlyFinalize,
 }: DecisionActionsProps) {
     if (!canManage) return null;
 
-    const primary = resolvePrimaryAction(decision, activeQuoteCount);
+    const primary = resolvePrimaryAction(decision, activeQuoteCount, earlyFinalize ?? null);
     const isTerminal =
         decision.status === 'CANCELLED' || decision.status === 'RESOLVED';
     const canExtend =
