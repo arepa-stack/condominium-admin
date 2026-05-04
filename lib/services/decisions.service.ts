@@ -3,6 +3,7 @@ import { mapPaginatedResponse } from '@/lib/api/mappers';
 import { DECISIONS_API_PREFIX as P } from '@/lib/utils/constants';
 import type {
     Decision,
+    DecisionChargeType,
     DecisionQuote,
     DecisionVote,
     DecisionTally,
@@ -31,8 +32,10 @@ interface DecisionDetailResponse {
 
 interface GenerateChargeResponse {
     decision: Decision;
-    charge_type: string;
-    charge_id: string;
+    resulting: {
+        type: DecisionChargeType;
+        id: string;
+    };
 }
 
 export const decisionsService = {

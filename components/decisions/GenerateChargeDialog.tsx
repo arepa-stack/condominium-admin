@@ -82,7 +82,7 @@ export function GenerateChargeDialog({
                         : undefined,
             });
             toast.success(
-                `Cargo generado correctamente (${result.charge_type}: ${result.charge_id.slice(0, 8)}…).`,
+                `Cargo generado correctamente (${result.resulting.type}: ${result.resulting.id.slice(0, 8)}…).`,
             );
             form.reset();
             onOpenChange(false);
