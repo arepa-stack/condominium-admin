@@ -81,8 +81,11 @@ export function Sidebar() {
             return isSuperAdmin || isBoardMember;
         })
         .map(item => {
-            // Other functional pages: if in building context, use contextual route
-            const contextualPages = ['/units', '/users', '/billing', '/decisions', '/information-center', '/onboarding/requests'];
+            // Other functional pages: if in building context, use contextual route.
+            // Note: /onboarding/requests is intentionally NOT contextual — there is no
+            // /buildings/[id]/onboarding/requests route. The global page filters by the
+            // selected building via BuildingContext.
+            const contextualPages = ['/units', '/users', '/billing', '/decisions', '/information-center'];
             const activeBuildingId = urlBuildingId || selectedBuildingId;
             if (activeBuildingId && contextualPages.includes(item.href)) {
                 return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
