@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -212,8 +212,24 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
 
     // Role badge helper is no longer needed here as roles are detached from units
 
+    // Restrict view to buildings the caller can access. SuperAdmin sees all;
+    // board members only see units in their assigned buildings — prevents
+    // cross-building data leak and stops delete actions on unauthorized units.
+    const visibleBuildingIds = useMemo(
+        () => (isSuperAdmin ? null : new Set(availableBuildings.map(b => b.id))),
+        [isSuperAdmin, availableBuildings],
+    );
+
+    const visibleUserUnits = useMemo(
+        () =>
+            visibleBuildingIds
+                ? userUnits.filter(u => u.building_id && visibleBuildingIds.has(u.building_id))
+                : userUnits,
+        [userUnits, visibleBuildingIds],
+    );
+
     // Group units by building for better organization
-    const unitsByBuilding = userUnits.reduce((acc, unit) => {
+    const unitsByBuilding = visibleUserUnits.reduce((acc, unit) => {
         const buildingId = unit.building_id || 'unknown';
         if (!acc[buildingId]) {
             acc[buildingId] = [];
@@ -338,7 +354,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                         <div className="flex items-center justify-between">
                             <h3 className="font-semibold flex items-center gap-2">
                                 <Home className="h-4 w-4 text-primary" />
-                                Unidades asignadas ({userUnits.length})
+                                Unidades asignadas ({visibleUserUnits.length})
                             </h3>
                         </div>
 
@@ -346,7 +362,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                             <div className="flex items-center justify-center py-8">
                                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                             </div>
-                        ) : userUnits.length === 0 ? (
+                        ) : visibleUserUnits.length === 0 ? (
                             <div className="text-center py-8 space-y-2 bg-muted/30 rounded-lg border border-dashed">
                                 <div className="flex justify-center">
                                     <Home className="h-12 w-12 text-muted-foreground/50" />
