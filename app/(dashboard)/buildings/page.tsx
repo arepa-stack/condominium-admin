@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Building2, QrCode } from 'lucide-react';
 import { BuildingDialog } from '@/components/buildings/BuildingDialog';
 import { BuildingQrDialog } from '@/components/buildings/BuildingQrDialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { Building } from '@/types/models';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useRouter } from 'next/navigation';
@@ -24,6 +25,9 @@ export default function BuildingsPage() {
 
     const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
     const [selectedQrBuilding, setSelectedQrBuilding] = useState<Building | null>(null);
+
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchBuildings = async () => {
         try {
@@ -96,14 +100,18 @@ export default function BuildingsPage() {
         setIsQrDialogOpen(true);
     };
 
-    const handleDelete = async (buildingId: string) => {
-        if (!confirm('¿Seguro que querés eliminar este edificio? Esta acción no se puede deshacer.')) return;
+    const confirmDelete = async () => {
+        if (!pendingDeleteId) return;
+        setIsDeleting(true);
         try {
-            await buildingsService.deleteBuilding(buildingId);
+            await buildingsService.deleteBuilding(pendingDeleteId);
             toast.success('Edificio eliminado');
+            setPendingDeleteId(null);
             fetchBuildings();
         } catch (error) {
             toast.error('Error al eliminar el edificio');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -163,7 +171,7 @@ export default function BuildingsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => handleDelete(building.id)}
+                                                onClick={() => setPendingDeleteId(building.id)}
                                                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                             >
                                                 <Trash2 className="h-4 w-4" />
@@ -200,6 +208,17 @@ export default function BuildingsPage() {
                 open={isQrDialogOpen}
                 onOpenChange={setIsQrDialogOpen}
                 building={selectedQrBuilding}
+            />
+
+            <ConfirmDialog
+                open={!!pendingDeleteId}
+                onOpenChange={(o) => !o && setPendingDeleteId(null)}
+                title="Eliminar edificio"
+                description="¿Seguro que querés eliminar este edificio? Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                variant="destructive"
+                loading={isDeleting}
+                onConfirm={confirmDelete}
             />
         </div>
     );
