@@ -38,6 +38,7 @@ import type { User, Building, Unit, PaginationMetadata } from '@/types/models';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { Paginator } from '@/components/ui/paginator';
 import { CreateBoardMemberDialog } from '@/components/users/CreateBoardMemberDialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 const PAGE_SIZE = 20;
 
@@ -64,6 +65,9 @@ export default function UsersPage() {
     const [isUnitsManagerOpen, setIsUnitsManagerOpen] = useState(false);
     const [unitsManagerUser, setUnitsManagerUser] = useState<User | null>(null);
     const [isBoardMemberDialogOpen, setIsBoardMemberDialogOpen] = useState(false);
+
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Explicit filter wins, else fall back to globally selected building
     const activeBuildingId =
@@ -146,15 +150,19 @@ export default function UsersPage() {
         setIsUnitsManagerOpen(true);
     };
 
-    const handleDelete = async (userId: string) => {
-        if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
+    const confirmDelete = async () => {
+        if (!pendingDeleteId) return;
+        setIsDeleting(true);
         try {
-            await usersService.deleteUser(userId);
+            await usersService.deleteUser(pendingDeleteId);
             toast.success('Usuario eliminado');
+            setPendingDeleteId(null);
             fetchData();
         } catch (error) {
             console.error(error);
             toast.error('Error al eliminar el usuario');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -359,7 +367,7 @@ export default function UsersPage() {
                                                         <Crown className="mr-2 h-4 w-4" /> Gestionar roles
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => handleDelete(user.id)} className="text-destructive">
+                                                    <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
                                                         <Trash2 className="mr-2 h-4 w-4" /> Eliminar usuario
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
@@ -480,7 +488,7 @@ export default function UsersPage() {
                                                     <Crown className="mr-2 h-4 w-4" /> Gestionar roles
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => handleDelete(user.id)} className="text-destructive">
+                                                <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" /> Eliminar usuario
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
@@ -527,6 +535,17 @@ export default function UsersPage() {
                 onOpenChange={setIsBoardMemberDialogOpen}
                 buildings={buildings}
                 onSuccess={fetchData}
+            />
+
+            <ConfirmDialog
+                open={!!pendingDeleteId}
+                onOpenChange={(o) => !o && setPendingDeleteId(null)}
+                title="Eliminar usuario"
+                description="¿Seguro que querés eliminar este usuario?"
+                confirmLabel="Eliminar"
+                variant="destructive"
+                loading={isDeleting}
+                onConfirm={confirmDelete}
             />
         </div>
     );
