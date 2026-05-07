@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -77,6 +77,22 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
         };
         fetchRoles();
     }, [open, user, availableBuildings]);
+
+    // Restrict listing to buildings the caller can access. SuperAdmin sees all;
+    // board members only see roles in their assigned buildings — prevents the
+    // dialog from leaking that the user belongs to other buildings.
+    const visibleBuildingIds = useMemo(
+        () => (isSuperAdmin ? null : new Set(availableBuildings.map(b => b.id))),
+        [isSuperAdmin, availableBuildings],
+    );
+
+    const visibleUserBuildingRoles = useMemo(
+        () =>
+            visibleBuildingIds
+                ? userBuildingRoles.filter(r => visibleBuildingIds.has(r.building_id))
+                : userBuildingRoles,
+        [userBuildingRoles, visibleBuildingIds],
+    );
 
     if (!user) return null;
 
@@ -160,7 +176,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                     <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
-                ) : userBuildingRoles.length === 0 ? (
+                ) : visibleUserBuildingRoles.length === 0 ? (
                     <div className="text-center py-8 space-y-3">
                         <div className="flex justify-center">
                             <div className="rounded-full bg-primary/10 p-4">
@@ -177,7 +193,7 @@ export function UserRoleManager({ open, onOpenChange, user, onSuccess }: UserRol
                 ) : (
                     <ScrollArea className="max-h-[500px] pr-4">
                         <div className="space-y-4">
-                            {userBuildingRoles.map((br) => {
+                            {visibleUserBuildingRoles.map((br) => {
                                 const canManage = isSuperAdmin || isBoardInBuilding(br.building_id);
                                 const roleBadge = getBuildingRoleBadge(br.role);
                                 const RoleIcon = roleBadge.icon;
