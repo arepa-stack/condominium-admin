@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { usersService } from '@/lib/services/users.service';
 import { buildingsService } from '@/lib/services/buildings.service';
@@ -60,6 +61,9 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
     const [selectedUnit, setSelectedUnit] = useState<string>('');
     const [selectedRole, setSelectedRole] = useState<'resident' | 'board' | 'owner'>('resident');
     const [isPrimary, setIsPrimary] = useState(false);
+
+    // Pending unit removal
+    const [pendingRemoval, setPendingRemoval] = useState<{ id: string; name?: string } | null>(null);
 
     // Initialize selected building when dialog opens
     useEffect(() => {
@@ -184,24 +188,20 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
         }
     };
 
-    const handleRemoveUnit = async (unitId: string, unitName?: string) => {
-        if (!user) return;
-
-        const confirmed = confirm(
-            `¿Seguro que querés quitar "${unitName || 'esta unidad'}" de ${user.name}?`
-        );
-        if (!confirmed) return;
+    const confirmRemoveUnit = async () => {
+        if (!user || !pendingRemoval) return;
 
         setActionLoading(true);
         try {
             // DELETE /users/:id/units/:unitId
-            await usersService.removeUnit(user.id, unitId);
+            await usersService.removeUnit(user.id, pendingRemoval.id);
             toast.success('Unidad quitada correctamente');
 
             // Refresh units list with enriched data
             await refreshUserUnits();
 
             onSuccess();
+            setPendingRemoval(null);
         } catch (error: any) {
             console.error('Failed to remove unit:', error);
             toast.error(error.response?.data?.message || 'Error al quitar la unidad');
@@ -424,7 +424,7 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                                                                 <Button
                                                                     size="sm"
                                                                     variant="ghost"
-                                                                    onClick={() => handleRemoveUnit(unit.unit_id, unit.unit_name)}
+                                                                    onClick={() => setPendingRemoval({ id: unit.unit_id, name: unit.unit_name })}
                                                                     disabled={actionLoading}
                                                                     className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
                                                                 >
@@ -454,6 +454,16 @@ export function UserUnitsManager({ open, onOpenChange, user, onSuccess }: UserUn
                     </div>
                 </div>
             </DialogContent>
+            <ConfirmDialog
+                open={!!pendingRemoval}
+                onOpenChange={(o) => !o && setPendingRemoval(null)}
+                title="Quitar unidad"
+                description={`¿Seguro que querés quitar "${pendingRemoval?.name || 'esta unidad'}" de ${user.name}?`}
+                confirmLabel="Quitar"
+                variant="destructive"
+                loading={actionLoading}
+                onConfirm={confirmRemoveUnit}
+            />
         </Dialog>
     );
 }

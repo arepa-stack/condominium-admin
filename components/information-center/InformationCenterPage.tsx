@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TableSkeleton } from '@/components/ui/skeletons';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { usePermissions } from '@/lib/hooks/usePermissions';
@@ -184,6 +185,8 @@ function AnnouncementsSection({
     const [dialogOpen, setDialogOpen] = useState(false);
     const [metricsOpen, setMetricsOpen] = useState(false);
     const [selected, setSelected] = useState<Announcement | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const load = useCallback(async () => {
         if (!buildingId) {
@@ -222,14 +225,18 @@ function AnnouncementsSection({
         setPage(1);
     }, [buildingId]);
 
-    const onDelete = async (announcement: Announcement) => {
-        if (!window.confirm(`¿Eliminar el anuncio "${announcement.title}"?`)) return;
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
+        setIsDeleting(true);
         try {
-            await informationCenterService.deleteAnnouncement(announcement.id);
+            await informationCenterService.deleteAnnouncement(pendingDelete.id);
             toast.success('Anuncio eliminado correctamente');
+            setPendingDelete(null);
             load();
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'No se pudo eliminar el anuncio');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -382,7 +389,7 @@ function AnnouncementsSection({
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         variant="destructive"
-                                                        onSelect={() => onDelete(announcement)}
+                                                        onSelect={() => setPendingDelete(announcement)}
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                         Eliminar
@@ -409,6 +416,16 @@ function AnnouncementsSection({
                 onSuccess={load}
             />
             <AnnouncementMetricsDialog open={metricsOpen} onOpenChange={setMetricsOpen} announcement={selected} />
+            <ConfirmDialog
+                open={!!pendingDelete}
+                onOpenChange={(o) => !o && setPendingDelete(null)}
+                title="Eliminar anuncio"
+                description={`¿Eliminar el anuncio "${pendingDelete?.title ?? ''}"?`}
+                confirmLabel="Eliminar"
+                variant="destructive"
+                loading={isDeleting}
+                onConfirm={confirmDelete}
+            />
         </section>
     );
 }
@@ -429,6 +446,8 @@ function RulesSection({
     const [ruleDialogOpen, setRuleDialogOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<RuleCategory | null>(null);
     const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
+    const [pendingDeleteRule, setPendingDeleteRule] = useState<Rule | null>(null);
+    const [isDeletingRule, setIsDeletingRule] = useState(false);
 
     const load = useCallback(async () => {
         if (!buildingId) {
@@ -465,14 +484,18 @@ function RulesSection({
         load();
     }, [load]);
 
-    const onDeleteRule = async (rule: Rule) => {
-        if (!window.confirm(`¿Eliminar la regla "${rule.title}"?`)) return;
+    const confirmDeleteRule = async () => {
+        if (!pendingDeleteRule) return;
+        setIsDeletingRule(true);
         try {
-            await informationCenterService.deleteRule(rule.id);
+            await informationCenterService.deleteRule(pendingDeleteRule.id);
             toast.success('Regla eliminada correctamente');
+            setPendingDeleteRule(null);
             load();
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'No se pudo eliminar la regla');
+        } finally {
+            setIsDeletingRule(false);
         }
     };
 
@@ -634,7 +657,7 @@ function RulesSection({
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             variant="destructive"
-                                                            onSelect={() => onDeleteRule(rule)}
+                                                            onSelect={() => setPendingDeleteRule(rule)}
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                             Eliminar
@@ -668,6 +691,16 @@ function RulesSection({
                 availableBuildings={availableBuildings}
                 onSuccess={load}
             />
+            <ConfirmDialog
+                open={!!pendingDeleteRule}
+                onOpenChange={(o) => !o && setPendingDeleteRule(null)}
+                title="Eliminar regla"
+                description={`¿Eliminar la regla "${pendingDeleteRule?.title ?? ''}"?`}
+                confirmLabel="Eliminar"
+                variant="destructive"
+                loading={isDeletingRule}
+                onConfirm={confirmDeleteRule}
+            />
         </section>
     );
 }
@@ -685,6 +718,8 @@ function ServicesSection({
     const [isLoading, setIsLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selected, setSelected] = useState<RecommendedService | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<RecommendedService | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const load = useCallback(async () => {
         if (!buildingId) {
@@ -712,14 +747,18 @@ function ServicesSection({
         load();
     }, [load]);
 
-    const onDelete = async (service: RecommendedService) => {
-        if (!window.confirm(`¿Desactivar el servicio "${service.name}"?`)) return;
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
+        setIsDeleting(true);
         try {
-            await informationCenterService.deleteRecommendedService(service.id);
+            await informationCenterService.deleteRecommendedService(pendingDelete.id);
             toast.success('Servicio desactivado correctamente');
+            setPendingDelete(null);
             load();
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'No se pudo desactivar el servicio');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -815,7 +854,7 @@ function ServicesSection({
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     variant="destructive"
-                                                    onSelect={() => onDelete(service)}
+                                                    onSelect={() => setPendingDelete(service)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                     Desactivar
@@ -836,6 +875,16 @@ function ServicesSection({
                 buildingId={buildingId}
                 availableBuildings={availableBuildings}
                 onSuccess={load}
+            />
+            <ConfirmDialog
+                open={!!pendingDelete}
+                onOpenChange={(o) => !o && setPendingDelete(null)}
+                title="Desactivar servicio"
+                description={`¿Desactivar el servicio "${pendingDelete?.name ?? ''}"?`}
+                confirmLabel="Desactivar"
+                variant="destructive"
+                loading={isDeleting}
+                onConfirm={confirmDelete}
             />
         </section>
     );

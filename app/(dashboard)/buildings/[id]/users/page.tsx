@@ -31,6 +31,7 @@ import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Crown, Home, Users 
 import { UserDialog } from '@/components/users/UserDialog';
 import { UserRoleManager } from '@/components/users/UserRoleManager';
 import { UserUnitsManager } from '@/components/users/UserUnitsManager';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { BuildingRoleBadge } from '@/components/users/BuildingRoleBadge';
 import { formatUserRole } from '@/lib/utils/format';
 import { getEffectiveRole } from '@/lib/utils/roles';
@@ -58,6 +59,9 @@ export default function BuildingUsersPage() {
     const [roleManagerUser, setRoleManagerUser] = useState<User | null>(null);
     const [isUnitsManagerOpen, setIsUnitsManagerOpen] = useState(false);
     const [unitsManagerUser, setUnitsManagerUser] = useState<User | null>(null);
+
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!buildingId) return;
@@ -105,15 +109,19 @@ export default function BuildingUsersPage() {
         setIsUnitsManagerOpen(true);
     };
 
-    const handleDelete = async (userId: string) => {
-        if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
+    const confirmDelete = async () => {
+        if (!pendingDeleteId) return;
+        setIsDeleting(true);
         try {
-            await usersService.deleteUser(userId);
+            await usersService.deleteUser(pendingDeleteId);
             toast.success('Usuario eliminado');
+            setPendingDeleteId(null);
             fetchData();
         } catch (error) {
             console.error(error);
             toast.error('Error al eliminar el usuario');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -276,7 +284,7 @@ export default function BuildingUsersPage() {
                                                     <Crown className="mr-2 h-4 w-4" /> Gestionar roles
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => handleDelete(user.id)} className="text-destructive">
+                                                <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" /> Eliminar usuario
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
@@ -309,6 +317,17 @@ export default function BuildingUsersPage() {
                 onOpenChange={setIsRoleManagerOpen}
                 user={roleManagerUser}
                 onSuccess={fetchData}
+            />
+
+            <ConfirmDialog
+                open={!!pendingDeleteId}
+                onOpenChange={(o) => !o && setPendingDeleteId(null)}
+                title="Eliminar usuario"
+                description="¿Seguro que querés eliminar este usuario?"
+                confirmLabel="Eliminar"
+                variant="destructive"
+                loading={isDeleting}
+                onConfirm={confirmDelete}
             />
         </div>
     );
