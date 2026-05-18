@@ -82,7 +82,6 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
     const editSchema = z.object({
         name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
         email: z.string().email('Email inválido'),
-        password: z.string().optional(),
         phone: z.string().optional(),
         app_role: z.enum(['admin', 'user']),
         status: z.enum(['active', 'pending', 'inactive', 'rejected']),
@@ -96,7 +95,6 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
         defaultValues: user ? {
             name: '',
             email: '',
-            password: '',
             phone: '',
             app_role: 'user',
             status: 'active',
@@ -145,7 +143,6 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
             form.reset({
                 name: user.name,
                 email: user.email,
-                password: '',
                 phone: user.phone || '',
                 app_role: user.app_role,
                 status: user.status || 'active',
@@ -190,10 +187,6 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
                 // Only admins can change app_role, and only if it actually changed
                 if (isSuperAdmin && data.app_role && data.app_role !== user.app_role) {
                     updateData.app_role = data.app_role;
-                }
-
-                if (data.password) {
-                    updateData.password = data.password;
                 }
 
                 await usersService.updateUser(user.id, updateData);
@@ -348,24 +341,31 @@ export function UserDialog({ open, onOpenChange, user, buildings, onSuccess, def
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{user ? 'Nueva contraseña (opcional)' : 'Contraseña'}</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            {...field}
-                                            type="password"
-                                            placeholder={user ? 'Dejá en blanco para conservar la actual' : '******'}
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        {user ? (
+                            <div className="flex items-start gap-2 rounded-lg border border-border/40 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+                                <span className="mt-0.5 shrink-0">🔑</span>
+                                <span>Para restablecer la contraseña usá la opción <strong className="text-foreground">"Enviar email de recuperación"</strong> en el menú de acciones del usuario.</span>
+                            </div>
+                        ) : (
+                            <FormField
+                                control={form.control}
+                                name="password"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Contraseña</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                {...field}
+                                                type="password"
+                                                placeholder="******"
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         <FormItem>
                             <FormLabel className="flex items-center gap-2">
