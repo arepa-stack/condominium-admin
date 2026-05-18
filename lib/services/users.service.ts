@@ -84,6 +84,13 @@ export const usersService = {
     await apiClient.delete(`${P}/users/${id}`);
   },
 
+  async sendPasswordReset(id: string): Promise<{ success: boolean }> {
+    const { data } = await apiClient.post<{ success: boolean }>(
+      `${P}/users/${id}/send-password-reset`,
+    );
+    return data;
+  },
+
   async assignOrUpdateUnit(
     userId: string,
     payload: AssignUnitDto,

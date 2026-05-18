@@ -27,20 +27,33 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Building2, Crown, Home, Users } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Building2, Crown, Home, Users, Mail, QrCode, UserPlus, Shield } from 'lucide-react';
 import { UserDialog } from '@/components/users/UserDialog';
 import { UserRoleManager } from '@/components/users/UserRoleManager';
 import { UserUnitsManager } from '@/components/users/UserUnitsManager';
 import { BuildingRoleBadge } from '@/components/users/BuildingRoleBadge';
 import { formatUserRole } from '@/lib/utils/format';
 import { getEffectiveRole } from '@/lib/utils/roles';
-import type { User, Building, Unit, PaginationMetadata } from '@/types/models';
+import type { User, Building, Unit, PaginationMetadata, UserSource } from '@/types/models';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { Paginator } from '@/components/ui/paginator';
 import { CreateBoardMemberDialog } from '@/components/users/CreateBoardMemberDialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 const PAGE_SIZE = 20;
+
+function SourceBadge({ source }: { source?: UserSource }) {
+    if (!source || source === 'admin') return null;
+    return (
+        <Badge variant="outline" className="gap-1 font-normal text-[10px] mt-1">
+            {source === 'qr' ? (
+                <><QrCode className="h-2.5 w-2.5" /> QR</>
+            ) : (
+                <><UserPlus className="h-2.5 w-2.5" /> Invitación</>
+            )}
+        </Badge>
+    );
+}
 
 export default function UsersPage() {
     const { isSuperAdmin, isBoardMember, user: currentUser, buildingId } = usePermissions();
@@ -68,6 +81,9 @@ export default function UsersPage() {
 
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    const [pendingResetUser, setPendingResetUser] = useState<User | null>(null);
+    const [isResetting, setIsResetting] = useState(false);
 
     // Explicit filter wins, else fall back to globally selected building
     const activeBuildingId =
@@ -166,6 +182,21 @@ export default function UsersPage() {
         }
     };
 
+    const confirmPasswordReset = async () => {
+        if (!pendingResetUser) return;
+        setIsResetting(true);
+        try {
+            await usersService.sendPasswordReset(pendingResetUser.id);
+            toast.success(`Email de recuperación enviado a ${pendingResetUser.email}`);
+            setPendingResetUser(null);
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo enviar el email de recuperación');
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     const handleStatusChange = async (userId: string, status: 'active' | 'rejected') => {
         try {
             if (status === 'active') {
@@ -261,33 +292,42 @@ export default function UsersPage() {
                 {isLoading ? (
                     <TableSkeleton rows={5} columns={5} />
                 ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Usuario</TableHead>
-                                <TableHead>Rol</TableHead>
-                                <TableHead>Unidades y edificios</TableHead>
-                                <TableHead>Estado</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {users.length === 0 ? (
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={5} className="p-0">
-                                        <EmptyState icon={Users} message="No hay usuarios que coincidan con los filtros" variant="inline" />
-                                    </TableCell>
+                                    <TableHead>Usuario</TableHead>
+                                    <TableHead>Rol</TableHead>
+                                    <TableHead>Origen</TableHead>
+                                    <TableHead>Unidades y edificios</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
                                 </TableRow>
-                            ) : (
-                                users.map((user) => (
-                                    <TableRow key={user.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{user.name}</div>
-                                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                            </TableHeader>
+                            <TableBody>
+                                {users.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="p-0">
+                                            <EmptyState icon={Users} message="No hay usuarios que coincidan con los filtros" variant="inline" />
                                         </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{formatUserRole(getEffectiveRole(user))}</Badge>
-                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    users.map((user) => (
+                                        <TableRow key={user.id}>
+                                            <TableCell>
+                                                <div className="font-medium">{user.name}</div>
+                                                <div className="text-sm text-muted-foreground">{user.email}</div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">{formatUserRole(getEffectiveRole(user))}</Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <SourceBadge source={user.source} />
+                                                {(!user.source || user.source === 'admin') && (
+                                                    <Badge variant="outline" className="gap-1 font-normal text-[10px]">
+                                                        <Shield className="h-2.5 w-2.5" /> Admin
+                                                    </Badge>
+                                                )}
+                                            </TableCell>
                                         <TableCell className="whitespace-normal">
                                             {user.units && user.units.length > 0 ? (
                                                 <div className="space-y-1.5 max-w-md">
@@ -365,6 +405,10 @@ export default function UsersPage() {
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => handleManageRoles(user)}>
                                                         <Crown className="mr-2 h-4 w-4" /> Gestionar roles
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => setPendingResetUser(user)}>
+                                                        <Mail className="mr-2 h-4 w-4" /> Enviar email de recuperación
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
@@ -488,6 +532,10 @@ export default function UsersPage() {
                                                     <Crown className="mr-2 h-4 w-4" /> Gestionar roles
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => setPendingResetUser(user)}>
+                                                    <Mail className="mr-2 h-4 w-4" /> Enviar email de recuperación
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" /> Eliminar usuario
                                                 </DropdownMenuItem>
@@ -546,6 +594,16 @@ export default function UsersPage() {
                 variant="destructive"
                 loading={isDeleting}
                 onConfirm={confirmDelete}
+            />
+
+            <ConfirmDialog
+                open={!!pendingResetUser}
+                onOpenChange={(o) => !o && setPendingResetUser(null)}
+                title="Restablecer contraseña"
+                description={`Se enviará un email a ${pendingResetUser?.email} con un enlace para crear una nueva contraseña.`}
+                confirmLabel="Enviar email"
+                loading={isResetting}
+                onConfirm={confirmPasswordReset}
             />
         </div>
     );
