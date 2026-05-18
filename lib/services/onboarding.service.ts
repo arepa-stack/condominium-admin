@@ -1,37 +1,17 @@
+/**
+ * Onboarding service — unit invitations only.
+ *
+ * Registration requests (QR/invitation flows) now create pending users directly
+ * in the `profiles` table. Manage them from the Usuarios section (/users).
+ *
+ * The old approveRegistrationRequest / rejectRegistrationRequest / getRegistrationRequests
+ * methods have been removed. Use usersService.approveUser / rejectUser instead.
+ */
 import { apiClient } from "@/lib/api/client";
 import { ADMIN_API_PREFIX } from "@/lib/utils/constants";
-import type { RegistrationRequest } from "@/types/models";
 
 const P = ADMIN_API_PREFIX;
 
 export const onboardingService = {
-  /**
-   * List registration requests. 
-   * Board members only see requests for their buildings.
-   * Admins see all.
-   */
-  async getRegistrationRequests(params?: { building_id?: string; status?: string }): Promise<RegistrationRequest[]> {
-    const { data } = await apiClient.get<RegistrationRequest[]>(`${P}/registration-requests`, {
-      params,
-    });
-    return data;
-  },
-
-  /**
-   * Approves a request, creating the resident profile and sending credentials.
-   */
-  async approveRegistrationRequest(id: string): Promise<{ success: boolean }> {
-    const { data } = await apiClient.post<{ success: boolean }>(`${P}/registration-requests/${id}/approve`);
-    return data;
-  },
-
-  /**
-   * Rejects a request with an optional reason.
-   */
-  async rejectRegistrationRequest(id: string, reason?: string): Promise<{ success: boolean }> {
-    const { data } = await apiClient.post<{ success: boolean }>(`${P}/registration-requests/${id}/reject`, {
-      reason,
-    });
-    return data;
-  },
+  // Future: unit invitation management endpoints can be added here.
 };

@@ -25,6 +25,7 @@ export type InvoiceType = "EXPENSE" | "DEBT" | "EXTRAORDINARY" | "PETTY_CASH_REP
 export type UserRole = "resident" | "board" | "admin";
 export type AppRole = "admin" | "user";
 export type UserStatus = "pending" | "active" | "inactive" | "rejected";
+export type UserSource = "qr" | "invitation" | "admin";
 
 export interface UserUnit {
   unit_id: string;
@@ -40,6 +41,8 @@ export interface User {
   email: string;
   name: string;
   phone?: string | null;
+  document_id?: string | null;
+  source?: UserSource;
   // Deprecating single unit_id/unit checks
   unit?: string;
   unit_id?: string;

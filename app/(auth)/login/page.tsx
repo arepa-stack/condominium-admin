@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { loginSchema } from '@/lib/utils/validation';
-import { Building2, Mail, Loader2, KeyRound } from 'lucide-react';
+import { Building2, Mail, Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -37,6 +37,7 @@ export default function LoginPage() {
         resolver: zodResolver(loginSchema),
     });
 
+    const [showPassword, setShowPassword] = useState(false);
     const [resetEmail, setResetEmail] = useState('');
     const [isResetting, setIsResetting] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -111,14 +112,26 @@ export default function LoginPage() {
 
                             <div className="space-y-2">
                                 <Label htmlFor="password" className="text-sm text-muted-foreground">Contraseña</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    {...register('password')}
-                                    disabled={isLoading}
-                                    className="bg-background/50 border-border/50 focus:border-primary/30"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        placeholder="••••••••"
+                                        {...register('password')}
+                                        disabled={isLoading}
+                                        className="bg-background/50 border-border/50 focus:border-primary/30 pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((v) => !v)}
+                                        disabled={isLoading}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                                        tabIndex={-1}
+                                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                                 {errors.password && (
                                     <p className="text-sm text-destructive">{errors.password.message}</p>
                                 )}

@@ -27,7 +27,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Crown, Home, Users } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Crown, Home, Users, Mail, QrCode, UserPlus, Shield } from 'lucide-react';
 import { UserDialog } from '@/components/users/UserDialog';
 import { UserRoleManager } from '@/components/users/UserRoleManager';
 import { UserUnitsManager } from '@/components/users/UserUnitsManager';
@@ -35,8 +35,28 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { BuildingRoleBadge } from '@/components/users/BuildingRoleBadge';
 import { formatUserRole } from '@/lib/utils/format';
 import { getEffectiveRole } from '@/lib/utils/roles';
-import type { User, Building, Unit } from '@/types/models';
+import type { User, Building, Unit, UserSource, PaginationMetadata } from '@/types/models';
 import { useParams } from 'next/navigation';
+import { Paginator } from '@/components/ui/paginator';
+
+const PAGE_SIZE = 20;
+
+function SourceBadge({ source }: { source?: UserSource }) {
+    if (!source || source === 'admin') return (
+        <Badge variant="outline" className="gap-1 font-normal text-[10px]">
+            <Shield className="h-2.5 w-2.5" /> Admin
+        </Badge>
+    );
+    return (
+        <Badge variant="outline" className="gap-1 font-normal text-[10px]">
+            {source === 'qr' ? (
+                <><QrCode className="h-2.5 w-2.5" /> QR</>
+            ) : (
+                <><UserPlus className="h-2.5 w-2.5" /> Invitación</>
+            )}
+        </Badge>
+    );
+}
 
 export default function BuildingUsersPage() {
     const { isSuperAdmin, isBoardMember, user: currentUser } = usePermissions();
@@ -44,6 +64,8 @@ export default function BuildingUsersPage() {
     const buildingId = params.id as string;
 
     const [users, setUsers] = useState<User[]>([]);
+    const [usersMetadata, setUsersMetadata] = useState<PaginationMetadata | null>(null);
+    const [page, setPage] = useState(1);
     const [building, setBuilding] = useState<Building | null>(null);
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -63,23 +85,38 @@ export default function BuildingUsersPage() {
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    const [pendingResetUser, setPendingResetUser] = useState<User | null>(null);
+    const [isResetting, setIsResetting] = useState(false);
+
+    // Reset to first page when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [filterRole, filterStatus]);
+
     const fetchData = useCallback(async () => {
         if (!buildingId) return;
 
         try {
             setIsLoading(true);
 
-            const query: Record<string, string> = { building_id: buildingId };
+            const query: {
+                page: number;
+                limit: number;
+                building_id: string;
+                role?: string;
+                status?: string;
+            } = { page, limit: PAGE_SIZE, building_id: buildingId };
             if (filterRole && filterRole !== 'all') query.role = filterRole;
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
 
-            const [usersData, buildingData, unitsData] = await Promise.all([
-                usersService.getUsers(query),
+            const [usersResp, buildingData, unitsData] = await Promise.all([
+                usersService.getUsersPaginated(query),
                 buildingsService.getBuildingById(buildingId),
                 unitsService.getUnits(buildingId)
             ]);
 
-            setUsers(usersData);
+            setUsers(usersResp.data);
+            setUsersMetadata(usersResp.metadata);
             setBuilding(buildingData);
             setUnits(unitsData);
         } catch (error) {
@@ -88,7 +125,7 @@ export default function BuildingUsersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [buildingId, filterRole, filterStatus]);
+    }, [buildingId, filterRole, filterStatus, page]);
 
     useEffect(() => {
         fetchData();
@@ -122,6 +159,21 @@ export default function BuildingUsersPage() {
             toast.error('Error al eliminar el usuario');
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const confirmPasswordReset = async () => {
+        if (!pendingResetUser) return;
+        setIsResetting(true);
+        try {
+            await usersService.sendPasswordReset(pendingResetUser.id);
+            toast.success(`Email de recuperación enviado a ${pendingResetUser.email}`);
+            setPendingResetUser(null);
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo enviar el email de recuperación');
+        } finally {
+            setIsResetting(false);
         }
     };
 
@@ -193,6 +245,7 @@ export default function BuildingUsersPage() {
                         <TableRow>
                             <TableHead>Usuario</TableHead>
                             <TableHead>Rol</TableHead>
+                            <TableHead>Origen</TableHead>
                             <TableHead>Unidades</TableHead>
                             <TableHead>Estado</TableHead>
                             <TableHead className="text-right">Acciones</TableHead>
@@ -201,7 +254,7 @@ export default function BuildingUsersPage() {
                     <TableBody>
                         {users.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="p-0">
+                                <TableCell colSpan={6} className="p-0">
                                     <EmptyState icon={Users} message="No se encontraron usuarios" variant="inline" />
                                 </TableCell>
                             </TableRow>
@@ -214,6 +267,9 @@ export default function BuildingUsersPage() {
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className="font-medium">{formatUserRole(getEffectiveRole(user, buildingId))}</Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <SourceBadge source={user.source} />
                                     </TableCell>
                                     <TableCell className="whitespace-normal">
                                         {user.units && user.units.length > 0 ? (
@@ -284,6 +340,10 @@ export default function BuildingUsersPage() {
                                                     <Crown className="mr-2 h-4 w-4" /> Gestionar roles
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => setPendingResetUser(user)}>
+                                                    <Mail className="mr-2 h-4 w-4" /> Enviar email de recuperación
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" /> Eliminar usuario
                                                 </DropdownMenuItem>
@@ -296,6 +356,12 @@ export default function BuildingUsersPage() {
                     </TableBody>
                 </Table>
             )}
+
+            <Paginator
+                metadata={usersMetadata}
+                isLoading={isLoading}
+                onPageChange={setPage}
+            />
 
             <UserDialog
                 open={isDialogOpen}
@@ -328,6 +394,16 @@ export default function BuildingUsersPage() {
                 variant="destructive"
                 loading={isDeleting}
                 onConfirm={confirmDelete}
+            />
+
+            <ConfirmDialog
+                open={!!pendingResetUser}
+                onOpenChange={(o) => !o && setPendingResetUser(null)}
+                title="Restablecer contraseña"
+                description={`Se enviará un email a ${pendingResetUser?.email} con un enlace para crear una nueva contraseña.`}
+                confirmLabel="Enviar email"
+                loading={isResetting}
+                onConfirm={confirmPasswordReset}
             />
         </div>
     );
