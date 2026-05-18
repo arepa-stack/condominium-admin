@@ -14,7 +14,7 @@ import {
     Wallet,
     Settings,
     Vote,
-    UserPlus,
+    Landmark,
     Megaphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { getEffectiveRole } from '@/lib/utils/roles';
 import { formatUserRole } from '@/lib/utils/format';
+import { useUnreadLeadsCount } from '@/lib/hooks/useUnreadLeadsCount';
 
 type NavAccess = 'admin-only' | 'board-or-admin';
 
@@ -42,7 +43,7 @@ const navigation: Array<{
     access: NavAccess;
 }> = [
     { name: 'Panel', href: '/dashboard', icon: LayoutDashboard, access: 'board-or-admin' },
-    { name: 'Solicitudes', href: '/onboarding/requests', icon: UserPlus, access: 'board-or-admin' },
+    { name: 'Solicitudes', href: '/onboarding/requests', icon: Landmark, access: 'board-or-admin' },
     { name: 'Edificios', href: '/buildings', icon: Building2, access: 'admin-only' },
     { name: 'Unidades', href: '/units', icon: Home, access: 'board-or-admin' },
     { name: 'Usuarios', href: '/users', icon: Users, access: 'board-or-admin' },
@@ -61,6 +62,7 @@ export function Sidebar() {
     const { user, isSuperAdmin, isBoardMember, displayName } = usePermissions();
     const { selectedBuildingId, setSelectedBuildingId, availableBuildings } = useBuildingContext();
     const [open, setOpen] = useState(false);
+    const unreadLeadsCount = useUnreadLeadsCount();
     // Solo sincronizamos params.id como buildingId cuando estamos en /buildings/<id>/...
     // En otras rutas con [id] (ej. /decisions/[id]) el id no es un edificio.
     const urlBuildingId =
@@ -213,6 +215,17 @@ export function Sidebar() {
                                     isActive ? "text-primary" : "text-muted-foreground/60 group-hover:text-foreground/70"
                                 )} />
                                 {item.name}
+                                {item.name === 'Solicitudes' && unreadLeadsCount > 0 && (
+                                    <span className="ml-auto flex items-center gap-1.5">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                                        </span>
+                                        <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-none">
+                                            {unreadLeadsCount}
+                                        </span>
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}
