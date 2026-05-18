@@ -10,9 +10,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip-simple';
 import Link from 'next/link';
+import { BuildingQrDialog } from '@/components/buildings/BuildingQrDialog';
 
 import type { Building } from '@/types/models';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 
 interface BuildingSummaryBarProps {
@@ -21,7 +22,10 @@ interface BuildingSummaryBarProps {
 
 export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const [building, setBuilding] = useState<Building | null>(null);
+    const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
     const [stats, setStats] = useState({
         totalDebt: 0,
@@ -30,6 +34,19 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
     });
     const [isBuildingLoading, setIsBuildingLoading] = useState(true);
     const [isStatsLoading, setIsStatsLoading] = useState(true);
+
+    useEffect(() => {
+        if (searchParams.get('open') === 'qr') {
+            setIsQrDialogOpen(true);
+        }
+    }, [searchParams]);
+
+    const handleQrOpenChange = (open: boolean) => {
+        setIsQrDialogOpen(open);
+        if (!open && searchParams.get('open') === 'qr') {
+            router.replace(pathname, { scroll: false });
+        }
+    };
 
     useEffect(() => {
         const controller = new AbortController();
@@ -155,12 +172,15 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                             </Tooltip>
 
                             <Tooltip content="Ver QR de Registro">
-                                <Link href={`${pathname}?open=qr`} scroll={false}>
-                                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
-                                        <QrCode className="h-3.5 w-3.5" />
-                                        <span>QR</span>
-                                    </Button>
-                                </Link>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all"
+                                    onClick={() => setIsQrDialogOpen(true)}
+                                >
+                                    <QrCode className="h-3.5 w-3.5" />
+                                    <span>QR</span>
+                                </Button>
                             </Tooltip>
 
                             <div className="w-px h-6 bg-border/40 mx-1" />
@@ -193,6 +213,12 @@ export function BuildingSummaryBar({ buildingId }: BuildingSummaryBarProps) {
                     <div className="h-full bg-primary animate-progress-indeterminate w-1/3" />
                 </div>
             )}
+
+            <BuildingQrDialog
+                open={isQrDialogOpen}
+                onOpenChange={handleQrOpenChange}
+                building={building}
+            />
         </Card>
     );
 }
