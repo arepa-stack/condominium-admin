@@ -26,4 +26,13 @@ export const unitsService = {
         const { data } = await apiClient.post<Unit[]>(`${P}/buildings/${buildingId}/units/batch`, payload);
         return data;
     },
+
+    async deleteUnit(buildingId: string, unitId: string): Promise<void> {
+        await apiClient.delete(`${P}/buildings/${buildingId}/units/${unitId}`);
+    },
+
+    async deleteAllUnits(buildingId: string): Promise<{ deletedCount: number }> {
+        const { data } = await apiClient.delete<{ deletedCount: number }>(`${P}/buildings/${buildingId}/units`);
+        return data;
+    },
 };

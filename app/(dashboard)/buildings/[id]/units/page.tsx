@@ -7,20 +7,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     Home,
-    Building2,
     Eye,
     Search,
     MapPin,
-    Users,
     AlertCircle,
     AlertTriangle,
     Plus,
-    Wand2
+    Wand2,
+    Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { CreateUnitDialog } from '@/components/buildings/CreateUnitDialog';
 import { BatchUnitWizard } from '@/components/buildings/BatchUnitWizard';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { Unit, Building } from '@/types/models';
@@ -35,6 +35,9 @@ export default function BuildingUnitsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isBatchOpen, setIsBatchOpen] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
+    const [pendingDeleteUnit, setPendingDeleteUnit] = useState<Unit | null>(null);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -82,6 +85,46 @@ export default function BuildingUnitsPage() {
         return matchesSearch;
     });
 
+    const handleDeleteUnit = async () => {
+        if (!isSuperAdmin) {
+            toast.error('Solo un admin puede eliminar unidades');
+            return;
+        }
+        if (!pendingDeleteUnit) return;
+
+        try {
+            setActionLoading(true);
+            await unitsService.deleteUnit(buildingId, pendingDeleteUnit.id);
+            toast.success(`Unidad ${pendingDeleteUnit.name} eliminada`);
+            setPendingDeleteUnit(null);
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to delete unit:', error);
+            toast.error('No se pudo eliminar la unidad');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleDeleteAllUnits = async () => {
+        if (!isSuperAdmin) {
+            toast.error('Solo un admin puede eliminar unidades');
+            return;
+        }
+        try {
+            setActionLoading(true);
+            const result = await unitsService.deleteAllUnits(buildingId);
+            toast.success(`Se eliminaron ${result.deletedCount} unidades`);
+            setConfirmDeleteAllOpen(false);
+            await fetchData();
+        } catch (error) {
+            console.error('Failed to delete all units:', error);
+            toast.error('No se pudieron eliminar las unidades');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
 
 
     return (
@@ -100,6 +143,16 @@ export default function BuildingUnitsPage() {
                         <Wand2 className="mr-2 h-4 w-4" />
                         Auto-generar
                     </Button>
+                    {isSuperAdmin && (
+                        <Button
+                            variant="destructive"
+                            onClick={() => setConfirmDeleteAllOpen(true)}
+                            disabled={units.length === 0 || actionLoading}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar todas
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -195,6 +248,18 @@ export default function BuildingUnitsPage() {
                                             Configurar detalles
                                         </Button>
                                     </Link>
+                                    {isSuperAdmin && (
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            className="w-full mt-2 text-xs"
+                                            disabled={actionLoading}
+                                            onClick={() => setPendingDeleteUnit(unit)}
+                                        >
+                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                            Eliminar unidad
+                                        </Button>
+                                    )}
                                 </CardContent>
                             </Card>
                         );
@@ -216,6 +281,34 @@ export default function BuildingUnitsPage() {
                 onClose={() => setIsBatchOpen(false)}
                 onSuccess={fetchData}
             />
+
+            {isSuperAdmin && (
+                <ConfirmDialog
+                    open={!!pendingDeleteUnit}
+                    onOpenChange={(o) => !o && setPendingDeleteUnit(null)}
+                    title="Eliminar unidad"
+                    description={`¿Eliminar la unidad "${pendingDeleteUnit?.name ?? ''}"? Esta acción no se puede deshacer.`}
+                    confirmLabel="Eliminar"
+                    cancelLabel="Cancelar"
+                    variant="destructive"
+                    loading={actionLoading}
+                    onConfirm={handleDeleteUnit}
+                />
+            )}
+
+            {isSuperAdmin && (
+                <ConfirmDialog
+                    open={confirmDeleteAllOpen}
+                    onOpenChange={setConfirmDeleteAllOpen}
+                    title="Eliminar todas las unidades"
+                    description={`¿Eliminar todas las unidades de ${building?.name ?? 'este edificio'}? Esta acción no se puede deshacer.`}
+                    confirmLabel="Eliminar todas"
+                    cancelLabel="Cancelar"
+                    variant="destructive"
+                    loading={actionLoading}
+                    onConfirm={handleDeleteAllUnits}
+                />
+            )}
         </div>
     );
 }
