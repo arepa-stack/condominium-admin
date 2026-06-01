@@ -98,9 +98,24 @@ export const authService = {
     },
 
     async changePasswordFirstLogin(newPassword: string): Promise<{ success: boolean }> {
-        const { data } = await apiClient.post('/auth/change-password-first-login', {
+        const { data } = await apiClient.post<{
+            success: boolean;
+            access_token?: string;
+            refresh_token?: string;
+            expires_in?: number;
+        }>('/auth/change-password-first-login', {
             newPassword,
         });
-        return data;
+
+        // Changing the password invalidates the previous access token, so the
+        // backend returns a fresh session. Persist it to avoid 401s right after.
+        if (data.access_token) {
+            localStorage.setItem('access_token', data.access_token);
+        }
+        if (data.refresh_token) {
+            localStorage.setItem('refresh_token', data.refresh_token);
+        }
+
+        return { success: data.success };
     },
 };
