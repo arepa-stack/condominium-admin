@@ -594,6 +594,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                 user={null}
                 buildings={buildings}
                 defaultBuildingId={buildingId}
+                defaultUnitId={unitId}
                 onSuccess={fetchData}
             />
         </div>
