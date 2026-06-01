@@ -217,7 +217,9 @@ export default function BuildingUsersPage() {
                             <SelectItem value="all">Todos los roles</SelectItem>
                             <SelectItem value="resident">Residente</SelectItem>
                             <SelectItem value="board">Miembro de junta</SelectItem>
-                            <SelectItem value="admin">Administrador</SelectItem>
+                            {isSuperAdmin && (
+                                <SelectItem value="admin">Administrador</SelectItem>
+                            )}
                         </SelectContent>
                     </Select>
                 </div>

@@ -15,7 +15,7 @@ const fontDisplay = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Condominio Admin Panel",
+  title: "Apto Admin Panel",
   description: "Admin panel for managing condominium payments and users",
 };
 
