@@ -43,7 +43,7 @@ const navigation: Array<{
     access: NavAccess;
 }> = [
     { name: 'Panel', href: '/dashboard', icon: LayoutDashboard, access: 'board-or-admin' },
-    { name: 'Solicitudes', href: '/onboarding/requests', icon: Landmark, access: 'board-or-admin' },
+    { name: 'Solicitudes', href: '/onboarding/requests', icon: Landmark, access: 'admin-only' },
     { name: 'Edificios', href: '/buildings', icon: Building2, access: 'admin-only' },
     { name: 'Unidades', href: '/units', icon: Home, access: 'board-or-admin' },
     { name: 'Usuarios', href: '/users', icon: Users, access: 'board-or-admin' },
@@ -105,7 +105,7 @@ export function Sidebar() {
                         <Building2 className="w-5 h-5 text-primary" />
                     </div>
                     <span className="text-lg font-bold tracking-tight text-foreground">
-                        Condominio
+                        Apto
                     </span>
                 </div>
 
@@ -234,6 +234,10 @@ export function Sidebar() {
 
             {/* User Profile */}
             <div className="px-4 space-y-3">
+                {/* Brand footer */}
+                <p className="text-center text-[10px] text-muted-foreground/50 pb-1 tracking-wide">
+                    Apto by <span className="text-white/70 font-semibold">nibs</span>
+                </p>
                 <div className="rounded-lg p-3 border border-border/50 bg-sidebar-accent/30">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center border border-primary/15 text-primary font-semibold text-sm">
