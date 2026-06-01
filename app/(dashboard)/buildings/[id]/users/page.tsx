@@ -146,12 +146,20 @@ export default function BuildingUsersPage() {
         setIsUnitsManagerOpen(true);
     };
 
+    // Admins can delete anyone. Board members may only deactivate (soft delete)
+    // residents of their own building — never other board members or admins.
+    const canDeleteUser = (target: User): boolean => {
+        if (isSuperAdmin) return true;
+        if (isBoardMember) return getEffectiveRole(target, buildingId) === 'resident';
+        return false;
+    };
+
     const confirmDelete = async () => {
         if (!pendingDeleteId) return;
         setIsDeleting(true);
         try {
             await usersService.deleteUser(pendingDeleteId);
-            toast.success('Usuario eliminado');
+            toast.success(isSuperAdmin ? 'Usuario eliminado' : 'Usuario dado de baja');
             setPendingDeleteId(null);
             fetchData();
         } catch (error) {
@@ -345,10 +353,14 @@ export default function BuildingUsersPage() {
                                                 <DropdownMenuItem onClick={() => setPendingResetUser(user)}>
                                                     <Mail className="mr-2 h-4 w-4" /> Enviar email de recuperación
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar usuario
-                                                </DropdownMenuItem>
+                                                {canDeleteUser(user) && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => setPendingDeleteId(user.id)} className="text-destructive">
+                                                            <Trash2 className="mr-2 h-4 w-4" /> {isSuperAdmin ? 'Eliminar usuario' : 'Dar de baja'}
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -390,9 +402,11 @@ export default function BuildingUsersPage() {
             <ConfirmDialog
                 open={!!pendingDeleteId}
                 onOpenChange={(o) => !o && setPendingDeleteId(null)}
-                title="Eliminar usuario"
-                description="¿Seguro que querés eliminar este usuario?"
-                confirmLabel="Eliminar"
+                title={isSuperAdmin ? 'Eliminar usuario' : 'Dar de baja al residente'}
+                description={isSuperAdmin
+                    ? '¿Seguro que querés eliminar este usuario? Esta acción no se puede deshacer.'
+                    : '¿Seguro que querés dar de baja a este residente? Quedará marcado como inactivo y perderá el acceso, pero su historial se conserva.'}
+                confirmLabel={isSuperAdmin ? 'Eliminar' : 'Dar de baja'}
                 variant="destructive"
                 loading={isDeleting}
                 onConfirm={confirmDelete}

@@ -188,13 +188,12 @@ export interface UpdateUserDto {
 
 export interface CreateUserDto {
   email: string;
-  password: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  document_id: string;
   role: UserRole;
   building_id: string;
-  buildingRoles?: { building_id: string; role: string }[];
-  unit?: string;
-  unit_id?: string; // [NEW]
+  unit_id?: string;
   phone?: string;
   board_position?: string;
 }
