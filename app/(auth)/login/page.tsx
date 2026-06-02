@@ -85,7 +85,7 @@ export default function LoginPage() {
                         <Building2 className="w-6 h-6 text-primary" />
                     </div>
                     <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">
-                        Condominio
+                        Apto
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
                         Iniciá sesión para gestionar tu comunidad
@@ -204,7 +204,7 @@ export default function LoginPage() {
                 </Card>
 
                 <p className="text-xs text-muted-foreground/50 text-center mt-6">
-                    Sistema de Administración de Condominios
+                    Apto by <span className="text-foreground dark:text-white font-bold">Nibs</span>
                 </p>
             </div>
         </div>
