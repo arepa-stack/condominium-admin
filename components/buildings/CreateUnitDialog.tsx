@@ -50,7 +50,13 @@ export function CreateUnitDialog({ buildingId, isOpen, onClose, onSuccess }: Cre
 
     const onSubmit = async (data: FormData) => {
         try {
-            await unitsService.createUnit(buildingId, data);
+            const floorPrefix = data.floor ? `${data.floor}-` : '';
+            const formattedName = data.name.startsWith(floorPrefix) ? data.name : `${floorPrefix}${data.name}`;
+
+            await unitsService.createUnit(buildingId, {
+                ...data,
+                name: formattedName
+            });
             toast.success('Unidad creada correctamente');
             onSuccess();
             onClose();
