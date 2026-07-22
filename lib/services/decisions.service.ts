@@ -9,6 +9,7 @@ import type {
     DecisionTally,
     DecisionAuditEntry,
     CreateDecisionDto,
+    CreateDirectDecisionResponse,
     ExtendDeadlinesDto,
     CancelDecisionDto,
     ResolveTiebreakDto,
@@ -51,6 +52,15 @@ export const decisionsService = {
 
     async create(dto: CreateDecisionDto): Promise<Decision> {
         const { data } = await apiClient.post<Decision>(P, dto);
+        return data;
+    },
+
+    async createDirect(fd: FormData): Promise<CreateDirectDecisionResponse> {
+        const { data } = await apiClient.post<CreateDirectDecisionResponse>(
+            `${P}/direct`,
+            fd,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+        );
         return data;
     },
 
