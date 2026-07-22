@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -47,119 +47,82 @@ const DECISION_PHOTO_MIME_ALLOWED = [
     'image/webp',
 ] as const;
 
+const commonFields = {
+    building_id: z.string().min(1, 'Selecciona un edificio'),
+    title: z
+        .string()
+        .min(5, 'El título debe tener al menos 5 caracteres')
+        .max(200, 'El título no puede superar 200 caracteres'),
+    description: z.string(),
+};
+
+const votingSchema = z.object({
+    ...commonFields,
+    process_type: z.literal('VOTING'),
+    reception_deadline: z.string().min(1, 'La fecha límite de recepción es obligatoria'),
+    voting_deadline: z.string().min(1, 'La fecha límite de votación es obligatoria'),
+    tiebreak_duration_hours: z.coerce.number().int().min(1).max(720),
+    photo: z
+        .instanceof(File)
+        .optional()
+        .refine(
+            (file) =>
+                !file ||
+                (DECISION_PHOTO_MIME_ALLOWED as readonly string[]).includes(file.type),
+            'Solo se aceptan JPEG, PNG o WebP.',
+        )
+        .refine(
+            (file) => !file || file.size <= DECISION_PHOTO_MAX_BYTES,
+            'La foto supera el tamaño máximo de 5 MB.',
+        ),
+});
+
+const directAwardSchema = z.object({
+    ...commonFields,
+    process_type: z.literal('DIRECT_AWARD'),
+    provider_name: z.string().trim().min(2, 'Ingresa el nombre del proveedor'),
+    amount: z.string().trim().refine(
+        (value) => value !== '' && Number.isFinite(Number(value)) && Number(value) > 0,
+        'Ingresa un monto mayor a cero',
+    ),
+    notes: z.string(),
+    quote_file: z
+        .instanceof(File)
+        .optional()
+        .refine(
+            (file) =>
+                !file ||
+                (DECISION_QUOTE_MIME_ALLOWED as readonly string[]).includes(file.type),
+            'Solo se aceptan PDF, JPEG, PNG o WebP.',
+        )
+        .refine(
+            (file) => !file || file.size <= DECISION_QUOTE_MAX_BYTES,
+            'La cotización supera el tamaño máximo de 5 MB.',
+        ),
+    reason: z
+        .string()
+        .trim()
+        .min(5, 'Explica brevemente por qué se adjudica sin votación'),
+});
+
 const schema = z
-    .object({
-        process_type: z.enum(['VOTING', 'DIRECT_AWARD']),
-        building_id: z.string().min(1, 'Selecciona un edificio'),
-        title: z
-            .string()
-            .min(5, 'El título debe tener al menos 5 caracteres')
-            .max(200, 'El título no puede superar 200 caracteres'),
-        description: z.string().optional(),
-        reception_deadline: z.string().optional(),
-        voting_deadline: z.string().optional(),
-        tiebreak_duration_hours: z.coerce.number().int().min(1).max(720),
-        photo: z
-            .instanceof(File)
-            .optional()
-            .refine(
-                (file) =>
-                    !file ||
-                    (DECISION_PHOTO_MIME_ALLOWED as readonly string[]).includes(file.type),
-                'Solo se aceptan JPEG, PNG o WebP.',
-            )
-            .refine(
-                (file) => !file || file.size <= DECISION_PHOTO_MAX_BYTES,
-                'La foto supera el tamaño máximo de 5 MB.',
-            ),
-        provider_name: z.string().optional(),
-        amount: z.string().optional(),
-        notes: z.string().optional(),
-        quote_file: z.instanceof(File).optional(),
-        reason: z.string().optional(),
-    })
+    .discriminatedUnion('process_type', [votingSchema, directAwardSchema])
     .superRefine((values, ctx) => {
         if (values.process_type === 'VOTING') {
-            if (!values.reception_deadline) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['reception_deadline'],
-                    message: 'La fecha límite de recepción es obligatoria',
-                });
-            }
-            if (!values.voting_deadline) {
+            if (new Date(values.voting_deadline) <= new Date(values.reception_deadline)) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['voting_deadline'],
-                    message: 'La fecha límite de votación es obligatoria',
+                    message: 'La votación debe ser posterior a la recepción',
                 });
             }
-            if (values.reception_deadline && values.voting_deadline) {
-                if (new Date(values.voting_deadline) <= new Date(values.reception_deadline)) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['voting_deadline'],
-                        message: 'La votación debe ser posterior a la recepción',
-                    });
-                }
-            }
-            if (
-                values.reception_deadline &&
-                new Date(values.reception_deadline) <= new Date()
-            ) {
+            if (new Date(values.reception_deadline) <= new Date()) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['reception_deadline'],
                     message: 'La fecha de recepción debe ser en el futuro',
                 });
             }
-            return;
-        }
-
-        if (!values.provider_name || values.provider_name.trim().length < 2) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['provider_name'],
-                message: 'Ingresa el nombre del proveedor',
-            });
-        }
-
-        const amount = Number(values.amount);
-        if (!values.amount || !Number.isFinite(amount) || amount <= 0) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['amount'],
-                message: 'Ingresa un monto mayor a cero',
-            });
-        }
-
-        if (values.quote_file) {
-            if (
-                !(DECISION_QUOTE_MIME_ALLOWED as readonly string[]).includes(
-                    values.quote_file.type,
-                )
-            ) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['quote_file'],
-                    message: 'Solo se aceptan PDF, JPEG, PNG o WebP.',
-                });
-            }
-            if (values.quote_file.size > DECISION_QUOTE_MAX_BYTES) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['quote_file'],
-                    message: 'La cotización supera el tamaño máximo de 5 MB.',
-                });
-            }
-        }
-
-        if (!values.reason || values.reason.trim().length < 5) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['reason'],
-                message: 'Explica brevemente por qué se adjudica sin votación',
-            });
         }
     });
 
@@ -197,7 +160,7 @@ export function DecisionDialog({
     onCreated,
 }: DecisionDialogProps) {
     const form = useForm<FormValues>({
-        resolver: zodResolver(schema) as any,
+        resolver: zodResolver(schema) as unknown as Resolver<FormValues>,
         defaultValues: {
             process_type: 'VOTING',
             building_id: buildingId ?? '',
@@ -293,6 +256,14 @@ export function DecisionDialog({
         }
     };
 
+    const handleInvalid = (errors: FieldErrors<FormValues>) => {
+        const firstMessage = Object.values(errors)
+            .map((error) => error?.message)
+            .find((message): message is string => typeof message === 'string');
+
+        toast.error(firstMessage ?? 'Revisa los campos requeridos antes de continuar.');
+    };
+
     const { isSubmitting } = form.formState;
 
     return (
@@ -304,7 +275,8 @@ export function DecisionDialog({
 
                 <Form {...form}>
                     <form
-                        onSubmit={form.handleSubmit(handleSubmit)}
+                        noValidate
+                        onSubmit={form.handleSubmit(handleSubmit, handleInvalid)}
                         className="space-y-4"
                     >
                         {!buildingId && (
