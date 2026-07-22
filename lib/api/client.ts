@@ -49,7 +49,7 @@ const clearAuthAndRedirect = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.href = '/login?expired=true';
     }
 };
 
@@ -58,9 +58,8 @@ apiClient.interceptors.response.use(
     async (error: AxiosError) => {
         const originalRequest = error.config;
         const url = originalRequest?.url || '';
-        const isAuthEndpoint = url.includes('/users/me');
 
-        if (error.response?.status === 401 && isAuthEndpoint) {
+        if (error.response?.status === 401 && !url.includes('/auth/refresh')) {
             if (isLoginPage()) {
                 return Promise.reject(error);
             }

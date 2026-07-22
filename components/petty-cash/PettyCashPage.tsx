@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
+import { buildingsService } from '@/lib/services/buildings.service';
 import { BalanceCard } from '@/components/petty-cash/BalanceCard';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TransactionDialog, type PettyCashManualEntryType } from '@/components/petty-cash/TransactionDialog';
 import { AssessmentPreviewDialog } from '@/components/petty-cash/AssessmentPreviewDialog';
 import { TransparencyView } from '@/components/petty-cash/TransparencyView';
@@ -35,6 +37,8 @@ import type {
     PettyCashTransparency,
     CreatePettyCashAssessmentDto,
     PaginationMetadata,
+    Building,
+    RateSource,
 } from '@/types/models';
 import { Paginator } from '@/components/ui/paginator';
 import { formatDate, formatMoney } from '@/lib/utils/format';
@@ -100,6 +104,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const period = currentPeriod();
 
     const [balance, setBalance] = useState<PettyCashBalance | null>(null);
+    const [building, setBuilding] = useState<Building | null>(null);
+    const [savingRate, setSavingRate] = useState(false);
     const [entries, setEntries] = useState<PettyCashEntry[]>([]);
     const [entriesMetadata, setEntriesMetadata] = useState<PaginationMetadata | null>(null);
     const [assessmentPreview, setAssessmentPreview] = useState<PettyCashAssessmentPreview | null>(null);
@@ -125,7 +131,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         if (!buildingId) return;
         try {
             setIsLoading(true);
-            const [bal, history, preview, trans] = await Promise.all([
+            const [bal, history, preview, trans, bld] = await Promise.all([
                 pettyCashService.getBalance(buildingId),
                 pettyCashService.getHistoryPaginated(buildingId, {
                     type: filterType !== 'all' ? filterType : undefined,
@@ -135,8 +141,10 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 }),
                 pettyCashService.getAssessmentPreview(buildingId),
                 pettyCashService.getTransparency(buildingId, period),
+                buildingsService.getBuildingById(buildingId).catch(() => null),
             ]);
             setBalance(bal);
+            setBuilding(bld);
             setEntries(history.data);
             setEntriesMetadata(history.metadata);
             setAssessmentPreview(preview);
@@ -189,6 +197,10 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 toast.error('El monto es demasiado bajo para repartir entre las unidades');
             } else if (code === 'NO_UNITS') {
                 toast.error('El edificio no tiene unidades asignadas');
+            } else if (code === 'NO_UNITS_SELECTED') {
+                toast.error('Seleccioná al menos un apartamento');
+            } else if (code === 'INVALID_UNIT_SELECTION') {
+                toast.error('La selección de apartamentos ya no es válida. Actualizá e intentá de nuevo');
             } else {
                 toast.error(err.response?.data?.message || 'Error al generar el prorrateo');
             }
@@ -226,6 +238,21 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const openReverseDialog = (entry: PettyCashEntry) => {
         setEntryToReverse(entry);
         setReverseDialogOpen(true);
+    };
+
+    const handleRateChange = async (source: RateSource) => {
+        setSavingRate(true);
+        try {
+            await buildingsService.updateBuilding(buildingId, { default_rate_source: source });
+            setBuilding((b) => (b ? { ...b, default_rate_source: source } : b));
+            toast.success('Tasa del edificio actualizada');
+        } catch (e) {
+            const err = e as AxiosError<{ message?: string }>;
+            toast.error(err.response?.data?.message || 'No se pudo actualizar (requiere permisos de administrador)');
+            console.error(e);
+        } finally {
+            setSavingRate(false);
+        }
     };
 
     return (
@@ -297,6 +324,34 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     isLoading={isLoading}
                     onRefresh={fetchAll}
                 />
+                {canEdit && (
+                    <Card className="border-border/50 bg-card/50 backdrop-blur-xl md:max-w-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
+                                Tasa del edificio
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                                Moneda de cambio para convertir bolívares a la unidad base del edificio.
+                            </p>
+                            <Select
+                                value={building?.default_rate_source ?? 'dolar_oficial'}
+                                onValueChange={(v) => handleRateChange(v as RateSource)}
+                                disabled={savingRate}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="dolar_oficial">Dólar oficial (BCV)</SelectItem>
+                                    <SelectItem value="euro_oficial">Euro oficial (BCV)</SelectItem>
+                                    <SelectItem value="dolar_paralelo">Paralelo</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             <TransparencyView transparency={transparency} period={period} />

@@ -13,6 +13,7 @@ import type {
     PettyCashTransparency,
     PaginatedResponse,
     PaginationParams,
+    RateSet,
 } from '@/types/models';
 
 interface PettyCashEntryFilters {
@@ -35,7 +36,20 @@ export const pettyCashService = {
         return {
             ...data,
             current_balance: Number(data.current_balance),
+            balances_by_currency: (data.balances_by_currency ?? []).map((b) => ({
+                currency: b.currency,
+                balance: Number(b.balance),
+            })),
         };
+    },
+
+    // Exchange rates live under the app prefix (read-only for any authenticated user).
+    async getRates(date?: string): Promise<RateSet> {
+        const { data } = await apiClient.get<RateSet>(
+            `/api/v1/app/exchange-rates`,
+            { params: date ? { date } : undefined }
+        );
+        return data;
     },
 
     async getHistory(
@@ -65,6 +79,7 @@ export const pettyCashService = {
         fd.append('type', 'income');
         fd.append('amount', String(payload.amount));
         fd.append('description', payload.description);
+        if (payload.currency) fd.append('currency', payload.currency);
 
         const { data } = await apiClient.post<PettyCashEntry>(
             `${P}/petty-cash/funds/${payload.building_id}/entries`,
@@ -136,6 +151,7 @@ export const pettyCashService = {
                 description: payload.description,
                 amount: payload.amount,
                 ...(payload.category ? { category: payload.category } : {}),
+                ...(payload.unit_ids !== undefined ? { unit_ids: payload.unit_ids } : {}),
             }
         );
         return data;

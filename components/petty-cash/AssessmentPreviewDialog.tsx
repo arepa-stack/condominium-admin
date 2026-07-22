@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, AlertTriangle, Info } from 'lucide-react';
 import { formatMoney } from '@/lib/utils/format';
 import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
@@ -54,12 +55,14 @@ export function AssessmentPreviewDialog({
     const [description, setDescription] = useState('');
     const [amountStr, setAmountStr] = useState('');
     const [category, setCategory] = useState<string>(NO_CATEGORY);
+    const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
 
     useEffect(() => {
         if (open && preview) {
             setDescription('');
             setAmountStr(String(preview.pending_to_assess || ''));
             setCategory(NO_CATEGORY);
+            setSelectedUnitIds(preview.units.map((unit) => unit.id));
         }
     }, [open, preview]);
 
@@ -68,12 +71,33 @@ export function AssessmentPreviewDialog({
         return Number.isFinite(n) && n > 0 ? n : 0;
     }, [amountStr]);
 
-    const unitCount = preview?.units.length ?? 0;
-    const perUnit = unitCount > 0 ? amount / unitCount : 0;
-
+    const selectedUnits = useMemo(
+        () => preview?.units.filter((unit) => selectedUnitIds.includes(unit.id)) ?? [],
+        [preview, selectedUnitIds]
+    );
+    const selectedUnitCount = selectedUnits.length;
+    const allUnitsSelected =
+        !!preview &&
+        preview.units.length > 0 &&
+        selectedUnitCount === preview.units.length;
     const amountInCents = Math.round(amount * 100);
+    const invoiceAmountByUnitId = useMemo(() => {
+        const amounts = new Map<string, number>();
+        if (selectedUnits.length === 0 || amountInCents <= 0) {
+            return amounts;
+        }
+
+        const baseAmount = Math.floor(amountInCents / selectedUnits.length);
+        const remainder = amountInCents - baseAmount * selectedUnits.length;
+
+        selectedUnits.forEach((unit, index) => {
+            amounts.set(unit.id, baseAmount + (index < remainder ? 1 : 0));
+        });
+        return amounts;
+    }, [amountInCents, selectedUnits]);
+
     const tooSmallToDistribute =
-        amount > 0 && unitCount > 0 && amountInCents < unitCount;
+        amount > 0 && selectedUnitCount > 0 && amountInCents < selectedUnitCount;
     const exceedsPending =
         !!preview && amount > 0 && amount > preview.pending_to_assess;
     const descriptionValid = description.trim().length > 0;
@@ -90,7 +114,7 @@ export function AssessmentPreviewDialog({
         descriptionValid &&
         amount > 0 &&
         !tooSmallToDistribute &&
-        unitCount > 0 &&
+        selectedUnitCount > 0 &&
         !isGenerating;
 
     const handleSubmit = () => {
@@ -99,7 +123,25 @@ export function AssessmentPreviewDialog({
             description: description.trim(),
             amount,
             category: category === NO_CATEGORY ? undefined : (category as PettyCashCategory),
+            unit_ids: selectedUnits.map((unit) => unit.id),
         });
+    };
+
+    const toggleUnit = (unitId: string) => {
+        setSelectedUnitIds((current) =>
+            current.includes(unitId)
+                ? current.filter((id) => id !== unitId)
+                : [...current, unitId]
+        );
+    };
+
+    const toggleAllUnits = () => {
+        if (!preview) return;
+        if (allUnitsSelected) {
+            setSelectedUnitIds([]);
+            return;
+        }
+        setSelectedUnitIds(preview.units.map((unit) => unit.id));
     };
 
     return (
@@ -242,11 +284,63 @@ export function AssessmentPreviewDialog({
                         </div>
                     </div>
 
-                    {unitCount > 0 && amount > 0 && (
-                        <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
-                            <p className="text-xs text-muted-foreground">
-                                Se generarán <strong>{unitCount}</strong> facturas de{' '}
-                                <strong>{formatMoney(perUnit)}</strong> cada una.
+                    {preview && preview.units.length > 0 && (
+                        <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Apartamentos destinatarios
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Seleccioná qué apartamentos recibirán la factura de este prorrateo.
+                                    </p>
+                                </div>
+                                <Button type="button" variant="ghost" size="sm" onClick={toggleAllUnits}>
+                                    {allUnitsSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                                </Button>
+                            </div>
+
+                            <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border/50 bg-background/50 p-2">
+                                {preview.units.map((unit) => {
+                                    const checked = selectedUnitIds.includes(unit.id);
+                                    const invoiceAmountCents = invoiceAmountByUnitId.get(unit.id);
+                                    return (
+                                        <label
+                                            key={unit.id}
+                                            className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-muted/50"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <Checkbox
+                                                    checked={checked}
+                                                    onCheckedChange={() => toggleUnit(unit.id)}
+                                                />
+                                                <span className="text-sm font-medium">{unit.name}</span>
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {checked && invoiceAmountCents !== undefined
+                                                    ? formatMoney(invoiceAmountCents / 100)
+                                                    : 'Sin factura'}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            {amount > 0 && selectedUnitCount > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                    Se generarán <strong>{selectedUnitCount}</strong> facturas por un total de{' '}
+                                    <strong>{formatMoney(amountInCents / 100)}</strong>. El monto exacto
+                                    de cada una aparece junto al apartamento.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {selectedUnitCount === 0 && (
+                        <div className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+                            <p className="text-sm text-muted-foreground">
+                                Seleccioná al menos un apartamento para generar el prorrateo.
                             </p>
                         </div>
                     )}
@@ -260,7 +354,7 @@ export function AssessmentPreviewDialog({
                                 </p>
                                 <p className="mt-1 text-muted-foreground">
                                     El total en centavos ({amountInCents}) es menor que el
-                                    número de unidades ({unitCount}). Subí el monto para
+                                    número de unidades seleccionadas ({selectedUnitCount}). Subí el monto para
                                     poder prorratearlo.
                                 </p>
                             </div>

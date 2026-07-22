@@ -64,6 +64,9 @@ export const usersService = {
     return data;
   },
 
+  /**
+   * @deprecated Use createUser with role='board' instead.
+   */
   async createBoardMember(payload: {
     name: string;
     email: string;
