@@ -197,6 +197,10 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 toast.error('El monto es demasiado bajo para repartir entre las unidades');
             } else if (code === 'NO_UNITS') {
                 toast.error('El edificio no tiene unidades asignadas');
+            } else if (code === 'NO_UNITS_SELECTED') {
+                toast.error('Seleccioná al menos un apartamento');
+            } else if (code === 'INVALID_UNIT_SELECTION') {
+                toast.error('La selección de apartamentos ya no es válida. Actualizá e intentá de nuevo');
             } else {
                 toast.error(err.response?.data?.message || 'Error al generar el prorrateo');
             }
