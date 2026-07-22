@@ -534,6 +534,7 @@ export type DecisionAuditEvent =
   | 'FINALIZED'
   | 'TIEBREAK_OPENED'
   | 'WINNER_SET_MANUAL'
+  | 'DIRECT_AWARD'
   | 'CHARGE_GENERATED'
   | 'PHASE_ADVANCED';
 
@@ -815,4 +816,3 @@ export interface BoardMember {
     name: string;
   } | null;
 }
-

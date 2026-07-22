@@ -37,6 +37,8 @@ const ERROR_MESSAGES: Record<string, string> = {
         'El plazo límite todavía no ha vencido. No puedes finalizar esta fase aún.',
     DECISION_NO_ACTIVE_QUOTES:
         'No hay cotizaciones activas. Agrega al menos una cotización antes de avanzar.',
+    DECISION_DIRECT_AWARD_REQUIRES_SINGLE_QUOTE:
+        'La adjudicación directa requiere exactamente una cotización activa.',
     QUOTE_DELETED: 'La cotización seleccionada fue eliminada y ya no está disponible.',
     QUOTE_NOT_IN_TIEBREAK:
         'La cotización elegida no forma parte del desempate activo.',
