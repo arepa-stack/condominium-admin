@@ -24,7 +24,6 @@ const EVENT_LABELS: Record<DecisionAuditEvent, string> = {
     FINALIZED: 'Fase finalizada',
     TIEBREAK_OPENED: 'Empate — ronda 2',
     WINNER_SET_MANUAL: 'Ganador manual',
-    DIRECT_AWARD: 'Adjudicación directa',
     CHARGE_GENERATED: 'Cargo generado',
     PHASE_ADVANCED: 'Fase avanzada',
 };
