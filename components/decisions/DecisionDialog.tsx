@@ -133,13 +133,7 @@ const schema = z
             });
         }
 
-        if (!values.quote_file) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['quote_file'],
-                message: 'Adjunta la cotización del proveedor',
-            });
-        } else {
+        if (values.quote_file) {
             if (
                 !(DECISION_QUOTE_MIME_ALLOWED as readonly string[]).includes(
                     values.quote_file.type,
@@ -267,7 +261,9 @@ export function DecisionDialog({
                     formData.append('notes', values.notes.trim());
                 }
                 formData.append('reason', values.reason.trim());
-                formData.append('file', values.quote_file!);
+                if (values.quote_file) {
+                    formData.append('file', values.quote_file);
+                }
 
                 const { decision } = await decisionsService.createDirect(formData);
                 finishCreation(decision, 'Decisión adjudicada directamente.');
@@ -546,7 +542,7 @@ export function DecisionDialog({
                                     name="quote_file"
                                     render={({ field: { onChange, value, ...rest } }) => (
                                         <FormItem>
-                                            <FormLabel>Cotización</FormLabel>
+                                            <FormLabel>Cotización (opcional)</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="file"
@@ -559,11 +555,11 @@ export function DecisionDialog({
                                                     {...rest}
                                                 />
                                             </FormControl>
-                                            {value && (
-                                                <FormDescription>
-                                                    {(value as File).name}
-                                                </FormDescription>
-                                            )}
+                                            <FormDescription>
+                                                {value
+                                                    ? (value as File).name
+                                                    : 'PDF o imagen, máximo 5 MB.'}
+                                            </FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                     )}

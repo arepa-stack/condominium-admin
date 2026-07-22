@@ -485,8 +485,8 @@ export interface DecisionQuote {
   provider_name: string;
   amount: number;
   notes: string | null;
-  /** Signed URL con TTL corto (5-10 min). No cachear entre fetches. */
-  file_url: string;
+  /** Signed URL con TTL corto (5-10 min), o null cuando no se adjuntó archivo. */
+  file_url: string | null;
   deleted_at: string | null;
   deleted_by: DecisionActorRef | null;
   deletion_reason: string | null;
