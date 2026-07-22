@@ -38,10 +38,18 @@ export function TallyCard({
     const isTiebreak = decision.status === 'TIEBREAK_PENDING';
     const noVotes = tally !== null && tally.total_votes === 0;
     const noActiveQuotes = tally !== null && tally.tallies.length === 0;
+    const isResolvedWithoutVotes =
+        decision.status === 'RESOLVED' &&
+        !!decision.winner_quote_id &&
+        noVotes;
+    const awardedEntry = isResolvedWithoutVotes
+        ? tally?.tallies.find((entry) => entry.quote_id === decision.winner_quote_id)
+        : null;
 
     const showNoVotesEmptyState =
         tally !== null &&
         noVotes &&
+        !decision.winner_quote_id &&
         (decision.status === 'TIEBREAK_PENDING' || decision.status === 'RESOLVED');
 
     const showNoActiveQuotesEmptyState =
@@ -54,14 +62,18 @@ export function TallyCard({
             <header className="mb-4 flex items-start justify-between gap-2">
                 <div>
                     <h2 className="text-lg font-semibold text-foreground">
-                        Resultado de votación
+                        {isResolvedWithoutVotes ? 'Proveedor adjudicado' : 'Resultado de votación'}
                         {tally && tally.round > 1 && (
                             <span className="ml-2 text-sm font-normal text-muted-foreground">
                                 · Ronda {tally.round}
                             </span>
                         )}
                     </h2>
-                    {tally && (
+                    {isResolvedWithoutVotes ? (
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                            Resolución administrativa sin votos registrados
+                        </p>
+                    ) : tally && (
                         <p className="mt-0.5 text-sm text-muted-foreground">
                             {tally.total_votes}/{tally.total_apartments} aptos votaron
                             {' · '}
@@ -84,7 +96,24 @@ export function TallyCard({
                 </Button>
             </header>
 
-            {showNoActiveQuotesEmptyState ? (
+            {awardedEntry ? (
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <Trophy className="h-5 w-5 shrink-0 text-emerald-600" />
+                        <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground">
+                                {awardedEntry.provider_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Seleccionado sin proceso de votación
+                            </p>
+                        </div>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        {formatCurrency(awardedEntry.amount)}
+                    </span>
+                </div>
+            ) : showNoActiveQuotesEmptyState ? (
                 <div className="rounded-lg bg-muted/40 p-4 text-sm">
                     <div className="mb-2 flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
                         <AlertTriangle className="h-4 w-4" />

@@ -279,6 +279,11 @@ export function DecisionDialog({
                                 )}
                             />
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                            Si sólo existe un proveedor, podrás adjudicarlo directamente
+                            después de subir su cotización, sin esperar estos plazos ni abrir
+                            una votación.
+                        </p>
 
                         <FormField
                             control={form.control}

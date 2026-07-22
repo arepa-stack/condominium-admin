@@ -84,6 +84,14 @@ export const decisionsService = {
         return data;
     },
 
+    async awardSoleQuote(id: string, reason: string): Promise<Decision> {
+        const { data } = await apiClient.post<Decision>(
+            `${P}/${id}/award-sole-quote`,
+            { reason },
+        );
+        return data;
+    },
+
     async resolveTiebreak(id: string, dto: ResolveTiebreakDto): Promise<Decision> {
         const { data } = await apiClient.post<Decision>(`${P}/${id}/resolve-tiebreak`, dto);
         return data;
