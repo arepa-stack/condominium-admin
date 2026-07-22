@@ -16,12 +16,11 @@ import {
     type PrimaryAction,
 } from '@/lib/utils/decision-actions';
 import type { Decision } from '@/types/models';
-import { Clock, FileText, History, MoreHorizontal, Upload, Vote, XCircle } from 'lucide-react';
+import { Clock, FileText, History, MoreHorizontal, Upload, XCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export interface DecisionActionsHandlers {
     onUploadQuote: () => void;
-    onAwardSoleQuote: () => void;
     onExtendDeadlines: () => void;
     onFinalize: () => void;
     onForceFinalizeReception: () => void;
@@ -50,9 +49,6 @@ function dispatchPrimary(
     switch (action.kind) {
         case 'upload-first-quote':
             handlers.onUploadQuote();
-            return;
-        case 'award-sole-quote':
-            handlers.onAwardSoleQuote();
             return;
         case 'finalize-reception':
         case 'finalize-voting-now':
@@ -90,8 +86,6 @@ export function DecisionActions({
         decision.status === 'RECEPTION' || decision.status === 'VOTING';
     const canUploadFromOverflow =
         decision.status === 'RECEPTION' && activeQuoteCount > 0;
-    const canOpenVotingAlternative =
-        decision.status === 'RECEPTION' && activeQuoteCount === 1;
     const canCancel = !isTerminal;
 
     return (
@@ -142,17 +136,6 @@ export function DecisionActions({
                     {canUploadFromOverflow && (
                         <DropdownMenuItem onSelect={handlers.onUploadQuote}>
                             <Upload className="mr-2 h-4 w-4" /> Subir cotización
-                        </DropdownMenuItem>
-                    )}
-                    {canOpenVotingAlternative && (
-                        <DropdownMenuItem
-                            onSelect={
-                                decision.is_deadline_passed
-                                    ? handlers.onFinalize
-                                    : handlers.onForceFinalizeReception
-                            }
-                        >
-                            <Vote className="mr-2 h-4 w-4" /> Abrir proceso de votación
                         </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onSelect={handlers.onOpenAuditLog}>

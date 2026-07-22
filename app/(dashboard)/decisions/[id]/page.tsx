@@ -17,7 +17,6 @@ import { AuditLogDrawer } from '@/components/decisions/AuditLogDrawer';
 import { QuoteCard } from '@/components/decisions/QuoteCard';
 import { QuoteUploadDialog } from '@/components/decisions/QuoteUploadDialog';
 import { ForceFinalizeReceptionDialog } from '@/components/decisions/ForceFinalizeReceptionDialog';
-import { DirectAwardDialog } from '@/components/decisions/DirectAwardDialog';
 import { TallyCard } from '@/components/decisions/TallyCard';
 import { VotesList } from '@/components/decisions/VotesList';
 import { PhotoLightbox } from '@/components/decisions/PhotoLightbox';
@@ -58,7 +57,6 @@ export default function DecisionDetailPage() {
     const [auditOpen, setAuditOpen] = useState(false);
     const [quoteUploadOpen, setQuoteUploadOpen] = useState(false);
     const [forceFinalizeOpen, setForceFinalizeOpen] = useState(false);
-    const [directAwardOpen, setDirectAwardOpen] = useState(false);
 
     const load = useCallback(async () => {
         setIsLoading(true);
@@ -201,7 +199,6 @@ export default function DecisionDetailPage() {
                         }
                         handlers={{
                             onUploadQuote: () => setQuoteUploadOpen(true),
-                            onAwardSoleQuote: () => setDirectAwardOpen(true),
                             onExtendDeadlines: () => setExtendOpen(true),
                             onFinalize: () => setFinalizeOpen(true),
                             onForceFinalizeReception: () =>
@@ -318,7 +315,7 @@ export default function DecisionDetailPage() {
             )}
 
             {/* Votes list */}
-            {decision.status !== 'RECEPTION' && tally !== null && tally.total_votes > 0 && (
+            {decision.status !== 'RECEPTION' && (
                 <div className="space-y-2">
                     <div className="flex justify-end">
                         <Button
@@ -419,19 +416,6 @@ export default function DecisionDetailPage() {
                     refreshTally();
                 }}
             />
-
-            {activeQuotes.length === 1 && (
-                <DirectAwardDialog
-                    open={directAwardOpen}
-                    onOpenChange={setDirectAwardOpen}
-                    decisionId={decision.id}
-                    quote={activeQuotes[0]}
-                    onAwarded={(updated) => {
-                        setDecision(updated);
-                        refreshTally();
-                    }}
-                />
-            )}
 
             <PhotoLightbox
                 open={lightboxOpen}
