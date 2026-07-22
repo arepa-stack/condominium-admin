@@ -76,6 +76,23 @@ export function BalanceCard({ balance, isLoading, onRefresh }: BalanceCardProps)
                                 cobrará a las unidades.
                             </p>
                         )}
+                        {(() => {
+                            const usd = balance.balances_by_currency?.find((b) => b.currency === 'USD')?.balance ?? 0;
+                            const ves = balance.balances_by_currency?.find((b) => b.currency === 'VES')?.balance ?? 0;
+                            if (usd === 0 && ves === 0) return null;
+                            return (
+                                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border/50 pt-3">
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">En físico (USD)</p>
+                                        <p className="text-lg font-semibold text-foreground">{formatMoney(usd)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">En bolívares</p>
+                                        <p className="text-lg font-semibold text-foreground">Bs {ves.toLocaleString('es-VE')}</p>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         <p className="mt-2 text-xs text-muted-foreground">
                             Actualizado:{' '}
                             {balance.updated_at ? formatDate(balance.updated_at) : '—'}

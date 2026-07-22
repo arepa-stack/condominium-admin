@@ -33,13 +33,14 @@ import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import type { PettyCashCategory } from '@/types/models';
+import type { PettyCashCategory, PettyCashCurrency, RateSet } from '@/types/models';
 
 export type PettyCashManualEntryType = 'income' | 'expense';
 
 function buildSchema(entryType: PettyCashManualEntryType) {
     const base = {
         amount: z.coerce.number().positive('El monto debe ser mayor a 0'),
+        currency: z.enum(['USD', 'VES']),
         description: z.string().min(1, 'La descripción es obligatoria'),
     };
     if (entryType === 'income') {
@@ -53,6 +54,7 @@ function buildSchema(entryType: PettyCashManualEntryType) {
 
 interface TransactionFormValues {
     amount: number;
+    currency: PettyCashCurrency;
     description: string;
     category?: string;
 }
@@ -73,12 +75,14 @@ export function TransactionDialog({
     onSuccess,
 }: TransactionDialogProps) {
     const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+    const [rates, setRates] = useState<RateSet | null>(null);
     const schema = useMemo(() => buildSchema(entryType), [entryType]);
 
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(schema) as Resolver<TransactionFormValues>,
         defaultValues: {
             amount: undefined as unknown as number,
+            currency: 'USD',
             description: '',
             category: '',
         },
@@ -88,12 +92,17 @@ export function TransactionDialog({
         if (open) {
             form.reset({
                 amount: undefined as unknown as number,
+                currency: 'USD',
                 description: '',
                 category: '',
             });
             setEvidenceFile(null);
+            pettyCashService.getRates().then(setRates).catch(() => setRates(null));
         }
     }, [open, entryType, form]);
+
+    const currency = form.watch('currency');
+    const amount = form.watch('amount');
 
     const onSubmit = async (data: TransactionFormValues) => {
         if (!buildingId) {
@@ -105,6 +114,7 @@ export function TransactionDialog({
                 await pettyCashService.registerIncome({
                     building_id: buildingId,
                     amount: data.amount,
+                    currency: data.currency,
                     description: data.description,
                 });
                 toast.success('Ingreso registrado');
@@ -112,6 +122,7 @@ export function TransactionDialog({
                 const fd = new FormData();
                 fd.append('building_id', buildingId);
                 fd.append('amount', String(data.amount));
+                fd.append('currency', data.currency);
                 fd.append('description', data.description);
                 fd.append(
                     'category',
@@ -153,10 +164,38 @@ export function TransactionDialog({
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
+                            name="currency"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>¿Cómo se cargó el monto?</FormLabel>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                            type="button"
+                                            variant={field.value === 'USD' ? 'default' : 'outline'}
+                                            onClick={() => field.onChange('USD')}
+                                        >
+                                            En físico (USD)
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={field.value === 'VES' ? 'default' : 'outline'}
+                                            onClick={() => field.onChange('VES')}
+                                        >
+                                            En bolívares (Bs)
+                                        </Button>
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
                             name="amount"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Monto</FormLabel>
+                                    <FormLabel>
+                                        {currency === 'VES' ? 'Monto en bolívares (Bs)' : 'Monto en físico (USD)'}
+                                    </FormLabel>
                                     <FormControl>
                                         <Input
                                             type="number"
@@ -175,6 +214,22 @@ export function TransactionDialog({
                                 </FormItem>
                             )}
                         />
+                        {currency === 'VES' && amount > 0 && (
+                            <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                                <p className="font-medium">Bs {amount.toLocaleString('es-VE')} equivalen a:</p>
+                                {rates?.rates.dolar_oficial && (
+                                    <p>Dólar oficial: ${(amount / rates.rates.dolar_oficial.bs_per_unit).toFixed(2)}</p>
+                                )}
+                                {rates?.rates.dolar_paralelo && (
+                                    <p>Paralelo: ${(amount / rates.rates.dolar_paralelo.bs_per_unit).toFixed(2)}</p>
+                                )}
+                                {rates?.rates.euro_oficial && (
+                                    <p>Euro oficial: €{(amount / rates.rates.euro_oficial.bs_per_unit).toFixed(2)}</p>
+                                )}
+                                {!rates && <p>Tasas no disponibles por ahora.</p>}
+                                <p className="italic">Se guardará con la tasa por defecto del edificio.</p>
+                            </div>
+                        )}
                         <FormField
                             control={form.control}
                             name="description"

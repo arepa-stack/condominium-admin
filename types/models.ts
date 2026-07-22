@@ -67,6 +67,7 @@ export interface Building {
   building_code?: string;
   total_units?: number;
   monthly_fee?: number;
+  default_rate_source?: RateSource;
   created_at?: string;
 }
 
@@ -173,6 +174,7 @@ export interface CreateBuildingDto {
 export interface UpdateBuildingDto {
   name?: string;
   address?: string;
+  default_rate_source?: RateSource;
 }
 
 export interface UpdateUserDto {
@@ -302,10 +304,19 @@ export type PettyCashEntryReferenceType =
   | "invoice_payment"
   | "reversal";
 
+export type PettyCashCurrency = 'USD' | 'VES';
+export type RateSource = 'euro_oficial' | 'dolar_oficial' | 'dolar_paralelo';
+
+export interface CurrencyBalance {
+  currency: string;
+  balance: number;
+}
+
 export interface PettyCashBalance {
   id: string;
   building_id: string;
   current_balance: number;
+  balances_by_currency?: CurrencyBalance[];
   updated_at: string;
 }
 
@@ -314,6 +325,11 @@ export interface PettyCashEntry {
   fund_id: string;
   type: PettyCashEntryType;
   amount: number;
+  original_currency?: PettyCashCurrency;
+  original_amount?: number | null;
+  exchange_rate?: number | null;
+  rate_source?: RateSource | null;
+  rate_date?: string | null;
   category: PettyCashCategory | null;
   description: string;
   evidence_url: string | null;
@@ -326,7 +342,26 @@ export interface PettyCashEntry {
 export interface CreatePettyCashIncomeDto {
   building_id: string;
   amount: number | string;
+  currency?: PettyCashCurrency;
   description: string;
+}
+
+export interface ExchangeRate {
+  source: RateSource;
+  rate_date: string;
+  bs_per_unit: number;
+  source_updated_at: string | null;
+  fetched_at: string;
+  is_manual: boolean;
+}
+
+export interface RateSet {
+  rate_date: string;
+  rates: {
+    euro_oficial: ExchangeRate | null;
+    dolar_oficial: ExchangeRate | null;
+    dolar_paralelo: ExchangeRate | null;
+  };
 }
 
 export interface CreatePettyCashExpenseDto {
