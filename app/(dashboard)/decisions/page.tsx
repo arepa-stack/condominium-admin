@@ -202,7 +202,12 @@ export default function DecisionsListPage() {
                     onOpenChange={setIsCreateOpen}
                     buildingId={effectiveBuildingId ?? undefined}
                     availableBuildings={availableBuildings}
-                    onCreated={() => load()}
+                    onCreated={(decision) => {
+                        load();
+                        if (decision.process_type === 'DIRECT_AWARD') {
+                            router.push(`/decisions/${decision.id}`);
+                        }
+                    }}
                 />
             )}
         </div>

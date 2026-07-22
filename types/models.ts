@@ -441,6 +441,7 @@ export type DecisionStatus =
   | 'CANCELLED';
 
 export type DecisionChargeType = 'INVOICE' | 'ASSESSMENT';
+export type DecisionProcessType = 'VOTING' | 'DIRECT_AWARD';
 
 export interface DecisionActorRef {
   id: string;
@@ -454,6 +455,7 @@ export interface Decision {
   description: string | null;
   photo_url: string | null;
   status: DecisionStatus;
+  process_type: DecisionProcessType;
   current_round: number;
   reception_deadline: string;
   voting_deadline: string;
@@ -555,6 +557,11 @@ export interface CreateDecisionDto {
   reception_deadline: string;
   voting_deadline: string;
   tiebreak_duration_hours?: number;
+}
+
+export interface CreateDirectDecisionResponse {
+  decision: Decision;
+  quote: DecisionQuote;
 }
 
 export interface ExtendDeadlinesDto {
