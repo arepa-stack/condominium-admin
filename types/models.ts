@@ -385,6 +385,7 @@ export interface CreatePettyCashAssessmentDto {
   description: string;
   amount: number | string;
   category?: PettyCashCategory;
+  unit_ids?: string[];
 }
 
 export interface PettyCashAssessmentResponse {

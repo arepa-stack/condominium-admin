@@ -151,6 +151,7 @@ export const pettyCashService = {
                 description: payload.description,
                 amount: payload.amount,
                 ...(payload.category ? { category: payload.category } : {}),
+                ...(payload.unit_ids !== undefined ? { unit_ids: payload.unit_ids } : {}),
             }
         );
         return data;
