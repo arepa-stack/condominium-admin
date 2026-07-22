@@ -2,6 +2,7 @@ import type { Decision, DecisionTally } from '@/types/models';
 
 export type PrimaryActionKind =
     | 'upload-first-quote'
+    | 'award-sole-quote'
     | 'finalize-reception'
     | 'force-finalize-reception'
     | 'finalize-voting-now'
@@ -44,6 +45,13 @@ export function resolvePrimaryAction(
                 return {
                     kind: 'upload-first-quote',
                     label: 'Subir primera cotización',
+                    variant: 'solid',
+                };
+            }
+            if (activeQuoteCount === 1) {
+                return {
+                    kind: 'award-sole-quote',
+                    label: 'Adjudicar proveedor único',
                     variant: 'solid',
                 };
             }
