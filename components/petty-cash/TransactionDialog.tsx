@@ -33,7 +33,7 @@ import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import type { PettyCashCategory, PettyCashCurrency, RateSet } from '@/types/models';
+import type { PettyCashCategory, PettyCashCurrency, PettyCashEntry, RateSet } from '@/types/models';
 
 export type PettyCashManualEntryType = 'income' | 'expense';
 
@@ -64,7 +64,11 @@ interface TransactionDialogProps {
     onOpenChange: (open: boolean) => void;
     entryType: PettyCashManualEntryType;
     buildingId: string;
-    onSuccess?: () => void;
+    /**
+     * Called after a successful submit. Receives the created entry so callers
+     * can inspect `entry.coverage` (B12: post-expense recovery offer).
+     */
+    onSuccess?: (entry?: PettyCashEntry) => void;
 }
 
 export function TransactionDialog({
@@ -111,13 +115,15 @@ export function TransactionDialog({
         }
         try {
             if (entryType === 'income') {
-                await pettyCashService.registerIncome({
+                const incomeEntry = await pettyCashService.registerIncome({
                     building_id: buildingId,
                     amount: data.amount,
                     currency: data.currency,
                     description: data.description,
                 });
                 toast.success('Ingreso registrado');
+                onSuccess?.(incomeEntry);
+                onOpenChange(false);
             } else {
                 const fd = new FormData();
                 fd.append('building_id', buildingId);
@@ -131,11 +137,13 @@ export function TransactionDialog({
                 if (evidenceFile) {
                     fd.append('evidence_image', evidenceFile);
                 }
-                await pettyCashService.registerExpense(fd);
+                const expenseEntry = await pettyCashService.registerExpense(fd);
                 toast.success('Egreso registrado');
+                // Close the dialog before showing the recovery offer
+                onOpenChange(false);
+                // Pass the entry back so the caller can inspect coverage (B12)
+                onSuccess?.(expenseEntry);
             }
-            onSuccess?.();
-            onOpenChange(false);
         } catch (e) {
             console.error(e);
             toast.error(
