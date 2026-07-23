@@ -13,6 +13,8 @@ import {
     ChevronDown,
     ChevronUp,
     Archive,
+    Zap,
+    XCircle,
 } from 'lucide-react';
 import { formatMoney } from '@/lib/utils/format';
 import type { PettyCashTransparency, PettyCashTransparencyBatch } from '@/types/models';
@@ -20,9 +22,16 @@ import type { PettyCashTransparency, PettyCashTransparencyBatch } from '@/types/
 interface TransparencyViewProps {
     transparency: PettyCashTransparency | null;
     period: string;
+    canEdit?: boolean;
+    onCancelExpressBatch?: (batch: PettyCashTransparencyBatch) => void;
 }
 
-export function TransparencyView({ transparency, period }: TransparencyViewProps) {
+export function TransparencyView({
+    transparency,
+    period,
+    canEdit = false,
+    onCancelExpressBatch,
+}: TransparencyViewProps) {
     if (!transparency || transparency.assessments.length === 0) {
         return null;
     }
@@ -59,7 +68,12 @@ export function TransparencyView({ transparency, period }: TransparencyViewProps
                 </div>
                 <div className="space-y-3">
                     {transparency.assessments.map((batch) => (
-                        <BatchCard key={batch.id} batch={batch} />
+                        <BatchCard
+                            key={batch.id}
+                            batch={batch}
+                            canEdit={canEdit}
+                            onCancelExpressBatch={onCancelExpressBatch}
+                        />
                     ))}
                 </div>
             </div>
@@ -69,14 +83,21 @@ export function TransparencyView({ transparency, period }: TransparencyViewProps
 
 interface BatchCardProps {
     batch: PettyCashTransparencyBatch;
+    canEdit: boolean;
+    onCancelExpressBatch?: (batch: PettyCashTransparencyBatch) => void;
 }
 
-function BatchCard({ batch }: BatchCardProps) {
+function BatchCard({ batch, canEdit, onCancelExpressBatch }: BatchCardProps) {
     const [expanded, setExpanded] = useState(false);
     const [highlighted, setHighlighted] = useState(false);
     const cardRef = useRef<HTMLDivElement | null>(null);
     const isLegacy = batch.id === '__legacy__';
+    const isExpress = batch.kind === 'EXPRESS';
     const anchorId = `batch-${batch.id}`;
+
+    // An EXPRESS batch is cancellable when it has at least one non-PAID unit
+    const hasNonPaidUnits = batch.units.some((u) => u.status !== 'PAID');
+    const canCancelExpress = canEdit && isExpress && hasNonPaidUnits && !isLegacy;
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -108,12 +129,20 @@ function BatchCard({ batch }: BatchCardProps) {
                         {isLegacy && (
                             <Archive className="h-4 w-4 shrink-0 text-amber-500" />
                         )}
+                        {isExpress && (
+                            <Zap className="h-4 w-4 shrink-0 text-primary" aria-label="Prorrateo express" />
+                        )}
                         <h3 className="font-bold text-foreground truncate">
                             {batch.description}
                         </h3>
                         {batch.category && (
                             <Badge variant="secondary" className="border-border/50">
                                 {batch.category}
+                            </Badge>
+                        )}
+                        {isExpress && (
+                            <Badge variant="outline" className="border-primary/50 text-primary">
+                                Express
                             </Badge>
                         )}
                         {isLegacy && (
@@ -140,25 +169,38 @@ function BatchCard({ batch }: BatchCardProps) {
                     </p>
                 </div>
 
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setExpanded((v) => !v)}
-                    className="shrink-0"
-                >
-                    {expanded ? (
-                        <>
-                            <ChevronUp className="mr-1 h-4 w-4" />
-                            Ocultar
-                        </>
-                    ) : (
-                        <>
-                            <ChevronDown className="mr-1 h-4 w-4" />
-                            Ver unidades
-                        </>
+                <div className="flex shrink-0 items-center gap-2">
+                    {canCancelExpress && onCancelExpressBatch && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => onCancelExpressBatch(batch)}
+                        >
+                            <XCircle className="h-4 w-4" />
+                            Cancelar
+                        </Button>
                     )}
-                </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpanded((v) => !v)}
+                    >
+                        {expanded ? (
+                            <>
+                                <ChevronUp className="mr-1 h-4 w-4" />
+                                Ocultar
+                            </>
+                        ) : (
+                            <>
+                                <ChevronDown className="mr-1 h-4 w-4" />
+                                Ver unidades
+                            </>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {expanded && (

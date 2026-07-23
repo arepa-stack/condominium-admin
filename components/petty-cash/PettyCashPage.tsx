@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { BalanceCard } from '@/components/petty-cash/BalanceCard';
@@ -9,6 +9,9 @@ import { TransactionDialog, type PettyCashManualEntryType } from '@/components/p
 import { AssessmentPreviewDialog } from '@/components/petty-cash/AssessmentPreviewDialog';
 import { TransparencyView } from '@/components/petty-cash/TransparencyView';
 import { ReverseEntryDialog } from '@/components/petty-cash/ReverseEntryDialog';
+import { ExpressAssessmentDialog } from '@/components/petty-cash/ExpressAssessmentDialog';
+import { CancelExpressDialog, CancelSuccessSummary } from '@/components/petty-cash/CancelExpressDialog';
+import { TargetFundCard } from '@/components/petty-cash/TargetFundCard';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -35,10 +38,13 @@ import type {
     PettyCashCategory,
     PettyCashAssessmentPreview,
     PettyCashTransparency,
+    PettyCashTransparencyBatch,
     CreatePettyCashAssessmentDto,
+    CreateExpressAssessmentDto,
     PaginationMetadata,
     Building,
     RateSource,
+    PettyCashCoverage,
 } from '@/types/models';
 import { Paginator } from '@/components/ui/paginator';
 import { formatDate, formatMoney } from '@/lib/utils/format';
@@ -53,6 +59,9 @@ import {
     Undo2,
     ArrowRightCircle,
     RotateCcw,
+    Zap,
+    LayoutList,
+    X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -125,38 +134,90 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
     const [entryToReverse, setEntryToReverse] = useState<PettyCashEntry | null>(null);
 
+    // B12: post-expense recovery offer state
+    const [recoveryCoverage, setRecoveryCoverage] = useState<PettyCashCoverage | null>(null);
+    const [recoverySourceEntryId, setRecoverySourceEntryId] = useState<string | null>(null);
+
+    // B13: express assessment dialog
+    const [expressDialogOpen, setExpressDialogOpen] = useState(false);
+    const [isSubmittingExpress, setIsSubmittingExpress] = useState(false);
+
+    // B13: cancel express dialog
+    const [cancelExpressDialogOpen, setCancelExpressDialogOpen] = useState(false);
+    const [batchToCancel, setBatchToCancel] = useState<PettyCashTransparencyBatch | null>(null);
+    const [isCancellingExpress, setIsCancellingExpress] = useState(false);
+
     const isBuildingVariant = variant === 'building';
+
+    // Derived: target fund from assessmentPreview
+    const targetFund = assessmentPreview?.target_fund ?? 0;
 
     const fetchAll = useCallback(async () => {
         if (!buildingId) return;
+        setIsLoading(true);
         try {
-            setIsLoading(true);
-            const [bal, history, preview, trans, bld] = await Promise.all([
-                pettyCashService.getBalance(buildingId),
-                pettyCashService.getHistoryPaginated(buildingId, {
-                    type: filterType !== 'all' ? filterType : undefined,
-                    category: filterCategory !== 'all' ? filterCategory : undefined,
-                    page,
-                    limit: pageSize,
-                }),
-                pettyCashService.getAssessmentPreview(buildingId),
-                pettyCashService.getTransparency(buildingId, period),
-                buildingsService.getBuildingById(buildingId).catch(() => null),
-            ]);
-            setBalance(bal);
-            setBuilding(bld);
-            setEntries(history.data);
-            setEntriesMetadata(history.metadata);
-            setAssessmentPreview(preview);
-            setTransparency(trans);
-        } catch (e) {
-            console.error(e);
-            toast.error('No se pudo cargar la caja chica');
-            setBalance(null);
-            setEntries([]);
-            setEntriesMetadata(null);
-            setAssessmentPreview(null);
-            setTransparency(null);
+            const [balResult, historyResult, previewResult, transResult, bldResult] =
+                await Promise.allSettled([
+                    pettyCashService.getBalance(buildingId),
+                    pettyCashService.getHistoryPaginated(buildingId, {
+                        type: filterType !== 'all' ? filterType : undefined,
+                        category: filterCategory !== 'all' ? filterCategory : undefined,
+                        page,
+                        limit: pageSize,
+                    }),
+                    pettyCashService.getAssessmentPreview(buildingId),
+                    pettyCashService.getTransparency(buildingId, period),
+                    buildingsService.getBuildingById(buildingId).catch(() => null),
+                ]);
+
+            if (balResult.status === 'fulfilled') {
+                setBalance(balResult.value);
+            } else {
+                const status = (balResult.reason as import('axios').AxiosError)?.response?.status;
+                setBalance(null);
+                if (status !== 403) {
+                    toast.error('No se pudo cargar el saldo de caja chica');
+                }
+                console.error(balResult.reason);
+            }
+
+            if (historyResult.status === 'fulfilled') {
+                setEntries(historyResult.value.data);
+                setEntriesMetadata(historyResult.value.metadata);
+            } else {
+                const status = (historyResult.reason as import('axios').AxiosError)?.response?.status;
+                setEntries([]);
+                setEntriesMetadata(null);
+                if (status !== 403) {
+                    toast.error('No se pudo cargar el historial de movimientos');
+                }
+                console.error(historyResult.reason);
+            }
+
+            if (previewResult.status === 'fulfilled') {
+                setAssessmentPreview(previewResult.value);
+            } else {
+                setAssessmentPreview(null);
+                console.error(previewResult.reason);
+            }
+
+            if (transResult.status === 'fulfilled') {
+                setTransparency(transResult.value);
+            } else {
+                const status = (transResult.reason as import('axios').AxiosError)?.response?.status;
+                setTransparency(null);
+                if (status !== 403) {
+                    toast.error('No se pudo cargar la transparencia de prorrateos');
+                }
+                console.error(transResult.reason);
+            }
+
+            if (bldResult.status === 'fulfilled') {
+                setBuilding(bldResult.value);
+            } else {
+                setBuilding(null);
+                console.error(bldResult.reason);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -165,16 +226,6 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
-
-    const reversedEntryIds = useMemo(() => {
-        const set = new Set<string>();
-        for (const e of entries) {
-            if (e.type === 'reversal' && e.reference_type === 'reversal' && e.reference_id) {
-                set.add(e.reference_id);
-            }
-        }
-        return set;
-    }, [entries]);
 
     const openDialog = (type: PettyCashManualEntryType) => {
         setDialogType(type);
@@ -208,6 +259,74 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    // B13: Express assessment submit
+    const handleExpressAssessmentSubmit = async (dto: CreateExpressAssessmentDto) => {
+        setIsSubmittingExpress(true);
+        try {
+            const resp = await pettyCashService.generateExpressAssessment(buildingId, dto);
+            toast.success(
+                `Se generaron ${resp.invoices_created} facturas para "${resp.description}"`
+            );
+            setExpressDialogOpen(false);
+            setRecoveryCoverage(null);
+            setRecoverySourceEntryId(null);
+            await fetchAll();
+        } catch (e) {
+            const err = e as AxiosError<{ code?: string; message?: string }>;
+            const code = err.response?.data?.code;
+            if (code === 'AMOUNT_TOO_SMALL_TO_DISTRIBUTE') {
+                toast.error('El monto es demasiado bajo para repartir entre las unidades');
+            } else if (code === 'UNIT_AMOUNTS_MISMATCH') {
+                toast.error('La suma de los montos por unidad no coincide con el total');
+            } else {
+                toast.error(err.response?.data?.message || 'Error al emitir la factura express');
+            }
+            console.error(e);
+        } finally {
+            setIsSubmittingExpress(false);
+        }
+    };
+
+    // B13: Cancel express assessment
+    const handleCancelExpress = async (reason: string) => {
+        if (!batchToCancel) return;
+        setIsCancellingExpress(true);
+        try {
+            const resp = await pettyCashService.cancelExpressAssessment(
+                buildingId,
+                batchToCancel.id,
+                reason
+            );
+            toast.success(
+                <CancelSuccessSummary
+                    cancelledInvoices={resp.cancelled_invoices}
+                    totalRemainderReturned={resp.total_remainder_returned}
+                />
+            );
+            setCancelExpressDialogOpen(false);
+            setBatchToCancel(null);
+            await fetchAll();
+        } catch (e) {
+            const err = e as AxiosError<{ code?: string; message?: string }>;
+            const code = err.response?.data?.code;
+            if (code === 'NOT_CANCELLABLE') {
+                toast.error('Todas las facturas ya fueron cobradas. No se puede cancelar.');
+            } else if (code === 'INVALID_OPERATION') {
+                toast.error('Solo se pueden cancelar prorrateos de tipo express.');
+            } else {
+                toast.error(err.response?.data?.message || 'Error al cancelar el prorrateo');
+            }
+            console.error(e);
+        } finally {
+            setIsCancellingExpress(false);
+        }
+    };
+
+    const openCancelExpressDialog = (batch: PettyCashTransparencyBatch) => {
+        setBatchToCancel(batch);
+        setCancelExpressDialogOpen(true);
     };
 
     const handleReverseEntry = async (entryId: string, reason: string) => {
@@ -255,6 +374,53 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         }
     };
 
+    // B14: Save target fund
+    const handleSaveTargetFund = async (value: number) => {
+        try {
+            await pettyCashService.setTargetFund(buildingId, value);
+            toast.success(
+                value === 0
+                    ? 'Fondo objetivo eliminado'
+                    : `Fondo objetivo actualizado a ${formatMoney(value)}`
+            );
+            await fetchAll();
+        } catch (e) {
+            const err = e as AxiosError<{ message?: string }>;
+            toast.error(err.response?.data?.message || 'No se pudo guardar el fondo objetivo');
+            console.error(e);
+        }
+    };
+
+    // B12: Called by TransactionDialog when expense succeeds — check coverage
+    const handleExpenseSuccess = useCallback(
+        (entry?: PettyCashEntry) => {
+            if (entry?.coverage && entry.coverage.pending_to_assess > 0) {
+                setRecoveryCoverage(entry.coverage);
+                setRecoverySourceEntryId(entry.id);
+                // Do NOT call fetchAll here — the recovery offer is shown first.
+                // fetchAll is called after the user acts or dismisses.
+            } else {
+                // No coverage or not needed: refresh normally
+                fetchAll();
+            }
+        },
+        [fetchAll]
+    );
+
+    const dismissRecoveryOffer = () => {
+        setRecoveryCoverage(null);
+        setRecoverySourceEntryId(null);
+        fetchAll();
+    };
+
+    const openExpressFromOffer = () => {
+        setExpressDialogOpen(true);
+    };
+
+    const openGeneralFromOffer = () => {
+        setAssessmentDialogOpen(true);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -290,32 +456,83 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 )}
             </div>
 
-            {assessmentPreview && assessmentPreview.pending_to_assess > 0 && canEdit && (
-                <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            {/* B12: Post-expense recovery offer — shown INSTEAD of the normal pending banner */}
+            {recoveryCoverage && canEdit ? (
+                <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
+                    <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                            <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+                            <Zap className="h-5 w-5 shrink-0 text-primary" />
                             <div>
                                 <h3 className="font-semibold text-foreground">
-                                    Hay saldo sin prorratear
+                                    Egreso registrado — ¿querés cobrar este gasto a las unidades?
                                 </h3>
                                 <p className="mt-1 text-sm text-muted-foreground">
-                                    Quedan{' '}
-                                    {formatMoney(assessmentPreview.pending_to_assess)} por
-                                    cobrar a {assessmentPreview.units.length} unidades.
+                                    Hay {formatMoney(recoveryCoverage.pending_to_assess)} pendiente
+                                    de cobrar. Podés generar una factura express inmediata o iniciar
+                                    un prorrateo general.
                                 </p>
                             </div>
                         </div>
                         <Button
-                            variant="destructive"
-                            disabled={isGenerating}
-                            onClick={() => setAssessmentDialogOpen(true)}
-                            className="whitespace-nowrap"
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                            onClick={dismissRecoveryOffer}
+                            aria-label="Descartar"
                         >
-                            Generar prorrateo
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            size="sm"
+                            className="gap-2"
+                            onClick={openExpressFromOffer}
+                        >
+                            <Zap className="h-4 w-4" />
+                            Factura express
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-2"
+                            onClick={openGeneralFromOffer}
+                        >
+                            <LayoutList className="h-4 w-4" />
+                            Prorrateo general
                         </Button>
                     </div>
                 </div>
+            ) : (
+                /* Normal pending-to-assess banner — only show when no recovery offer is active */
+                assessmentPreview && assessmentPreview.pending_to_assess > 0 && canEdit && (
+                    <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="flex items-center gap-3">
+                                <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+                                <div>
+                                    <h3 className="font-semibold text-foreground">
+                                        Hay saldo sin prorratear
+                                    </h3>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Quedan{' '}
+                                        {formatMoney(assessmentPreview.pending_to_assess)} por
+                                        cobrar a {assessmentPreview.units.length} unidades.
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                variant="destructive"
+                                disabled={isGenerating}
+                                onClick={() => setAssessmentDialogOpen(true)}
+                                className="whitespace-nowrap"
+                            >
+                                Generar prorrateo
+                            </Button>
+                        </div>
+                    </div>
+                )
             )}
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -323,6 +540,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     balance={balance}
                     isLoading={isLoading}
                     onRefresh={fetchAll}
+                    targetFund={targetFund > 0 ? targetFund : undefined}
                 />
                 {canEdit && (
                     <Card className="border-border/50 bg-card/50 backdrop-blur-xl md:max-w-md">
@@ -354,7 +572,20 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 )}
             </div>
 
-            <TransparencyView transparency={transparency} period={period} />
+            {/* B14: Target fund card — only shown to editors */}
+            {canEdit && (
+                <TargetFundCard
+                    targetFund={targetFund}
+                    onSave={handleSaveTargetFund}
+                />
+            )}
+
+            <TransparencyView
+                transparency={transparency}
+                period={period}
+                canEdit={canEdit}
+                onCancelExpressBatch={openCancelExpressDialog}
+            />
 
             <FilterBar>
                 <div className="w-full md:w-48">
@@ -434,7 +665,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                 entries.map((entry) => {
                                     const meta = ENTRY_TYPE_META[entry.type];
                                     const isReversal = entry.type === 'reversal';
-                                    const alreadyReversed = reversedEntryIds.has(entry.id);
+                                    const alreadyReversed = entry.is_reversed ?? false;
                                     const canReverse =
                                         canEdit && !isReversal && !alreadyReversed;
 
@@ -536,23 +767,71 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 </>
             )}
 
+            {/* TransactionDialog: expense success now passes entry for coverage detection */}
             <TransactionDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
                 entryType={dialogType}
                 buildingId={buildingId}
-                onSuccess={fetchAll}
+                onSuccess={handleExpenseSuccess}
             />
 
             <AssessmentPreviewDialog
                 open={assessmentDialogOpen}
-                onOpenChange={setAssessmentDialogOpen}
+                onOpenChange={(o) => {
+                    setAssessmentDialogOpen(o);
+                    if (!o && recoveryCoverage) {
+                        // User closed general dialog from recovery offer — dismiss offer and refresh
+                        setRecoveryCoverage(null);
+                        setRecoverySourceEntryId(null);
+                        fetchAll();
+                    }
+                }}
                 preview={assessmentPreview}
                 existingBatches={transparency?.assessments ?? []}
                 period={period}
                 isGenerating={isGenerating}
-                onConfirm={handleGenerateAssessments}
+                onConfirm={async (dto) => {
+                    await handleGenerateAssessments(dto);
+                    if (recoveryCoverage) {
+                        setRecoveryCoverage(null);
+                        setRecoverySourceEntryId(null);
+                    }
+                }}
             />
+
+            {/* B13: Express assessment dialog */}
+            {recoverySourceEntryId && (
+                <ExpressAssessmentDialog
+                    open={expressDialogOpen}
+                    onOpenChange={(o) => {
+                        setExpressDialogOpen(o);
+                        if (!o && recoveryCoverage) {
+                            // User dismissed express dialog — keep recovery offer visible
+                        }
+                    }}
+                    preview={assessmentPreview}
+                    sourceEntryId={recoverySourceEntryId}
+                    coverageAmount={recoveryCoverage?.pending_to_assess ?? 0}
+                    currentBalance={recoveryCoverage?.balance}
+                    isSubmitting={isSubmittingExpress}
+                    onConfirm={handleExpressAssessmentSubmit}
+                />
+            )}
+
+            {/* B13: Cancel express dialog */}
+            {batchToCancel && (
+                <CancelExpressDialog
+                    open={cancelExpressDialogOpen}
+                    onOpenChange={(o) => {
+                        setCancelExpressDialogOpen(o);
+                        if (!o) setBatchToCancel(null);
+                    }}
+                    batchDescription={batchToCancel.description}
+                    isSubmitting={isCancellingExpress}
+                    onConfirm={handleCancelExpress}
+                />
+            )}
 
             <ReverseEntryDialog
                 open={reverseDialogOpen}
