@@ -471,6 +471,16 @@ export interface PettyCashAssessmentResponse {
   }[];
 }
 
+export interface TransparencyUnit {
+  unit_id: string;
+  unit_name: string;
+  expected_amount: number;
+  covered_amount: number;
+  status: "PAID" | "PARTIAL" | "PENDING";
+  /** Proof URL for CONTRIBUTION kind rows. Present when the unit paid via direct contribution. */
+  proof_url?: string | null;
+}
+
 export interface PettyCashTransparencyBatch {
   id: string;
   description: string;
@@ -478,15 +488,9 @@ export interface PettyCashTransparencyBatch {
   total_to_collect: number;
   total_collected: number;
   collection_percentage: number;
-  units: {
-    unit_id: string;
-    unit_name: string;
-    expected_amount: number;
-    covered_amount: number;
-    status: "PAID" | "PARTIAL" | "PENDING";
-  }[];
+  units: TransparencyUnit[];
   /** Assessment kind. Absent for legacy/orphan batches. */
-  kind?: 'GENERAL' | 'EXPRESS';
+  kind?: 'GENERAL' | 'EXPRESS' | 'CONTRIBUTION';
   /** Source expense entry id for EXPRESS assessments. Absent for legacy. */
   source_entry_id?: string | null;
 }
@@ -895,4 +899,42 @@ export interface BoardMember {
     id: string;
     name: string;
   } | null;
+}
+
+// ─── Direct Contribution ────────────────────────────────────────────────────
+
+export interface ContributionCoverage {
+  pending_to_assess: number;
+  balance: number;
+  target_fund: number;
+}
+
+export interface ContributionResponse {
+  invoice: {
+    id: string;
+    unit_id?: string | null;
+    building_id?: string | null;
+    amount: number;
+    period: string;
+    issue_date: string;
+    status: InvoiceStatus;
+    type: InvoiceType;
+    tag?: InvoiceTag;
+    description?: string | null;
+    assessment_id?: string | null;
+    paid_amount?: number;
+    created_at?: string;
+    updated_at?: string;
+  };
+  payment: Payment;
+  fund_balance: number;
+  coverage: ContributionCoverage;
+}
+
+export interface RegisterContributionDto {
+  unit_id: string;
+  amount: number;
+  description?: string;
+  currency?: 'USD' | 'VES';
+  proof_image: File;
 }

@@ -17,6 +17,7 @@ import type {
     RateSet,
     CancelExpressAssessmentResponse,
     SetTargetFundResponse,
+    ContributionResponse,
 } from '@/types/models';
 
 interface PettyCashEntryFilters {
@@ -213,6 +214,22 @@ export const pettyCashService = {
         const { data } = await apiClient.put<SetTargetFundResponse>(
             `${P}/petty-cash/funds/${buildingId}/target-fund`,
             { target_fund: targetFund }
+        );
+        return data;
+    },
+
+    async registerContribution(
+        buildingId: string,
+        formData: FormData
+    ): Promise<ContributionResponse> {
+        const { data } = await apiClient.post<ContributionResponse>(
+            `${P}/petty-cash/funds/${buildingId}/contributions`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
         );
         return data;
     },
