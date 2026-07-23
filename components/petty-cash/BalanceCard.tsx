@@ -10,7 +10,7 @@ interface BalanceCardProps {
     balance: PettyCashBalance | null;
     isLoading?: boolean;
     onRefresh?: () => void;
-    /** Slice B: target fund amount. Shown as secondary line when > 0. */
+    /** Target fund amount. Shown as secondary line when > 0. */
     targetFund?: number;
 }
 
