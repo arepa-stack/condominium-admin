@@ -21,11 +21,12 @@ import {
 } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { paymentsService } from '@/lib/services/payments.service';
+import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { unitsService } from '@/lib/services/units.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { billingService } from '@/lib/services/billing.service';
 import { toast } from 'sonner';
-import { Loader2, Upload, Building2, Home, CreditCard, Calendar, DollarSign, FileText, ReceiptText, CheckCircle2 } from 'lucide-react';
+import { Loader2, Upload, Building2, Home, CreditCard, Calendar, DollarSign, FileText, ReceiptText, CheckCircle2, HandCoins } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { formatCurrency, formatPeriod } from '@/lib/utils/format';
@@ -63,6 +64,18 @@ export function PaymentDialog({
     const [bank, setBank] = useState<string>('');
     const [notes, setNotes] = useState<string>('');
     const [proofFile, setProofFile] = useState<File | null>(null);
+
+    // Contribution path: active when the selected unit has no PENDING/PARTIAL invoices
+    const [contributionAmount, setContributionAmount] = useState<string>('');
+    const [contributionDescription, setContributionDescription] = useState<string>('');
+    const [contributionProofFile, setContributionProofFile] = useState<File | null>(null);
+    const [invoicesLoaded, setInvoicesLoaded] = useState(false);
+
+    const currentPeriod = new Date().toISOString().substring(0, 7);
+    const defaultContributionDescription = `Aporte caja chica — ${currentPeriod}`;
+
+    // The contribution path is offered when a unit is selected and has no invoices
+    const isContributionPath = invoicesLoaded && selectedUnitId && pendingInvoices.length === 0;
 
     // Memoized derived data
     const unitOptions = useMemo(() => units.map(u => ({
@@ -106,6 +119,7 @@ export function PaymentDialog({
             if (!selectedUnitId || selectedUnitId === 'all') {
                 setPendingInvoices([]);
                 setSelectedInvoiceIds([]);
+                setInvoicesLoaded(false);
                 return;
             }
             try {
@@ -117,6 +131,12 @@ export function PaymentDialog({
 
                 const data = [...pending, ...partial];
                 setPendingInvoices(data);
+                setInvoicesLoaded(true);
+
+                // Reset contribution fields when switching units
+                setContributionAmount('');
+                setContributionDescription('');
+                setContributionProofFile(null);
 
                 // Auto-select if there's only one pending invoice
                 if (data.length === 1) {
@@ -126,6 +146,7 @@ export function PaymentDialog({
                 }
             } catch (error) {
                 console.error("Failed to fetch pending invoices", error);
+                setInvoicesLoaded(true);
             }
         };
         fetchInvoices();
@@ -156,6 +177,41 @@ export function PaymentDialog({
             : [...prev, id]
         );
     }, []);
+
+    const handleContributionSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedUnitId || !contributionAmount || !contributionProofFile) {
+            toast.error("Completá el monto y adjuntá el comprobante para el aporte directo");
+            return;
+        }
+
+        if (!selectedBuildingId) {
+            toast.error("Seleccioná un edificio");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const fd = new FormData();
+            fd.append('unit_id', selectedUnitId);
+            fd.append('amount', contributionAmount);
+            fd.append('proof_image', contributionProofFile);
+            if (contributionDescription.trim()) {
+                fd.append('description', contributionDescription.trim());
+            }
+
+            await pettyCashService.registerContribution(selectedBuildingId, fd);
+            toast.success("Aporte directo registrado correctamente");
+            onOpenChange(false);
+            resetForm();
+            onSuccess?.();
+        } catch (error) {
+            console.error("Failed to register contribution", error);
+            toast.error("Error al registrar el aporte directo");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -210,6 +266,7 @@ export function PaymentDialog({
         setSelectedUnitId('');
         setPendingInvoices([]);
         setSelectedInvoiceIds([]);
+        setInvoicesLoaded(false);
         setAmount('');
         setDate(new Date().toISOString().split('T')[0]);
         setMethod('TRANSFER');
@@ -217,6 +274,9 @@ export function PaymentDialog({
         setBank('');
         setNotes('');
         setProofFile(null);
+        setContributionAmount('');
+        setContributionDescription('');
+        setContributionProofFile(null);
     };
 
     return (
@@ -235,7 +295,7 @@ export function PaymentDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                <form onSubmit={isContributionPath ? handleContributionSubmit : handleSubmit} className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2 col-span-2 md:col-span-1">
                             <Label className="flex items-center gap-2">
@@ -319,6 +379,55 @@ export function PaymentDialog({
                         </div>
                     </div>
 
+                    {/* Contribution path: shown when unit has no pending invoices */}
+                    {isContributionPath && (
+                        <div className="rounded-xl border border-chart-1/30 bg-chart-1/5 p-4 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <HandCoins className="h-4 w-4 text-chart-1" />
+                                <p className="text-sm font-semibold text-foreground">
+                                    Esta unidad no tiene facturas pendientes. Podés registrar un aporte directo a caja chica.
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                    Monto del aporte
+                                </Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    value={contributionAmount}
+                                    onChange={(e) => setContributionAmount(e.target.value)}
+                                    required
+                                    className="font-bold text-lg"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Descripción (opcional)</Label>
+                                <Input
+                                    placeholder={defaultContributionDescription}
+                                    value={contributionDescription}
+                                    onChange={(e) => setContributionDescription(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <Upload className="h-4 w-4 text-muted-foreground" />
+                                    Comprobante <span className="text-destructive">*</span>
+                                </Label>
+                                <Input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={(e) => setContributionProofFile(e.target.files?.[0] ?? null)}
+                                    required
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Standard payment fields — hidden when contribution path is active */}
+                    {!isContributionPath && (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="flex items-center gap-2">
@@ -348,80 +457,85 @@ export function PaymentDialog({
                             />
                         </div>
                     </div>
+                    )}
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label className="flex items-center gap-2">
-                                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                                Método
-                            </Label>
-                            <Select value={method} onValueChange={setMethod}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="TRANSFER">Transferencia</SelectItem>
-                                    <SelectItem value="PAGO_MOVIL">Pago Móvil</SelectItem>
-                                    <SelectItem value="CASH">Efectivo</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                Referencia
-                            </Label>
-                            <Input
-                                placeholder="N° de referencia"
-                                value={reference}
-                                onChange={(e) => setReference(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                            <ReceiptText className="h-4 w-4 text-muted-foreground" />
-                            Nombre del banco
-                        </Label>
-                        <Input
-                            placeholder="ej. Banesco, Mercantil..."
-                            value={bank}
-                            onChange={(e) => setBank(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Notas</Label>
-                        <Input
-                            placeholder="Notas o detalles opcionales"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                            <Upload className="h-4 w-4 text-muted-foreground" />
-                            Comprobante de pago <span className="text-destructive">*</span>
-                        </Label>
-                        <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center gap-2">
+                    {!isContributionPath && (
+                        <>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                    Método
+                                </Label>
+                                <Select value={method} onValueChange={setMethod}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                                        <SelectItem value="PAGO_MOVIL">Pago Móvil</SelectItem>
+                                        <SelectItem value="CASH">Efectivo</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    Referencia
+                                </Label>
                                 <Input
-                                    type="file"
-                                    accept="image/*,application/pdf"
-                                    onChange={handleFileChange}
-                                    className="cursor-pointer"
-                                    required
+                                    placeholder="N° de referencia"
+                                    value={reference}
+                                    onChange={(e) => setReference(e.target.value)}
                                 />
                             </div>
-                            <span className="text-[10px] text-muted-foreground leading-tight">
-                                {method === 'CASH' 
-                                    ? 'Requerido: Sube una foto del recibo de caja firmado como comprobante del efectivo.' 
-                                    : 'Requerido: Sube una captura o PDF de la transferencia bancaria / pago móvil.'}
-                            </span>
                         </div>
-                    </div>
+
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                                <ReceiptText className="h-4 w-4 text-muted-foreground" />
+                                Nombre del banco
+                            </Label>
+                            <Input
+                                placeholder="ej. Banesco, Mercantil..."
+                                value={bank}
+                                onChange={(e) => setBank(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Notas</Label>
+                            <Input
+                                placeholder="Notas o detalles opcionales"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                                <Upload className="h-4 w-4 text-muted-foreground" />
+                                Comprobante de pago <span className="text-destructive">*</span>
+                            </Label>
+                            <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="file"
+                                        accept="image/*,application/pdf"
+                                        onChange={handleFileChange}
+                                        className="cursor-pointer"
+                                        required
+                                    />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground leading-tight">
+                                    {method === 'CASH'
+                                        ? 'Requerido: Sube una foto del recibo de caja firmado como comprobante del efectivo.'
+                                        : 'Requerido: Sube una captura o PDF de la transferencia bancaria / pago móvil.'}
+                                </span>
+                            </div>
+                        </div>
+                        </>
+                    )}
 
                     <DialogFooter className="pt-4">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
@@ -429,7 +543,7 @@ export function PaymentDialog({
                         </Button>
                         <Button type="submit" disabled={isLoading || !selectedUnitId}>
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Registrar pago
+                            {isContributionPath ? 'Registrar aporte' : 'Registrar pago'}
                         </Button>
                     </DialogFooter>
                 </form>
