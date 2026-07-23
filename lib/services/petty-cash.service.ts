@@ -134,7 +134,11 @@ export const pettyCashService = {
             return data;
         } catch (error) {
             const axiosError = error as import('axios').AxiosError;
-            if (axiosError.response?.status === 400 || axiosError.response?.status === 404) {
+            // 400/404: no preview available — not an error condition.
+            // 403: caller lacks assessment permission — silently return null
+            //      so the rest of the page still loads.
+            const status = axiosError.response?.status;
+            if (status === 400 || status === 404 || status === 403) {
                 return null;
             }
             throw error;

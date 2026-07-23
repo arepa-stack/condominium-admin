@@ -337,6 +337,12 @@ export interface PettyCashEntry {
   reference_id: string | null;
   created_by: string;
   created_at: string;
+  /**
+   * True when another REVERSAL entry points at this entry's id.
+   * Populated by the API's GetPettyCashHistory use case.
+   * Replaces the client-side reversedEntryIds memo.
+   */
+  is_reversed?: boolean;
 }
 
 export interface CreatePettyCashIncomeDto {

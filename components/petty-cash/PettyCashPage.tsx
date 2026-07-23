@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { BalanceCard } from '@/components/petty-cash/BalanceCard';
@@ -129,34 +129,78 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
 
     const fetchAll = useCallback(async () => {
         if (!buildingId) return;
+        setIsLoading(true);
         try {
-            setIsLoading(true);
-            const [bal, history, preview, trans, bld] = await Promise.all([
-                pettyCashService.getBalance(buildingId),
-                pettyCashService.getHistoryPaginated(buildingId, {
-                    type: filterType !== 'all' ? filterType : undefined,
-                    category: filterCategory !== 'all' ? filterCategory : undefined,
-                    page,
-                    limit: pageSize,
-                }),
-                pettyCashService.getAssessmentPreview(buildingId),
-                pettyCashService.getTransparency(buildingId, period),
-                buildingsService.getBuildingById(buildingId).catch(() => null),
-            ]);
-            setBalance(bal);
-            setBuilding(bld);
-            setEntries(history.data);
-            setEntriesMetadata(history.metadata);
-            setAssessmentPreview(preview);
-            setTransparency(trans);
-        } catch (e) {
-            console.error(e);
-            toast.error('No se pudo cargar la caja chica');
-            setBalance(null);
-            setEntries([]);
-            setEntriesMetadata(null);
-            setAssessmentPreview(null);
-            setTransparency(null);
+            // Use allSettled so a 403 or other scoped failure on one sub-request
+            // does not null-out the entire page. Each section degrades independently.
+            const [balResult, historyResult, previewResult, transResult, bldResult] =
+                await Promise.allSettled([
+                    pettyCashService.getBalance(buildingId),
+                    pettyCashService.getHistoryPaginated(buildingId, {
+                        type: filterType !== 'all' ? filterType : undefined,
+                        category: filterCategory !== 'all' ? filterCategory : undefined,
+                        page,
+                        limit: pageSize,
+                    }),
+                    pettyCashService.getAssessmentPreview(buildingId),
+                    pettyCashService.getTransparency(buildingId, period),
+                    buildingsService.getBuildingById(buildingId).catch(() => null),
+                ]);
+
+            // Balance section
+            if (balResult.status === 'fulfilled') {
+                setBalance(balResult.value);
+            } else {
+                const status = (balResult.reason as import('axios').AxiosError)?.response?.status;
+                setBalance(null);
+                if (status !== 403) {
+                    toast.error('No se pudo cargar el saldo de caja chica');
+                }
+                console.error(balResult.reason);
+            }
+
+            // History / entries section
+            if (historyResult.status === 'fulfilled') {
+                setEntries(historyResult.value.data);
+                setEntriesMetadata(historyResult.value.metadata);
+            } else {
+                const status = (historyResult.reason as import('axios').AxiosError)?.response?.status;
+                setEntries([]);
+                setEntriesMetadata(null);
+                if (status !== 403) {
+                    toast.error('No se pudo cargar el historial de movimientos');
+                }
+                console.error(historyResult.reason);
+            }
+
+            // Assessment preview — getAssessmentPreview already swallows 400/403/404
+            // and resolves to null, so a rejected result here is an unexpected error.
+            if (previewResult.status === 'fulfilled') {
+                setAssessmentPreview(previewResult.value);
+            } else {
+                setAssessmentPreview(null);
+                console.error(previewResult.reason);
+            }
+
+            // Transparency section
+            if (transResult.status === 'fulfilled') {
+                setTransparency(transResult.value);
+            } else {
+                const status = (transResult.reason as import('axios').AxiosError)?.response?.status;
+                setTransparency(null);
+                if (status !== 403) {
+                    toast.error('No se pudo cargar la transparencia de prorrateos');
+                }
+                console.error(transResult.reason);
+            }
+
+            // Building metadata — best-effort, no toast needed
+            if (bldResult.status === 'fulfilled') {
+                setBuilding(bldResult.value);
+            } else {
+                setBuilding(null);
+                console.error(bldResult.reason);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -165,16 +209,6 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
-
-    const reversedEntryIds = useMemo(() => {
-        const set = new Set<string>();
-        for (const e of entries) {
-            if (e.type === 'reversal' && e.reference_type === 'reversal' && e.reference_id) {
-                set.add(e.reference_id);
-            }
-        }
-        return set;
-    }, [entries]);
 
     const openDialog = (type: PettyCashManualEntryType) => {
         setDialogType(type);
@@ -434,7 +468,9 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                 entries.map((entry) => {
                                     const meta = ENTRY_TYPE_META[entry.type];
                                     const isReversal = entry.type === 'reversal';
-                                    const alreadyReversed = reversedEntryIds.has(entry.id);
+                                    // is_reversed comes from the API (GetPettyCashHistory).
+                                    // Fall back to false when absent (e.g. older API response).
+                                    const alreadyReversed = entry.is_reversed ?? false;
                                     const canReverse =
                                         canEdit && !isReversal && !alreadyReversed;
 
