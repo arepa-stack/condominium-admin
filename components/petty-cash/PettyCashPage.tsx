@@ -12,6 +12,7 @@ import { ReverseEntryDialog } from '@/components/petty-cash/ReverseEntryDialog';
 import { ExpressAssessmentDialog } from '@/components/petty-cash/ExpressAssessmentDialog';
 import { CancelExpressDialog, CancelSuccessSummary } from '@/components/petty-cash/CancelExpressDialog';
 import { TargetFundCard } from '@/components/petty-cash/TargetFundCard';
+import { ContributionDialog } from '@/components/petty-cash/ContributionDialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -45,6 +46,7 @@ import type {
     Building,
     RateSource,
     PettyCashCoverage,
+    ContributionResponse,
 } from '@/types/models';
 import { Paginator } from '@/components/ui/paginator';
 import { formatDate, formatMoney } from '@/lib/utils/format';
@@ -62,6 +64,7 @@ import {
     Zap,
     LayoutList,
     X,
+    HandCoins,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -146,6 +149,9 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [cancelExpressDialogOpen, setCancelExpressDialogOpen] = useState(false);
     const [batchToCancel, setBatchToCancel] = useState<PettyCashTransparencyBatch | null>(null);
     const [isCancellingExpress, setIsCancellingExpress] = useState(false);
+
+    // Direct contribution dialog
+    const [contributionDialogOpen, setContributionDialogOpen] = useState(false);
 
     const isBuildingVariant = variant === 'building';
 
@@ -451,6 +457,14 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         <Button className="gap-2" onClick={() => openDialog('expense')}>
                             <ArrowDownCircle className="h-4 w-4" />
                             Registrar egreso
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => setContributionDialogOpen(true)}
+                        >
+                            <HandCoins className="h-4 w-4 text-chart-1" />
+                            Registrar aporte
                         </Button>
                     </div>
                 )}
@@ -842,6 +856,16 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 entry={entryToReverse}
                 isReversing={isReversing}
                 onConfirm={handleReverseEntry}
+            />
+
+            {/* Direct contribution dialog */}
+            <ContributionDialog
+                open={contributionDialogOpen}
+                onOpenChange={setContributionDialogOpen}
+                buildingId={buildingId}
+                onSuccess={(_result: ContributionResponse) => {
+                    fetchAll();
+                }}
             />
 
             <Dialog open={!!evidenceUrl} onOpenChange={(o) => !o && setEvidenceUrl(null)}>
