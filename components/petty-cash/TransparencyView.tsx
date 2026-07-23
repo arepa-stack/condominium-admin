@@ -15,9 +15,10 @@ import {
     Archive,
     Zap,
     XCircle,
+    ExternalLink,
 } from 'lucide-react';
 import { formatMoney } from '@/lib/utils/format';
-import type { PettyCashTransparency, PettyCashTransparencyBatch } from '@/types/models';
+import type { PettyCashTransparency, PettyCashTransparencyBatch, TransparencyUnit } from '@/types/models';
 
 interface TransparencyViewProps {
     transparency: PettyCashTransparency | null;
@@ -87,12 +88,73 @@ interface BatchCardProps {
     onCancelExpressBatch?: (batch: PettyCashTransparencyBatch) => void;
 }
 
+interface UnitCardProps {
+    unit: TransparencyUnit;
+    isContribution: boolean;
+}
+
+function UnitCard({ unit, isContribution }: UnitCardProps) {
+    const progress = unit.expected_amount > 0
+        ? (unit.covered_amount / unit.expected_amount) * 100
+        : 0;
+    return (
+        <div className="rounded-lg border border-border bg-background/30 p-3">
+            <div className="mb-2 flex items-start justify-between">
+                <div>
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        Unidad
+                    </p>
+                    <p className="text-sm font-black text-foreground">
+                        {unit.unit_name}
+                    </p>
+                </div>
+                <div className="flex items-center gap-1">
+                    {unit.status === 'PAID' ? (
+                        <CheckCircle2 className="h-4 w-4 text-chart-1" />
+                    ) : (
+                        <StatusBadge status={unit.status} />
+                    )}
+                    {isContribution && unit.proof_url && (
+                        <a
+                            href={unit.proof_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Ver comprobante"
+                            className="ml-1 text-muted-foreground hover:text-primary"
+                        >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                    )}
+                </div>
+            </div>
+            <Progress
+                value={progress}
+                className="h-1.5"
+                indicatorClassName={
+                    unit.status === 'PAID'
+                        ? 'bg-chart-1'
+                        : unit.status === 'PARTIAL'
+                            ? 'bg-chart-2'
+                            : 'bg-primary'
+                }
+            />
+            <div className="mt-1 flex justify-between text-[10px] font-medium text-foreground">
+                <span>{formatMoney(unit.covered_amount)}</span>
+                <span className="text-muted-foreground">
+                    / {formatMoney(unit.expected_amount)}
+                </span>
+            </div>
+        </div>
+    );
+}
+
 function BatchCard({ batch, canEdit, onCancelExpressBatch }: BatchCardProps) {
     const [expanded, setExpanded] = useState(false);
     const [highlighted, setHighlighted] = useState(false);
     const cardRef = useRef<HTMLDivElement | null>(null);
     const isLegacy = batch.id === '__legacy__';
     const isExpress = batch.kind === 'EXPRESS';
+    const isContribution = batch.kind === 'CONTRIBUTION';
     const anchorId = `batch-${batch.id}`;
 
     // An EXPRESS batch is cancellable when it has at least one non-PAID unit
@@ -143,6 +205,11 @@ function BatchCard({ batch, canEdit, onCancelExpressBatch }: BatchCardProps) {
                         {isExpress && (
                             <Badge variant="outline" className="border-primary/50 text-primary">
                                 Express
+                            </Badge>
+                        )}
+                        {isContribution && (
+                            <Badge variant="outline" className="border-chart-1/50 text-chart-1">
+                                Aportes directos
                             </Badge>
                         )}
                         {isLegacy && (
@@ -205,51 +272,13 @@ function BatchCard({ batch, canEdit, onCancelExpressBatch }: BatchCardProps) {
 
             {expanded && (
                 <div className="mt-4 grid grid-cols-1 gap-2 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {batch.units.map((u) => {
-                        const progress =
-                            u.expected_amount > 0
-                                ? (u.covered_amount / u.expected_amount) * 100
-                                : 0;
-                        return (
-                            <div
-                                key={u.unit_id}
-                                className="rounded-lg border border-border bg-background/30 p-3"
-                            >
-                                <div className="mb-2 flex items-start justify-between">
-                                    <div>
-                                        <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                                            Unidad
-                                        </p>
-                                        <p className="text-sm font-black text-foreground">
-                                            {u.unit_name}
-                                        </p>
-                                    </div>
-                                    {u.status === 'PAID' ? (
-                                        <CheckCircle2 className="h-4 w-4 text-chart-1" />
-                                    ) : (
-                                        <StatusBadge status={u.status} />
-                                    )}
-                                </div>
-                                <Progress
-                                    value={progress}
-                                    className="h-1.5"
-                                    indicatorClassName={
-                                        u.status === 'PAID'
-                                            ? 'bg-chart-1'
-                                            : u.status === 'PARTIAL'
-                                                ? 'bg-chart-2'
-                                                : 'bg-primary'
-                                    }
-                                />
-                                <div className="mt-1 flex justify-between text-[10px] font-medium text-foreground">
-                                    <span>{formatMoney(u.covered_amount)}</span>
-                                    <span className="text-muted-foreground">
-                                        / {formatMoney(u.expected_amount)}
-                                    </span>
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {batch.units.map((u) => (
+                        <UnitCard
+                            key={u.unit_id}
+                            unit={u}
+                            isContribution={isContribution}
+                        />
+                    ))}
                 </div>
             )}
         </Card>
