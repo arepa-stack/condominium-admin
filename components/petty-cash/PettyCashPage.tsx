@@ -278,7 +278,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             const code = err.response?.data?.code;
             if (code === 'AMOUNT_TOO_SMALL_TO_DISTRIBUTE') {
                 toast.error('El monto es demasiado bajo para repartir entre las unidades');
-            } else if (code === 'UNIT_AMOUNTS_SUM_MISMATCH') {
+            } else if (code === 'UNIT_AMOUNTS_MISMATCH') {
                 toast.error('La suma de los montos por unidad no coincide con el total');
             } else {
                 toast.error(err.response?.data?.message || 'Error al emitir la factura express');
@@ -376,13 +376,19 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
 
     // B14: Save target fund
     const handleSaveTargetFund = async (value: number) => {
-        await pettyCashService.setTargetFund(buildingId, value);
-        toast.success(
-            value === 0
-                ? 'Fondo objetivo eliminado'
-                : `Fondo objetivo actualizado a ${formatMoney(value)}`
-        );
-        await fetchAll();
+        try {
+            await pettyCashService.setTargetFund(buildingId, value);
+            toast.success(
+                value === 0
+                    ? 'Fondo objetivo eliminado'
+                    : `Fondo objetivo actualizado a ${formatMoney(value)}`
+            );
+            await fetchAll();
+        } catch (e) {
+            const err = e as AxiosError<{ message?: string }>;
+            toast.error(err.response?.data?.message || 'No se pudo guardar el fondo objetivo');
+            console.error(e);
+        }
     };
 
     // B12: Called by TransactionDialog when expense succeeds — check coverage
@@ -807,6 +813,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     preview={assessmentPreview}
                     sourceEntryId={recoverySourceEntryId}
                     coverageAmount={recoveryCoverage?.pending_to_assess ?? 0}
+                    currentBalance={recoveryCoverage?.balance}
                     isSubmitting={isSubmittingExpress}
                     onConfirm={handleExpressAssessmentSubmit}
                 />
