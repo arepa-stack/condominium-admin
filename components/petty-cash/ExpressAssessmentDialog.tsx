@@ -28,6 +28,12 @@ interface ExpressAssessmentDialogProps {
     sourceEntryId: string;
     /** Pre-filled coverage amount from the expense response. */
     coverageAmount: number;
+    /**
+     * Fresh post-expense balance from the recovery coverage state. When present,
+     * it is shown as "Saldo actual" instead of the (stale, pre-expense)
+     * preview.current_balance.
+     */
+    currentBalance?: number;
     isSubmitting: boolean;
     onConfirm: (dto: CreateExpressAssessmentDto) => void;
 }
@@ -38,6 +44,7 @@ export function ExpressAssessmentDialog({
     preview,
     sourceEntryId,
     coverageAmount,
+    currentBalance,
     isSubmitting,
     onConfirm,
 }: ExpressAssessmentDialogProps) {
@@ -105,6 +112,12 @@ export function ExpressAssessmentDialog({
 
     const sumMismatch = unitAmountsEdited && selectedUnits.length > 0 && sumUnitCents !== amountInCents;
     const tooSmall = amount > 0 && selectedUnits.length > 0 && amountInCents < selectedUnits.length;
+    // A selected unit must receive a positive amount. Guards against a 0/empty
+    // per-unit value that still sums to the total (e.g. one unit absorbs everything).
+    const hasZeroUnit =
+        amount > 0 &&
+        selectedUnits.length > 0 &&
+        selectedUnits.some((u) => (resolvedUnitCents.get(u.id) ?? 0) <= 0);
     const descriptionValid = description.trim().length > 0;
     const allUnitsSelected =
         !!preview && preview.units.length > 0 && selectedUnitIds.length === preview.units.length;
@@ -116,6 +129,7 @@ export function ExpressAssessmentDialog({
         !tooSmall &&
         selectedUnits.length > 0 &&
         !sumMismatch &&
+        !hasZeroUnit &&
         !isSubmitting;
 
     const toggleUnit = (unitId: string) => {
@@ -184,15 +198,23 @@ export function ExpressAssessmentDialog({
                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                                     Saldo actual
                                 </p>
-                                <p
-                                    className={
-                                        preview.current_balance < 0
-                                            ? 'mt-1 text-sm font-bold tabular-nums text-destructive'
-                                            : 'mt-1 text-sm font-bold tabular-nums'
-                                    }
-                                >
-                                    {formatMoney(preview.current_balance)}
-                                </p>
+                                {(() => {
+                                    // Prefer the fresh post-expense balance from the recovery
+                                    // coverage; fall back to the preview balance otherwise.
+                                    const displayBalance =
+                                        currentBalance ?? preview.current_balance;
+                                    return (
+                                        <p
+                                            className={
+                                                displayBalance < 0
+                                                    ? 'mt-1 text-sm font-bold tabular-nums text-destructive'
+                                                    : 'mt-1 text-sm font-bold tabular-nums'
+                                            }
+                                        >
+                                            {formatMoney(displayBalance)}
+                                        </p>
+                                    );
+                                })()}
                             </div>
                         </div>
                     )}
@@ -329,6 +351,20 @@ export function ExpressAssessmentDialog({
                                 <p className="mt-0.5 text-muted-foreground">
                                     Suma actual: {formatMoney(sumUnitCents / 100)} · Total:{' '}
                                     {formatMoney(amountInCents / 100)}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {hasZeroUnit && !sumMismatch && (
+                        <div className="flex gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+                            <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+                            <div className="text-sm">
+                                <p className="font-semibold text-destructive">
+                                    Hay unidades sin monto
+                                </p>
+                                <p className="mt-0.5 text-muted-foreground">
+                                    Cada unidad debe tener un monto mayor a 0.
                                 </p>
                             </div>
                         </div>

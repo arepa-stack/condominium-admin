@@ -184,7 +184,7 @@ export function AssessmentPreviewDialog({
                             </div>
                             <div>
                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                                    Ya prorrateado
+                                    Pendiente de cobro de prorrateos
                                 </p>
                                 <p className="mt-1 text-sm font-bold tabular-nums">
                                     {formatMoney(preview.already_assessed)}

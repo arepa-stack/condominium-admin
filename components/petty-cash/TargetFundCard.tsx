@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,16 +17,24 @@ export function TargetFundCard({ targetFund, onSave }: TargetFundCardProps) {
     const [valueStr, setValueStr] = useState(() => (targetFund > 0 ? String(targetFund) : ''));
     const [isSaving, setIsSaving] = useState(false);
 
+    // Resync when the targetFund prop resolves after the initial load, so the
+    // input reflects the configured value instead of staying empty.
+    useEffect(() => {
+        setValueStr(targetFund > 0 ? String(targetFund) : '');
+    }, [targetFund]);
+
+    // An empty input is NOT an intentional 0 — clearing the target requires
+    // typing an explicit "0". This prevents a stray Guardar click from
+    // overwriting a configured target with 0.
     const parsedValue = Number(valueStr);
-    const isValid = valueStr === '' || (Number.isFinite(parsedValue) && parsedValue >= 0);
-    const effectiveValue = isValid && valueStr !== '' ? parsedValue : 0;
-    const hasChange = effectiveValue !== targetFund;
+    const isValid = valueStr !== '' && Number.isFinite(parsedValue) && parsedValue >= 0;
+    const hasChange = isValid && parsedValue !== targetFund;
 
     const handleSave = async () => {
         if (!isValid || !hasChange || isSaving) return;
         setIsSaving(true);
         try {
-            await onSave(effectiveValue);
+            await onSave(parsedValue);
         } finally {
             setIsSaving(false);
         }
