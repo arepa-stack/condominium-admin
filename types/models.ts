@@ -926,6 +926,7 @@ export interface ContributionResponse {
     created_at?: string;
     updated_at?: string;
   };
+  payment: Payment;
   fund_balance: number;
   coverage: ContributionCoverage;
 }
