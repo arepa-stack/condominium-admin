@@ -68,6 +68,7 @@ export function PaymentDialog({
     // Contribution path: active when the selected unit has no PENDING/PARTIAL invoices
     const [contributionAmount, setContributionAmount] = useState<string>('');
     const [contributionDescription, setContributionDescription] = useState<string>('');
+    const [contributionCurrency, setContributionCurrency] = useState<'USD' | 'VES'>('USD');
     const [contributionProofFile, setContributionProofFile] = useState<File | null>(null);
     const [invoicesLoaded, setInvoicesLoaded] = useState(false);
 
@@ -136,6 +137,7 @@ export function PaymentDialog({
                 // Reset contribution fields when switching units
                 setContributionAmount('');
                 setContributionDescription('');
+                setContributionCurrency('USD');
                 setContributionProofFile(null);
 
                 // Auto-select if there's only one pending invoice
@@ -195,6 +197,7 @@ export function PaymentDialog({
             const fd = new FormData();
             fd.append('unit_id', selectedUnitId);
             fd.append('amount', contributionAmount);
+            fd.append('currency', contributionCurrency);
             fd.append('proof_image', contributionProofFile);
             if (contributionDescription.trim()) {
                 fd.append('description', contributionDescription.trim());
@@ -276,6 +279,7 @@ export function PaymentDialog({
         setProofFile(null);
         setContributionAmount('');
         setContributionDescription('');
+        setContributionCurrency('USD');
         setContributionProofFile(null);
     };
 
@@ -333,6 +337,7 @@ export function PaymentDialog({
                         </div>
                     </div>
 
+                    {!isContributionPath && (
                     <div className="space-y-3 col-span-2">
                         <Label className="flex items-center gap-2 mb-2">
                             <ReceiptText className="h-4 w-4 text-muted-foreground" />
@@ -378,6 +383,7 @@ export function PaymentDialog({
                             )}
                         </div>
                     </div>
+                    )}
 
                     {/* Contribution path: shown when unit has no pending invoices */}
                     {isContributionPath && (
@@ -402,6 +408,25 @@ export function PaymentDialog({
                                     required
                                     className="font-bold text-lg"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Moneda</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={contributionCurrency === 'USD' ? 'default' : 'outline'}
+                                        onClick={() => setContributionCurrency('USD')}
+                                    >
+                                        En físico (USD)
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={contributionCurrency === 'VES' ? 'default' : 'outline'}
+                                        onClick={() => setContributionCurrency('VES')}
+                                    >
+                                        En bolívares (Bs)
+                                    </Button>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Descripción (opcional)</Label>
