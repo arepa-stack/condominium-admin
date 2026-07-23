@@ -320,7 +320,7 @@ export interface PettyCashBalance {
   updated_at: string;
 }
 
-/** Slice B: coverage data returned with EXPENSE entries when pending_to_assess > 0. */
+/** Coverage data returned with EXPENSE entries when pending_to_assess > 0. */
 export interface PettyCashCoverage {
   pending_to_assess: number;
   balance: number;
@@ -351,7 +351,7 @@ export interface PettyCashEntry {
    */
   is_reversed?: boolean;
   /**
-   * Slice B: coverage data returned with EXPENSE entries only.
+   * Coverage data returned with EXPENSE entries only.
    * Present when the API has the coverage computation wired; absent otherwise.
    */
   coverage?: PettyCashCoverage;
@@ -396,7 +396,7 @@ export interface PettyCashAssessmentPreview {
   total_overage: number;
   already_assessed: number;
   pending_to_assess: number;
-  /** Slice B: target replenishment fund. 0 when not configured. */
+  /** Target replenishment fund. 0 when not configured. */
   target_fund?: number;
   units: { id: string; name: string; amount: number }[];
 }
@@ -406,21 +406,21 @@ export interface CreatePettyCashAssessmentDto {
   amount: number | string;
   category?: PettyCashCategory;
   unit_ids?: string[];
-  /** Slice B: assessment kind. Defaults to GENERAL when omitted. */
+  /** Assessment kind. Defaults to GENERAL when omitted. */
   kind?: 'GENERAL' | 'EXPRESS';
-  /** Slice B: for EXPRESS, the expense entry id that triggered this assessment. */
+  /** For EXPRESS, the expense entry id that triggered this assessment. */
   source_entry_id?: string;
-  /** Slice B: EXPRESS-only per-unit amount overrides. Keys = unit IDs, values > 0. */
+  /** EXPRESS-only per-unit amount overrides. Keys = unit IDs, values > 0. */
   unit_amounts?: Record<string, number>;
 }
 
-/** Slice B: per-unit amount used when submitting an EXPRESS assessment. */
+/** Per-unit amount used when submitting an EXPRESS assessment. */
 export interface ExpressAssessmentUnitAmount {
   unit_id: string;
   amount: number;
 }
 
-/** Slice B: DTO for creating an EXPRESS assessment. */
+/** DTO for creating an EXPRESS assessment. */
 export interface CreateExpressAssessmentDto {
   description: string;
   amount: number;
@@ -431,19 +431,19 @@ export interface CreateExpressAssessmentDto {
   category?: PettyCashCategory;
 }
 
-/** Slice B: DTO for cancelling an EXPRESS assessment. */
+/** DTO for cancelling an EXPRESS assessment. */
 export interface CancelExpressAssessmentDto {
   reason: string;
 }
 
-/** Slice B: response from cancelling an EXPRESS assessment. */
+/** Response from cancelling an EXPRESS assessment. */
 export interface CancelExpressAssessmentResponse {
   assessment_id: string;
   cancelled_invoices: number;
   total_remainder_returned: number;
 }
 
-/** Slice B: request/response for setting the target fund. */
+/** Request/response for setting the target fund. */
 export interface SetTargetFundDto {
   target_fund: number;
 }
@@ -459,9 +459,9 @@ export interface PettyCashAssessmentResponse {
   description: string;
   total_assessed: number;
   invoices_created: number;
-  /** Slice B: assessment kind. */
+  /** Assessment kind. */
   kind?: 'GENERAL' | 'EXPRESS';
-  /** Slice B: source expense entry id for EXPRESS assessments. */
+  /** Source expense entry id for EXPRESS assessments. */
   source_entry_id?: string | null;
   invoices: {
     unit_id: string;
@@ -485,9 +485,9 @@ export interface PettyCashTransparencyBatch {
     covered_amount: number;
     status: "PAID" | "PARTIAL" | "PENDING";
   }[];
-  /** Slice B: assessment kind. Absent for legacy/orphan batches. */
+  /** Assessment kind. Absent for legacy/orphan batches. */
   kind?: 'GENERAL' | 'EXPRESS';
-  /** Slice B: source expense entry id for EXPRESS assessments. Absent for legacy. */
+  /** Source expense entry id for EXPRESS assessments. Absent for legacy. */
   source_entry_id?: string | null;
 }
 
