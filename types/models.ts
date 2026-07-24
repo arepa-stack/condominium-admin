@@ -508,6 +508,34 @@ export interface ReversePettyCashEntryDto {
   reason: string;
 }
 
+export interface PettyCashPaymentReportItem {
+  id: string;
+  date: string;
+  unit_id: string | null;
+  unit_name: string | null;
+  owner_name: string | null;
+  receipt_number: string | null;
+  assessment_description: string | null;
+  amount: number;
+  original_currency: string;
+  original_amount: number | null;
+  exchange_rate: number | null;
+  payment_method: string | null;
+  payment_reference: string | null;
+  bank: string | null;
+  type: string;
+  description: string;
+  proof_url: string | null;
+}
+
+export interface PettyCashPaymentReportFilters {
+  unit_id?: string;
+  start_date?: string;
+  end_date?: string;
+  search?: string;
+  receipt_number?: string;
+}
+
 // ─── Decisions (Presupuestos y Votaciones) ─────────────────────────────────
 
 export type DecisionStatus =

@@ -13,6 +13,7 @@ import { ExpressAssessmentDialog } from '@/components/petty-cash/ExpressAssessme
 import { CancelExpressDialog, CancelSuccessSummary } from '@/components/petty-cash/CancelExpressDialog';
 import { TargetFundCard } from '@/components/petty-cash/TargetFundCard';
 import { ContributionDialog } from '@/components/petty-cash/ContributionDialog';
+import { ExportPettyCashPaymentsDialog } from '@/components/petty-cash/ExportPettyCashPaymentsDialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -65,6 +66,7 @@ import {
     LayoutList,
     X,
     HandCoins,
+    Download,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -135,6 +137,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
     const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
     const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [entryToReverse, setEntryToReverse] = useState<PettyCashEntry | null>(null);
 
     // B12: post-expense recovery offer state
@@ -444,30 +447,40 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         Saldo, movimientos y prorrateos del fondo del edificio
                     </p>
                 </div>
-                {canEdit && (
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => openDialog('income')}
-                        >
-                            <ArrowUpCircle className="h-4 w-4 text-chart-1" />
-                            Registrar ingreso
-                        </Button>
-                        <Button className="gap-2" onClick={() => openDialog('expense')}>
-                            <ArrowDownCircle className="h-4 w-4" />
-                            Registrar egreso
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => setContributionDialogOpen(true)}
-                        >
-                            <HandCoins className="h-4 w-4 text-chart-1" />
-                            Registrar aporte
-                        </Button>
-                    </div>
-                )}
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setExportDialogOpen(true)}
+                    >
+                        <Download className="h-4 w-4 text-primary" />
+                        Exportar pagos (CSV)
+                    </Button>
+                    {canEdit && (
+                        <>
+                            <Button
+                                variant="outline"
+                                className="gap-2"
+                                onClick={() => openDialog('income')}
+                            >
+                                <ArrowUpCircle className="h-4 w-4 text-chart-1" />
+                                Registrar ingreso
+                            </Button>
+                            <Button className="gap-2" onClick={() => openDialog('expense')}>
+                                <ArrowDownCircle className="h-4 w-4" />
+                                Registrar egreso
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="gap-2"
+                                onClick={() => setContributionDialogOpen(true)}
+                            >
+                                <HandCoins className="h-4 w-4 text-chart-1" />
+                                Registrar aporte
+                            </Button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* B12: Post-expense recovery offer — shown INSTEAD of the normal pending banner */}
@@ -866,6 +879,12 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 onSuccess={(_result: ContributionResponse) => {
                     fetchAll();
                 }}
+            />
+
+            <ExportPettyCashPaymentsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                buildingId={buildingId}
             />
 
             <Dialog open={!!evidenceUrl} onOpenChange={(o) => !o && setEvidenceUrl(null)}>
