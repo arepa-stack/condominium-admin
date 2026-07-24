@@ -8,12 +8,16 @@ import type {
     PettyCashCategory,
     CreatePettyCashIncomeDto,
     CreatePettyCashAssessmentDto,
+    CreateExpressAssessmentDto,
     PettyCashAssessmentPreview,
     PettyCashAssessmentResponse,
     PettyCashTransparency,
     PaginatedResponse,
     PaginationParams,
     RateSet,
+    CancelExpressAssessmentResponse,
+    SetTargetFundResponse,
+    ContributionResponse,
 } from '@/types/models';
 
 interface PettyCashEntryFilters {
@@ -134,7 +138,11 @@ export const pettyCashService = {
             return data;
         } catch (error) {
             const axiosError = error as import('axios').AxiosError;
-            if (axiosError.response?.status === 400 || axiosError.response?.status === 404) {
+            // 400/404: no preview available — not an error condition.
+            // 403: caller lacks assessment permission — silently return null
+            //      so the rest of the page still loads.
+            const status = axiosError.response?.status;
+            if (status === 400 || status === 404 || status === 403) {
                 return null;
             }
             throw error;
@@ -164,6 +172,64 @@ export const pettyCashService = {
         const { data } = await apiClient.get<PettyCashTransparency>(
             `${P}/petty-cash/funds/${buildingId}/transparency`,
             { params: { period } }
+        );
+        return data;
+    },
+
+    async generateExpressAssessment(
+        buildingId: string,
+        dto: CreateExpressAssessmentDto
+    ): Promise<PettyCashAssessmentResponse> {
+        const { data } = await apiClient.post<PettyCashAssessmentResponse>(
+            `${P}/petty-cash/funds/${buildingId}/assessments`,
+            {
+                description: dto.description,
+                amount: dto.amount,
+                kind: 'EXPRESS',
+                source_entry_id: dto.source_entry_id,
+                unit_ids: dto.unit_ids,
+                ...(dto.unit_amounts ? { unit_amounts: dto.unit_amounts } : {}),
+                ...(dto.category ? { category: dto.category } : {}),
+            }
+        );
+        return data;
+    },
+
+    async cancelExpressAssessment(
+        buildingId: string,
+        assessmentId: string,
+        reason: string
+    ): Promise<CancelExpressAssessmentResponse> {
+        const { data } = await apiClient.post<CancelExpressAssessmentResponse>(
+            `${P}/petty-cash/funds/${buildingId}/assessments/${assessmentId}/cancel`,
+            { reason }
+        );
+        return data;
+    },
+
+    async setTargetFund(
+        buildingId: string,
+        targetFund: number
+    ): Promise<SetTargetFundResponse> {
+        const { data } = await apiClient.put<SetTargetFundResponse>(
+            `${P}/petty-cash/funds/${buildingId}/target-fund`,
+            { target_fund: targetFund }
+        );
+        return data;
+    },
+
+    async registerContribution(
+        buildingId: string,
+        formData: FormData
+    ): Promise<ContributionResponse> {
+        const { data } = await apiClient.post<ContributionResponse>(
+            `${P}/petty-cash/funds/${buildingId}/contributions`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
         );
         return data;
     },

@@ -320,6 +320,13 @@ export interface PettyCashBalance {
   updated_at: string;
 }
 
+/** Coverage data returned with EXPENSE entries when pending_to_assess > 0. */
+export interface PettyCashCoverage {
+  pending_to_assess: number;
+  balance: number;
+  target_fund: number;
+}
+
 export interface PettyCashEntry {
   id: string;
   fund_id: string;
@@ -337,6 +344,17 @@ export interface PettyCashEntry {
   reference_id: string | null;
   created_by: string;
   created_at: string;
+  /**
+   * True when another REVERSAL entry points at this entry's id.
+   * Populated by the API's GetPettyCashHistory use case.
+   * Replaces the client-side reversedEntryIds memo.
+   */
+  is_reversed?: boolean;
+  /**
+   * Coverage data returned with EXPENSE entries only.
+   * Present when the API has the coverage computation wired; absent otherwise.
+   */
+  coverage?: PettyCashCoverage;
 }
 
 export interface CreatePettyCashIncomeDto {
@@ -378,6 +396,8 @@ export interface PettyCashAssessmentPreview {
   total_overage: number;
   already_assessed: number;
   pending_to_assess: number;
+  /** Target replenishment fund. 0 when not configured. */
+  target_fund?: number;
   units: { id: string; name: string; amount: number }[];
 }
 
@@ -386,6 +406,51 @@ export interface CreatePettyCashAssessmentDto {
   amount: number | string;
   category?: PettyCashCategory;
   unit_ids?: string[];
+  /** Assessment kind. Defaults to GENERAL when omitted. */
+  kind?: 'GENERAL' | 'EXPRESS';
+  /** For EXPRESS, the expense entry id that triggered this assessment. */
+  source_entry_id?: string;
+  /** EXPRESS-only per-unit amount overrides. Keys = unit IDs, values > 0. */
+  unit_amounts?: Record<string, number>;
+}
+
+/** Per-unit amount used when submitting an EXPRESS assessment. */
+export interface ExpressAssessmentUnitAmount {
+  unit_id: string;
+  amount: number;
+}
+
+/** DTO for creating an EXPRESS assessment. */
+export interface CreateExpressAssessmentDto {
+  description: string;
+  amount: number;
+  source_entry_id: string;
+  unit_ids: string[];
+  /** Per-unit amounts. Only sent when the user edited away from equal split. */
+  unit_amounts?: Record<string, number>;
+  category?: PettyCashCategory;
+}
+
+/** DTO for cancelling an EXPRESS assessment. */
+export interface CancelExpressAssessmentDto {
+  reason: string;
+}
+
+/** Response from cancelling an EXPRESS assessment. */
+export interface CancelExpressAssessmentResponse {
+  assessment_id: string;
+  cancelled_invoices: number;
+  total_remainder_returned: number;
+}
+
+/** Request/response for setting the target fund. */
+export interface SetTargetFundDto {
+  target_fund: number;
+}
+
+export interface SetTargetFundResponse {
+  building_id: string;
+  target_fund: number;
 }
 
 export interface PettyCashAssessmentResponse {
@@ -394,12 +459,26 @@ export interface PettyCashAssessmentResponse {
   description: string;
   total_assessed: number;
   invoices_created: number;
+  /** Assessment kind. */
+  kind?: 'GENERAL' | 'EXPRESS';
+  /** Source expense entry id for EXPRESS assessments. */
+  source_entry_id?: string | null;
   invoices: {
     unit_id: string;
     unit_name: string;
     amount: number;
     invoice_id: string;
   }[];
+}
+
+export interface TransparencyUnit {
+  unit_id: string;
+  unit_name: string;
+  expected_amount: number;
+  covered_amount: number;
+  status: "PAID" | "PARTIAL" | "PENDING";
+  /** Proof URL for CONTRIBUTION kind rows. Present when the unit paid via direct contribution. */
+  proof_url?: string | null;
 }
 
 export interface PettyCashTransparencyBatch {
@@ -409,13 +488,11 @@ export interface PettyCashTransparencyBatch {
   total_to_collect: number;
   total_collected: number;
   collection_percentage: number;
-  units: {
-    unit_id: string;
-    unit_name: string;
-    expected_amount: number;
-    covered_amount: number;
-    status: "PAID" | "PARTIAL" | "PENDING";
-  }[];
+  units: TransparencyUnit[];
+  /** Assessment kind. Absent for legacy/orphan batches. */
+  kind?: 'GENERAL' | 'EXPRESS' | 'CONTRIBUTION';
+  /** Source expense entry id for EXPRESS assessments. Absent for legacy. */
+  source_entry_id?: string | null;
 }
 
 export interface PettyCashTransparency {
@@ -441,6 +518,7 @@ export type DecisionStatus =
   | 'CANCELLED';
 
 export type DecisionChargeType = 'INVOICE' | 'ASSESSMENT';
+export type DecisionProcessType = 'VOTING' | 'DIRECT_AWARD';
 
 export interface DecisionActorRef {
   id: string;
@@ -454,6 +532,7 @@ export interface Decision {
   description: string | null;
   photo_url: string | null;
   status: DecisionStatus;
+  process_type: DecisionProcessType;
   current_round: number;
   reception_deadline: string;
   voting_deadline: string;
@@ -483,8 +562,8 @@ export interface DecisionQuote {
   provider_name: string;
   amount: number;
   notes: string | null;
-  /** Signed URL con TTL corto (5-10 min). No cachear entre fetches. */
-  file_url: string;
+  /** Signed URL con TTL corto (5-10 min), o null cuando no se adjuntó archivo. */
+  file_url: string | null;
   deleted_at: string | null;
   deleted_by: DecisionActorRef | null;
   deletion_reason: string | null;
@@ -534,6 +613,7 @@ export type DecisionAuditEvent =
   | 'FINALIZED'
   | 'TIEBREAK_OPENED'
   | 'WINNER_SET_MANUAL'
+  | 'DIRECT_AWARD'
   | 'CHARGE_GENERATED'
   | 'PHASE_ADVANCED';
 
@@ -554,6 +634,11 @@ export interface CreateDecisionDto {
   reception_deadline: string;
   voting_deadline: string;
   tiebreak_duration_hours?: number;
+}
+
+export interface CreateDirectDecisionResponse {
+  decision: Decision;
+  quote: DecisionQuote;
 }
 
 export interface ExtendDeadlinesDto {
@@ -816,3 +901,40 @@ export interface BoardMember {
   } | null;
 }
 
+// ─── Direct Contribution ────────────────────────────────────────────────────
+
+export interface ContributionCoverage {
+  pending_to_assess: number;
+  balance: number;
+  target_fund: number;
+}
+
+export interface ContributionResponse {
+  invoice: {
+    id: string;
+    unit_id?: string | null;
+    building_id?: string | null;
+    amount: number;
+    period: string;
+    issue_date: string;
+    status: InvoiceStatus;
+    type: InvoiceType;
+    tag?: InvoiceTag;
+    description?: string | null;
+    assessment_id?: string | null;
+    paid_amount?: number;
+    created_at?: string;
+    updated_at?: string;
+  };
+  payment: Payment;
+  fund_balance: number;
+  coverage: ContributionCoverage;
+}
+
+export interface RegisterContributionDto {
+  unit_id: string;
+  amount: number;
+  description?: string;
+  currency?: 'USD' | 'VES';
+  proof_image: File;
+}

@@ -9,6 +9,7 @@ import type {
     DecisionTally,
     DecisionAuditEntry,
     CreateDecisionDto,
+    CreateDirectDecisionResponse,
     ExtendDeadlinesDto,
     CancelDecisionDto,
     ResolveTiebreakDto,
@@ -54,6 +55,15 @@ export const decisionsService = {
         return data;
     },
 
+    async createDirect(fd: FormData): Promise<CreateDirectDecisionResponse> {
+        const { data } = await apiClient.post<CreateDirectDecisionResponse>(
+            `${P}/direct`,
+            fd,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+        );
+        return data;
+    },
+
     async uploadPhoto(id: string, file: File): Promise<Decision> {
         const fd = new FormData();
         fd.append('photo', file);
@@ -80,6 +90,14 @@ export const decisionsService = {
         const { data } = await apiClient.post<Decision>(
             `${P}/${id}/finalize`,
             body ?? {},
+        );
+        return data;
+    },
+
+    async awardSoleQuote(id: string, reason: string): Promise<Decision> {
+        const { data } = await apiClient.post<Decision>(
+            `${P}/${id}/award-sole-quote`,
+            { reason },
         );
         return data;
     },
