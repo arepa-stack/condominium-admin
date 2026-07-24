@@ -197,19 +197,25 @@ export function QuoteCard({
                 )}
 
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleViewFile}
-                        disabled={loadingFile}
-                    >
-                        {loadingFile ? (
-                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                            <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                        )}
-                        Ver archivo
-                    </Button>
+                    {quote.file_url ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleViewFile}
+                            disabled={loadingFile}
+                        >
+                            {loadingFile ? (
+                                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                                <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                            )}
+                            Ver archivo
+                        </Button>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">
+                            Sin archivo adjunto
+                        </span>
+                    )}
                     <p className="text-xs text-muted-foreground">
                         {quote.uploader?.name ?? 'Usuario eliminado'} · hace{' '}
                         {formatDistanceStrict(new Date(quote.created_at), new Date(), {

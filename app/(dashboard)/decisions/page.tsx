@@ -105,7 +105,7 @@ export default function DecisionsListPage() {
                 <div>
                     <h1 className="text-2xl font-semibold text-foreground">Presupuestos</h1>
                     <p className="text-sm text-muted-foreground">
-                        Decisiones con cotizaciones competitivas y votación de apartamentos.
+                        Evalúa proveedores mediante votación o adjudicación directa.
                     </p>
                 </div>
                 {canCreate && (
@@ -202,7 +202,12 @@ export default function DecisionsListPage() {
                     onOpenChange={setIsCreateOpen}
                     buildingId={effectiveBuildingId ?? undefined}
                     availableBuildings={availableBuildings}
-                    onCreated={() => load()}
+                    onCreated={(decision) => {
+                        load();
+                        if (decision.process_type === 'DIRECT_AWARD') {
+                            router.push(`/decisions/${decision.id}`);
+                        }
+                    }}
                 />
             )}
         </div>

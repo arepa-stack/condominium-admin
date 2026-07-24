@@ -10,9 +10,11 @@ interface BalanceCardProps {
     balance: PettyCashBalance | null;
     isLoading?: boolean;
     onRefresh?: () => void;
+    /** Target fund amount. Shown as secondary line when > 0. */
+    targetFund?: number;
 }
 
-export function BalanceCard({ balance, isLoading, onRefresh }: BalanceCardProps) {
+export function BalanceCard({ balance, isLoading, onRefresh, targetFund }: BalanceCardProps) {
     const isOverdraft = !!balance && balance.current_balance < 0;
 
     return (
@@ -74,6 +76,14 @@ export function BalanceCard({ balance, isLoading, onRefresh }: BalanceCardProps)
                             <p className="mt-1 text-xs text-destructive/90">
                                 El fondo está en descubierto — el próximo prorrateo lo
                                 cobrará a las unidades.
+                            </p>
+                        )}
+                        {typeof targetFund === 'number' && targetFund > 0 && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Fondo objetivo:{' '}
+                                <span className="font-semibold text-foreground">
+                                    {formatMoney(targetFund)}
+                                </span>
                             </p>
                         )}
                         {(() => {
