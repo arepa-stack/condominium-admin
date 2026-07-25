@@ -8,6 +8,8 @@ export interface GeneratePettyCashPdfOptions {
     startDate?: string;
     endDate?: string;
     unitName?: string;
+    typeLabel?: string;
+    category?: string;
     excludeReversed?: boolean;
 }
 
@@ -71,6 +73,12 @@ export function generatePettyCashPDF(
         filterDetails.push(`Unidad: ${options.unitName}`);
     } else {
         filterDetails.push('Unidades: Todas');
+    }
+    if (options.typeLabel && options.typeLabel !== 'Todos los tipos') {
+        filterDetails.push(`Tipo: ${options.typeLabel}`);
+    }
+    if (options.category && options.category !== 'all') {
+        filterDetails.push(`Categoría: ${options.category}`);
     }
     filterDetails.push(
         `Revertidos: ${options.excludeReversed ? 'Excluidos' : 'Incluidos'}`

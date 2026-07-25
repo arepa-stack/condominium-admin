@@ -885,6 +885,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 open={exportDialogOpen}
                 onOpenChange={setExportDialogOpen}
                 buildingId={buildingId}
+                initialType={filterType}
+                initialCategory={filterCategory}
             />
 
             <Dialog open={!!evidenceUrl} onOpenChange={(o) => !o && setEvidenceUrl(null)}>

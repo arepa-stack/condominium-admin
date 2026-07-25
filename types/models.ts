@@ -531,6 +531,8 @@ export interface PettyCashPaymentReportItem {
 
 export interface PettyCashPaymentReportFilters {
   unit_id?: string;
+  type?: string;
+  category?: string;
   start_date?: string;
   end_date?: string;
   search?: string;
