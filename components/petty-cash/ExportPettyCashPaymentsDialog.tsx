@@ -28,16 +28,30 @@ import { generatePettyCashPDF } from '@/lib/utils/petty-cash-pdf';
 import type { Unit, Building, PettyCashPaymentReportItem } from '@/types/models';
 import { toast } from 'sonner';
 
+import { PETTY_CASH_CATEGORIES } from '@/lib/utils/constants';
+
 interface ExportPettyCashPaymentsDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     buildingId: string;
+    initialType?: string;
+    initialCategory?: string;
 }
+
+const ENTRY_TYPE_LABELS: Record<string, string> = {
+    all: 'Todos los tipos',
+    income: 'Ingreso Directo',
+    expense: 'Egreso',
+    collection: 'Cobro Cuota',
+    reversal: 'Reversa',
+};
 
 export function ExportPettyCashPaymentsDialog({
     open,
     onOpenChange,
     buildingId,
+    initialType = 'all',
+    initialCategory = 'all',
 }: ExportPettyCashPaymentsDialogProps) {
     const [units, setUnits] = useState<Unit[]>([]);
     const [building, setBuilding] = useState<Building | null>(null);
@@ -46,10 +60,19 @@ export function ExportPettyCashPaymentsDialog({
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
     const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
+    const [selectedType, setSelectedType] = useState<string>(initialType);
+    const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
     const [receiptNumber, setReceiptNumber] = useState<string>('');
     const [excludeReversed, setExcludeReversed] = useState<boolean>(true);
+
+    useEffect(() => {
+        if (open) {
+            setSelectedType(initialType);
+            setSelectedCategory(initialCategory);
+        }
+    }, [open, initialType, initialCategory]);
 
     useEffect(() => {
         if (open && buildingId) {
@@ -66,6 +89,8 @@ export function ExportPettyCashPaymentsDialog({
 
     const handleReset = () => {
         setSelectedUnitId('all');
+        setSelectedType('all');
+        setSelectedCategory('all');
         setStartDate('');
         setEndDate('');
         setReceiptNumber('');
@@ -140,7 +165,7 @@ export function ExportPettyCashPaymentsDialog({
         const todayStr = new Date().toISOString().split('T')[0];
 
         link.setAttribute('href', url);
-        link.setAttribute('download', `pagos_caja_chica_${todayStr}.csv`);
+        link.setAttribute('download', `caja_chica_${todayStr}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -150,6 +175,8 @@ export function ExportPettyCashPaymentsDialog({
     const fetchReportData = async () => {
         return await pettyCashService.getPaymentsReport(buildingId, {
             unit_id: selectedUnitId !== 'all' ? selectedUnitId : undefined,
+            type: selectedType !== 'all' ? selectedType : undefined,
+            category: selectedCategory !== 'all' ? selectedCategory : undefined,
             start_date: startDate || undefined,
             end_date: endDate || undefined,
             receipt_number: receiptNumber || undefined,
@@ -196,6 +223,8 @@ export function ExportPettyCashPaymentsDialog({
                 startDate: startDate || undefined,
                 endDate: endDate || undefined,
                 unitName: selectedUnitId !== 'all' ? selectedUnit?.name : undefined,
+                typeLabel: ENTRY_TYPE_LABELS[selectedType] || selectedType,
+                category: selectedCategory !== 'all' ? selectedCategory : undefined,
                 excludeReversed,
             });
 
@@ -218,11 +247,53 @@ export function ExportPettyCashPaymentsDialog({
                         Exportar Reporte de Caja Chica
                     </DialogTitle>
                     <DialogDescription>
-                        Genera un archivo PDF o CSV con los movimientos de la caja chica, filtrando por unidad, fecha o número de recibo.
+                        Genera un archivo PDF o CSV con los movimientos de la caja chica, usando los mismos filtros de la tabla.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
+                    {/* Filtro por Tipo y Categoría */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="type-filter">Tipo de movimiento</Label>
+                            <Select
+                                value={selectedType}
+                                onValueChange={setSelectedType}
+                            >
+                                <SelectTrigger id="type-filter">
+                                    <SelectValue placeholder="Todos los tipos" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los tipos</SelectItem>
+                                    <SelectItem value="income">Ingreso</SelectItem>
+                                    <SelectItem value="expense">Egreso</SelectItem>
+                                    <SelectItem value="collection">Cobro auto</SelectItem>
+                                    <SelectItem value="reversal">Reversa</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="category-filter">Categoría</Label>
+                            <Select
+                                value={selectedCategory}
+                                onValueChange={setSelectedCategory}
+                            >
+                                <SelectTrigger id="category-filter">
+                                    <SelectValue placeholder="Todas las categorías" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas las categorías</SelectItem>
+                                    {PETTY_CASH_CATEGORIES.map((c) => (
+                                        <SelectItem key={c} value={c}>
+                                            {c}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     {/* Propietario / Unidad */}
                     <div className="space-y-2">
                         <Label htmlFor="unit-filter">Propietario / Unidad</Label>
