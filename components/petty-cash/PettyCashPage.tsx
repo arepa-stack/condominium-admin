@@ -486,14 +486,6 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     </Button>
                     {canEdit && (
                         <>
-                            <Button
-                                variant="outline"
-                                className="gap-2"
-                                onClick={() => openDialog('income')}
-                            >
-                                <ArrowUpCircle className="h-4 w-4 text-chart-1" />
-                                Registrar ingreso
-                            </Button>
                             <Button className="gap-2" onClick={() => openDialog('expense')}>
                                 <ArrowDownCircle className="h-4 w-4" />
                                 Registrar egreso

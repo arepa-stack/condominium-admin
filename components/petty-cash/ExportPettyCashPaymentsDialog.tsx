@@ -120,10 +120,22 @@ export function ExportPettyCashPaymentsDialog({
             const typeStr = item.type === 'collection' ? 'Cobro Cuota' : item.type === 'income' ? 'Ingreso Directo' : item.type === 'expense' ? 'Egreso' : item.type === 'reversal' ? 'Reversa' : item.type;
             const unitStr = item.unit_name || '—';
             const ownerStr = item.owner_name || '—';
-            const receiptStr = item.receipt_number || '—';
+            let receiptStr = item.receipt_number || item.payment_reference;
+            if (!receiptStr && item.description) {
+                const match = item.description.match(/pago\s+([a-zA-Z0-9-]+)/i);
+                if (match && match[1]) {
+                    receiptStr = `REC-${match[1].split('-')[0].toUpperCase()}`;
+                }
+            }
+            if (!receiptStr && item.id) {
+                receiptStr = `REC-${item.id.split('-')[0].toUpperCase()}`;
+            }
+            if (!receiptStr) {
+                receiptStr = '—';
+            }
             const conceptStr = item.assessment_description || item.description || '—';
             const methodStr = item.payment_method || '—';
-            const refStr = item.payment_reference || '—';
+            const refStr = item.payment_reference || receiptStr;
             const bankStr = item.bank || '—';
             const amountStr = item.amount != null ? item.amount.toFixed(2) : '0.00';
             const origCurrStr = item.original_currency || 'USD';

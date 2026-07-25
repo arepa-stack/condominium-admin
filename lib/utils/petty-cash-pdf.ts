@@ -177,7 +177,20 @@ export function generatePettyCashPDF(
 
         const unitStr = item.unit_name || '—';
         const ownerStr = item.owner_name || '—';
-        const refStr = item.receipt_number || item.payment_reference || '—';
+        let refStr = item.receipt_number || item.payment_reference;
+        if (!refStr && item.description) {
+            const match = item.description.match(/pago\s+([a-zA-Z0-9-]+)/i);
+            if (match && match[1]) {
+                const cleanRef = match[1].split('-')[0].toUpperCase();
+                refStr = `REC-${cleanRef}`;
+            }
+        }
+        if (!refStr && item.id) {
+            refStr = `REC-${item.id.split('-')[0].toUpperCase()}`;
+        }
+        if (!refStr) {
+            refStr = '—';
+        }
         const conceptStr = item.assessment_description || item.description || '—';
         const amountFormatted = item.amount != null ? `$${item.amount.toFixed(2)}` : '$0.00';
 
