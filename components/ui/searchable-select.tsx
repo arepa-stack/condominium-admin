@@ -97,7 +97,7 @@ export function SearchableSelect({
     }, []);
 
     return (
-        <div className={cn('relative w-full', className)} ref={containerRef}>
+        <div className={cn('relative w-full', open ? 'z-50' : 'z-10', className)} ref={containerRef}>
             <div className="relative group">
                 {TriggerIcon && (
                     <TriggerIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
@@ -140,7 +140,7 @@ export function SearchableSelect({
             </div>
 
             {open && (
-                <div className="absolute top-full left-0 w-full z-50 mt-1 rounded-md border border-border/50 bg-card shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full left-0 w-full z-[100] mt-1 rounded-md border border-border/60 bg-popover text-popover-foreground shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                     <ScrollArea className="h-[250px]">
                         <div className="p-1">
                             {filteredOptions.length === 0 ? (
