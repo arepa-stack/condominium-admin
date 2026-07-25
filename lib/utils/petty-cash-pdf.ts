@@ -105,13 +105,15 @@ export function generatePettyCashPDF(
     let totalReversal = 0;
 
     for (const item of items) {
-        if (item.type === 'income') totalIncome += item.amount;
-        else if (item.type === 'collection') totalCollection += item.amount;
-        else if (item.type === 'expense') totalExpense += item.amount;
+        if (item.is_reversed) continue;
+        const absAmount = Math.abs(item.amount || 0);
+        if (item.type === 'income') totalIncome += absAmount;
+        else if (item.type === 'collection') totalCollection += absAmount;
+        else if (item.type === 'expense') totalExpense += absAmount;
         else if (item.type === 'reversal') totalReversal += item.amount;
     }
 
-    const netAmount = totalIncome + totalCollection + totalExpense + totalReversal;
+    const netAmount = totalIncome + totalCollection - totalExpense + totalReversal;
 
     doc.setFillColor(241, 245, 249); // Slate 100
     doc.roundedRect(margin, currentY, pageWidth - margin * 2, 16, 2, 2, 'F');
