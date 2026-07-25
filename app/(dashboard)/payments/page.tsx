@@ -61,6 +61,9 @@ export default function PaymentsPage() {
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
     const [filterPeriod, setFilterPeriod] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
 
     // Proof Dialog
     const [proofUrl, setProofUrl] = useState<string | null>(null);
@@ -189,7 +192,14 @@ export default function PaymentsPage() {
                         </div>
                     </div>
                 )}
-                <div className="w-full md:w-56">
+                <div className="w-full md:w-60">
+                    <Input
+                        placeholder="Buscar persona, unidad o ref..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <div className="w-full md:w-52">
                     <SearchableSelect
                         options={[
                             { value: 'all', label: 'Todas las unidades' },
@@ -208,7 +218,23 @@ export default function PaymentsPage() {
                         triggerIcon={Home}
                     />
                 </div>
-                <div className="w-full md:w-48">
+                <div className="w-full md:w-36">
+                    <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        title="Fecha desde"
+                    />
+                </div>
+                <div className="w-full md:w-36">
+                    <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        title="Fecha hasta"
+                    />
+                </div>
+                <div className="w-full md:w-44">
                     <Select value={filterStatus} onValueChange={setFilterStatus}>
                         <SelectTrigger>
                             <SelectValue placeholder="Todos los estados" />
@@ -221,7 +247,7 @@ export default function PaymentsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="w-full md:w-32">
+                <div className="w-full md:w-28">
                     <Select value={filterYear} onValueChange={setFilterYear}>
                         <SelectTrigger>
                             <SelectValue placeholder="Año" />
@@ -233,40 +259,90 @@ export default function PaymentsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="w-full md:w-48">
+                <div className="w-full md:w-40">
                     <Input
                         placeholder="Período (ej. 2024-01)"
                         value={filterPeriod}
                         onChange={(e) => setFilterPeriod(e.target.value)}
                     />
                 </div>
+                {(searchQuery || filterUnitId !== 'all' || filterStatus !== 'all' || filterPeriod || startDate || endDate) && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            setSearchQuery('');
+                            setFilterUnitId('all');
+                            setFilterStatus('all');
+                            setFilterPeriod('');
+                            setStartDate('');
+                            setEndDate('');
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                        Limpiar filtros
+                    </Button>
+                )}
             </FilterBar>
 
             {isLoading ? (
                 <TableSkeleton rows={5} columns={8} />
-            ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Usuario</TableHead>
-                            <TableHead>Monto</TableHead>
-                            <TableHead>Método</TableHead>
-                            <TableHead>Referencia</TableHead>
-                            <TableHead>Comprobante</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead>Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {payments.length === 0 ? (
+            ) : (() => {
+                const filteredPayments = payments.filter((payment) => {
+                    const unitId = payment.unit_id || payment.user?.unit_id;
+                    const unitObj = unitId ? units.find((u) => u.id === unitId) : null;
+                    const unitName = unitObj?.name || payment.user?.unit || '';
+                    const userName = payment.user?.name || '';
+
+                    if (searchQuery.trim()) {
+                        const q = searchQuery.trim().toLowerCase();
+                        const matches =
+                            userName.toLowerCase().includes(q) ||
+                            unitName.toLowerCase().includes(q) ||
+                            `unidad ${unitName.toLowerCase()}`.includes(q) ||
+                            `apto ${unitName.toLowerCase()}`.includes(q) ||
+                            (payment.reference && payment.reference.toLowerCase().includes(q)) ||
+                            (payment.bank && payment.bank.toLowerCase().includes(q)) ||
+                            formatDate(payment.payment_date).toLowerCase().includes(q);
+                        if (!matches) return false;
+                    }
+
+                    if (startDate) {
+                        const pDate = new Date(payment.payment_date).toISOString().split('T')[0];
+                        if (pDate < startDate) return false;
+                    }
+
+                    if (endDate) {
+                        const pDate = new Date(payment.payment_date).toISOString().split('T')[0];
+                        if (pDate > endDate) return false;
+                    }
+
+                    return true;
+                });
+
+                return (
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={8} className="p-0">
-                                    <EmptyState icon={Receipt} message="No se encontraron pagos" variant="inline" />
-                                </TableCell>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Usuario</TableHead>
+                                <TableHead>Monto</TableHead>
+                                <TableHead>Método</TableHead>
+                                <TableHead>Referencia</TableHead>
+                                <TableHead>Comprobante</TableHead>
+                                <TableHead>Estado</TableHead>
+                                <TableHead>Acciones</TableHead>
                             </TableRow>
-                        ) : (
-                            payments.map((payment) => (
+                        </TableHeader>
+                        <TableBody>
+                            {filteredPayments.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="p-0">
+                                        <EmptyState icon={Receipt} message="No se encontraron pagos con los filtros seleccionados" variant="inline" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filteredPayments.map((payment) => (
                                 <TableRow
                                     key={payment.id}
                                     className="cursor-pointer group"
@@ -357,7 +433,8 @@ export default function PaymentsPage() {
                         )}
                     </TableBody>
                 </Table>
-            )}
+                );
+            })()}
 
             <Paginator
                 metadata={paymentsMetadata}
