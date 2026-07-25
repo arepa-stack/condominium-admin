@@ -34,6 +34,7 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import type {
     PettyCashBalance,
     PettyCashEntry,
@@ -50,6 +51,7 @@ import type {
     RateSource,
     PettyCashCoverage,
     ContributionResponse,
+    PettyCashPaymentReportItem,
 } from '@/types/models';
 import { Paginator } from '@/components/ui/paginator';
 import { formatDate, formatMoney } from '@/lib/utils/format';
@@ -132,6 +134,10 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [isGenerating, setIsGenerating] = useState(false);
     const [isReversing, setIsReversing] = useState(false);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [reportItems, setReportItems] = useState<PettyCashPaymentReportItem[]>([]);
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
     const [filterUnitId, setFilterUnitId] = useState<string>('all');
     const [filterType, setFilterType] = useState<TypeFilter>('all');
     const [filterCategory, setFilterCategory] = useState<CategoryFilter>('all');
@@ -178,7 +184,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         if (!buildingId) return;
         setIsLoading(true);
         try {
-            const [balResult, historyResult, previewResult, transResult, bldResult] =
+            const [balResult, historyResult, previewResult, transResult, bldResult, reportResult] =
                 await Promise.allSettled([
                     pettyCashService.getBalance(buildingId),
                     pettyCashService.getHistoryPaginated(buildingId, {
@@ -190,7 +196,14 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     pettyCashService.getAssessmentPreview(buildingId),
                     pettyCashService.getTransparency(buildingId, period),
                     buildingsService.getBuildingById(buildingId).catch(() => null),
+                    pettyCashService.getPaymentsReport(buildingId).catch(() => []),
                 ]);
+
+            if (reportResult.status === 'fulfilled') {
+                setReportItems(reportResult.value);
+            } else {
+                setReportItems([]);
+            }
 
             if (balResult.status === 'fulfilled') {
                 setBalance(balResult.value);
@@ -628,7 +641,17 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             />
 
             <FilterBar>
-                <div className="w-full md:w-56">
+                <div className="w-full md:w-60">
+                    <Input
+                        placeholder="Buscar unidad, persona o concepto..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setPage(1);
+                        }}
+                    />
+                </div>
+                <div className="w-full md:w-52">
                     <SearchableSelect
                         options={[
                             { value: 'all', label: 'Todas las unidades' },
@@ -650,7 +673,29 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         triggerIcon={Home}
                     />
                 </div>
-                <div className="w-full md:w-48">
+                <div className="w-full md:w-36">
+                    <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => {
+                            setStartDate(e.target.value);
+                            setPage(1);
+                        }}
+                        title="Fecha desde"
+                    />
+                </div>
+                <div className="w-full md:w-36">
+                    <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => {
+                            setEndDate(e.target.value);
+                            setPage(1);
+                        }}
+                        title="Fecha hasta"
+                    />
+                </div>
+                <div className="w-full md:w-44">
                     <Select
                         value={filterType}
                         onValueChange={(v) => {
@@ -670,7 +715,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="w-full md:w-56">
+                <div className="w-full md:w-48">
                     <Select
                         value={filterCategory}
                         onValueChange={(v) => {
@@ -691,22 +736,76 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         </SelectContent>
                     </Select>
                 </div>
+                {(searchQuery || filterUnitId !== 'all' || filterType !== 'all' || filterCategory !== 'all' || startDate || endDate) && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            setSearchQuery('');
+                            setFilterUnitId('all');
+                            setFilterType('all');
+                            setFilterCategory('all');
+                            setStartDate('');
+                            setEndDate('');
+                            setPage(1);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                        Limpiar filtros
+                    </Button>
+                )}
             </FilterBar>
 
             {isLoading ? (
                 <TableSkeleton rows={5} columns={7} />
             ) : (() => {
                 const selectedUnit = units.find((u) => u.id === filterUnitId);
-                const displayedEntries = filterUnitId === 'all'
-                    ? entries
-                    : entries.filter((entry) => {
-                        const uName = selectedUnit?.name || '';
-                        return (
-                            (uName && entry.description.toLowerCase().includes(uName.toLowerCase())) ||
-                            (entry as any).unit_id === filterUnitId ||
-                            (entry as any).reference_id === filterUnitId
+                const selectedUnitName = selectedUnit?.name?.toLowerCase() || '';
+
+                const displayedEntries = entries.filter((entry) => {
+                    const reportItem = reportItems.find((r) => r.id === entry.id);
+                    const unitId = reportItem?.unit_id || (entry as any).unit_id || null;
+                    const unitName = reportItem?.unit_name || null;
+                    const ownerName = reportItem?.owner_name || null;
+
+                    // 1. Unit dropdown filter
+                    if (filterUnitId !== 'all') {
+                        const matchesUnitId = unitId === filterUnitId;
+                        const matchesUnitName = selectedUnitName && (
+                            (unitName && unitName.toLowerCase().includes(selectedUnitName)) ||
+                            entry.description.toLowerCase().includes(selectedUnitName) ||
+                            entry.description.toLowerCase().includes(`apto ${selectedUnitName}`) ||
+                            entry.description.toLowerCase().includes(`unidad ${selectedUnitName}`)
                         );
-                    });
+                        if (!matchesUnitId && !matchesUnitName) return false;
+                    }
+
+                    // 2. Search Query filter (unit, owner/person name, concept, category, receipt)
+                    if (searchQuery.trim()) {
+                        const q = searchQuery.trim().toLowerCase();
+                        const matches =
+                            (unitName && unitName.toLowerCase().includes(q)) ||
+                            (ownerName && ownerName.toLowerCase().includes(q)) ||
+                            entry.description.toLowerCase().includes(q) ||
+                            (entry.category && entry.category.toLowerCase().includes(q)) ||
+                            (reportItem?.receipt_number && reportItem.receipt_number.toLowerCase().includes(q)) ||
+                            (reportItem?.payment_reference && reportItem.payment_reference.toLowerCase().includes(q)) ||
+                            formatDate(entry.created_at).toLowerCase().includes(q);
+                        if (!matches) return false;
+                    }
+
+                    // 3. Date range filters
+                    if (startDate) {
+                        const entryDate = new Date(entry.created_at).toISOString().split('T')[0];
+                        if (entryDate < startDate) return false;
+                    }
+                    if (endDate) {
+                        const entryDate = new Date(entry.created_at).toISOString().split('T')[0];
+                        if (entryDate > endDate) return false;
+                    }
+
+                    return true;
+                });
 
                 return (
                     <>
