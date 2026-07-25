@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { buildingsService } from '@/lib/services/buildings.service';
+import { unitsService } from '@/lib/services/units.service';
 import { BalanceCard } from '@/components/petty-cash/BalanceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TransactionDialog, type PettyCashManualEntryType } from '@/components/petty-cash/TransactionDialog';
@@ -45,6 +46,7 @@ import type {
     CreateExpressAssessmentDto,
     PaginationMetadata,
     Building,
+    Unit,
     RateSource,
     PettyCashCoverage,
     ContributionResponse,
@@ -67,7 +69,9 @@ import {
     X,
     HandCoins,
     Download,
+    Home,
 } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { usePermissions } from '@/lib/hooks/usePermissions';
@@ -127,10 +131,19 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [isLoading, setIsLoading] = useState(true);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isReversing, setIsReversing] = useState(false);
+    const [units, setUnits] = useState<Unit[]>([]);
+    const [filterUnitId, setFilterUnitId] = useState<string>('all');
     const [filterType, setFilterType] = useState<TypeFilter>('all');
     const [filterCategory, setFilterCategory] = useState<CategoryFilter>('all');
     const [page, setPage] = useState(1);
     const pageSize = 20;
+
+    useEffect(() => {
+        if (!buildingId) return;
+        unitsService.getUnits(buildingId)
+            .then(setUnits)
+            .catch(() => setUnits([]));
+    }, [buildingId]);
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogType, setDialogType] = useState<PettyCashManualEntryType>('income');
@@ -615,6 +628,28 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             />
 
             <FilterBar>
+                <div className="w-full md:w-56">
+                    <SearchableSelect
+                        options={[
+                            { value: 'all', label: 'Todas las unidades' },
+                            ...units.map((u) => ({
+                                value: u.id,
+                                label: u.name.toLowerCase().includes('unidad') || u.name.toLowerCase().includes('apto')
+                                    ? u.name
+                                    : `Unidad ${u.name}`,
+                                icon: Home,
+                            })),
+                        ]}
+                        value={filterUnitId}
+                        onValueChange={(v) => {
+                            setPage(1);
+                            setFilterUnitId(v);
+                        }}
+                        placeholder="Todas las unidades"
+                        searchPlaceholder="Buscar unidad (ej. 52)..."
+                        triggerIcon={Home}
+                    />
+                </div>
                 <div className="w-full md:w-48">
                     <Select
                         value={filterType}
@@ -660,36 +695,49 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
 
             {isLoading ? (
                 <TableSkeleton rows={5} columns={7} />
-            ) : (
-                <>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Tipo</TableHead>
-                                <TableHead>Monto</TableHead>
-                                <TableHead>Descripción</TableHead>
-                                <TableHead>Categoría</TableHead>
-                                <TableHead>Evidencia</TableHead>
-                                {canEdit && <TableHead className="text-right">Acciones</TableHead>}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {entries.length === 0 ? (
+            ) : (() => {
+                const selectedUnit = units.find((u) => u.id === filterUnitId);
+                const displayedEntries = filterUnitId === 'all'
+                    ? entries
+                    : entries.filter((entry) => {
+                        const uName = selectedUnit?.name || '';
+                        return (
+                            (uName && entry.description.toLowerCase().includes(uName.toLowerCase())) ||
+                            (entry as any).unit_id === filterUnitId ||
+                            (entry as any).reference_id === filterUnitId
+                        );
+                    });
+
+                return (
+                    <>
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell
-                                        colSpan={canEdit ? 7 : 6}
-                                        className="p-0"
-                                    >
-                                        <EmptyState
-                                            icon={Receipt}
-                                            message="No hay movimientos registrados"
-                                            variant="inline"
-                                        />
-                                    </TableCell>
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Monto</TableHead>
+                                    <TableHead>Descripción</TableHead>
+                                    <TableHead>Categoría</TableHead>
+                                    <TableHead>Evidencia</TableHead>
+                                    {canEdit && <TableHead className="text-right">Acciones</TableHead>}
                                 </TableRow>
-                            ) : (
-                                entries.map((entry) => {
+                            </TableHeader>
+                            <TableBody>
+                                {displayedEntries.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={canEdit ? 7 : 6}
+                                            className="p-0"
+                                        >
+                                            <EmptyState
+                                                icon={Receipt}
+                                                message="No hay movimientos registrados para el filtro seleccionado"
+                                                variant="inline"
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    displayedEntries.map((entry) => {
                                     const meta = ENTRY_TYPE_META[entry.type];
                                     const isReversal = entry.type === 'reversal';
                                     const alreadyReversed = entry.is_reversed ?? false;
@@ -792,7 +840,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         onPageChange={setPage}
                     />
                 </>
-            )}
+                );
+            })()}
 
             {/* TransactionDialog: expense success now passes entry for coverage detection */}
             <TransactionDialog
