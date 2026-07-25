@@ -818,7 +818,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                     <TableHead>Tipo</TableHead>
                                     <TableHead>Monto</TableHead>
                                     <TableHead>Descripción</TableHead>
-                                    <TableHead>Categoría</TableHead>
+                                    <TableHead>Propietario</TableHead>
                                     <TableHead>Evidencia</TableHead>
                                     {canEdit && <TableHead className="text-right">Acciones</TableHead>}
                                 </TableRow>
@@ -844,6 +844,9 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                     const alreadyReversed = entry.is_reversed ?? false;
                                     const canReverse =
                                         canEdit && !isReversal && !alreadyReversed;
+                                    const reportItem = reportItems.find((r) => r.id === entry.id);
+                                    const owner = reportItem?.owner_name;
+                                    const unitName = reportItem?.unit_name;
 
                                     return (
                                         <TableRow
@@ -888,8 +891,20 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                             <TableCell className="max-w-xs truncate whitespace-normal">
                                                 {entry.description}
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {entry.category || '—'}
+                                            <TableCell className="text-sm">
+                                                {owner && unitName ? (
+                                                    <div>
+                                                        <span className="font-medium text-foreground">{owner}</span>
+                                                        <br />
+                                                        <span className="text-xs text-muted-foreground">Unidad {unitName}</span>
+                                                    </div>
+                                                ) : owner ? (
+                                                    <span className="font-medium text-foreground">{owner}</span>
+                                                ) : unitName ? (
+                                                    <span className="text-xs text-muted-foreground font-medium">Unidad {unitName}</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {entry.evidence_url ? (
