@@ -968,5 +968,5 @@ export interface RegisterContributionDto {
   amount: number;
   description?: string;
   currency?: 'USD' | 'VES';
-  proof_image: File;
+  proof_image?: File;
 }

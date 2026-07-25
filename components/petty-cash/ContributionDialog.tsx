@@ -95,17 +95,14 @@ export function ContributionDialog({
     }, [open, buildingId]);
 
     const onSubmit = async (data: FormValues) => {
-        if (!proofFile) {
-            toast.error('El comprobante de pago es obligatorio');
-            return;
-        }
-
         const fd = new FormData();
         fd.append('unit_id', data.unit_id);
         fd.append('amount', String(data.amount));
         fd.append('description', data.description);
         fd.append('currency', data.currency);
-        fd.append('proof_image', proofFile);
+        if (proofFile) {
+            fd.append('proof_image', proofFile);
+        }
 
         try {
             const result = await pettyCashService.registerContribution(buildingId, fd);
@@ -226,18 +223,16 @@ export function ContributionDialog({
 
                         <div className="space-y-2">
                             <FormLabel>
-                                Comprobante de pago <span className="text-destructive">*</span>
+                                Comprobante de pago <span className="text-muted-foreground font-normal">(opcional)</span>
                             </FormLabel>
                             <Input
                                 type="file"
                                 accept="image/*,.pdf"
                                 onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
                             />
-                            {!proofFile && (
-                                <p className="text-[11px] text-muted-foreground">
-                                    El comprobante es obligatorio para registrar el aporte.
-                                </p>
-                            )}
+                            <p className="text-[11px] text-muted-foreground">
+                                Puedes adjuntar un comprobante si lo deseas.
+                            </p>
                         </div>
 
                         <DialogFooter className="gap-2 sm:gap-0">
