@@ -184,14 +184,16 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         if (!buildingId) return;
         setIsLoading(true);
         try {
+            const isFiltering = filterUnitId !== 'all' || searchQuery.trim() !== '' || startDate !== '' || endDate !== '' || filterType !== 'all' || filterCategory !== 'all';
+
             const [balResult, historyResult, previewResult, transResult, bldResult, reportResult] =
                 await Promise.allSettled([
                     pettyCashService.getBalance(buildingId),
                     pettyCashService.getHistoryPaginated(buildingId, {
                         type: filterType !== 'all' ? filterType : undefined,
                         category: filterCategory !== 'all' ? filterCategory : undefined,
-                        page,
-                        limit: pageSize,
+                        page: isFiltering ? 1 : page,
+                        limit: isFiltering ? 'all' : pageSize,
                     }),
                     pettyCashService.getAssessmentPreview(buildingId),
                     pettyCashService.getTransparency(buildingId, period),
@@ -256,7 +258,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         } finally {
             setIsLoading(false);
         }
-    }, [buildingId, filterType, filterCategory, page, period]);
+    }, [buildingId, filterType, filterCategory, page, period, filterUnitId, searchQuery, startDate, endDate]);
 
     useEffect(() => {
         fetchAll();

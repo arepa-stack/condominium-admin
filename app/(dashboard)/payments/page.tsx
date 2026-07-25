@@ -105,16 +105,18 @@ export default function PaymentsPage() {
         try {
             setIsLoading(true);
 
+            const isFiltering = filterUnitId !== 'all' || searchQuery.trim() !== '' || startDate !== '' || endDate !== '' || filterStatus !== 'all' || filterPeriod !== '';
+
             const query: {
                 page: number;
-                limit: number;
+                limit: number | 'all';
                 building_id?: string;
                 unit_id?: string;
                 status?: string;
                 period?: string;
                 year?: string;
                 user_id?: string;
-            } = { page, limit: PAGE_SIZE };
+            } = { page: isFiltering ? 1 : page, limit: isFiltering ? 'all' : PAGE_SIZE };
             if (activeBuildingId) query.building_id = activeBuildingId;
             if (userIdParam) query.user_id = userIdParam;
             if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
@@ -147,7 +149,7 @@ export default function PaymentsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [activeBuildingId, filterUnitId, filterStatus, filterPeriod, filterYear, userIdParam, isSuperAdmin, page]);
+    }, [activeBuildingId, filterUnitId, filterStatus, filterPeriod, filterYear, userIdParam, isSuperAdmin, page, searchQuery, startDate, endDate]);
 
     useEffect(() => {
         fetchData();
