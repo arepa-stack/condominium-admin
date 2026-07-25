@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select,
     SelectContent,
@@ -22,7 +23,9 @@ import {
 import { Download, FileText, Loader2 } from 'lucide-react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { unitsService } from '@/lib/services/units.service';
-import type { Unit, PettyCashPaymentReportItem } from '@/types/models';
+import { buildingsService } from '@/lib/services/buildings.service';
+import { generatePettyCashPDF } from '@/lib/utils/petty-cash-pdf';
+import type { Unit, Building, PettyCashPaymentReportItem } from '@/types/models';
 import { toast } from 'sonner';
 
 interface ExportPettyCashPaymentsDialogProps {
@@ -37,24 +40,27 @@ export function ExportPettyCashPaymentsDialog({
     buildingId,
 }: ExportPettyCashPaymentsDialogProps) {
     const [units, setUnits] = useState<Unit[]>([]);
+    const [building, setBuilding] = useState<Building | null>(null);
     const [isLoadingUnits, setIsLoadingUnits] = useState(false);
-    const [isExporting, setIsExporting] = useState(false);
+    const [isExportingCsv, setIsExportingCsv] = useState(false);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
     const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
     const [receiptNumber, setReceiptNumber] = useState<string>('');
+    const [excludeReversed, setExcludeReversed] = useState<boolean>(true);
 
     useEffect(() => {
         if (open && buildingId) {
             setIsLoadingUnits(true);
-            unitsService
-                .getUnits(buildingId)
-                .then((res) => setUnits(res))
-                .catch((err) => {
-                    console.error('Error al cargar unidades:', err);
-                })
-                .finally(() => setIsLoadingUnits(false));
+            Promise.allSettled([
+                unitsService.getUnits(buildingId),
+                buildingsService.getBuildingById(buildingId),
+            ]).then(([unitsRes, buildingRes]) => {
+                if (unitsRes.status === 'fulfilled') setUnits(unitsRes.value);
+                if (buildingRes.status === 'fulfilled') setBuilding(buildingRes.value);
+            }).finally(() => setIsLoadingUnits(false));
         }
     }, [open, buildingId]);
 
@@ -63,6 +69,7 @@ export function ExportPettyCashPaymentsDialog({
         setStartDate('');
         setEndDate('');
         setReceiptNumber('');
+        setExcludeReversed(true);
     };
 
     const generateCSV = (items: PettyCashPaymentReportItem[]) => {
@@ -80,11 +87,12 @@ export function ExportPettyCashPaymentsDialog({
             'Moneda Original',
             'Monto Original',
             'Tasa de Cambio',
+            'Estado',
         ];
 
         const rows = items.map((item) => {
             const dateStr = item.date ? new Date(item.date).toLocaleString('es-VE') : '';
-            const typeStr = item.type === 'collection' ? 'Cobro Cuota' : item.type === 'income' ? 'Ingreso Directo' : item.type;
+            const typeStr = item.type === 'collection' ? 'Cobro Cuota' : item.type === 'income' ? 'Ingreso Directo' : item.type === 'expense' ? 'Egreso' : item.type === 'reversal' ? 'Reversa' : item.type;
             const unitStr = item.unit_name || '—';
             const ownerStr = item.owner_name || '—';
             const receiptStr = item.receipt_number || '—';
@@ -96,6 +104,7 @@ export function ExportPettyCashPaymentsDialog({
             const origCurrStr = item.original_currency || 'USD';
             const origAmountStr = item.original_amount != null ? item.original_amount.toFixed(2) : '—';
             const rateStr = item.exchange_rate != null ? item.exchange_rate.toFixed(4) : '—';
+            const statusStr = item.is_reversed ? 'Revertido' : 'Activo';
 
             return [
                 dateStr,
@@ -111,6 +120,7 @@ export function ExportPettyCashPaymentsDialog({
                 origCurrStr,
                 origAmountStr,
                 rateStr,
+                statusStr,
             ];
         });
 
@@ -137,18 +147,23 @@ export function ExportPettyCashPaymentsDialog({
         URL.revokeObjectURL(url);
     };
 
-    const handleExport = async () => {
-        setIsExporting(true);
+    const fetchReportData = async () => {
+        return await pettyCashService.getPaymentsReport(buildingId, {
+            unit_id: selectedUnitId !== 'all' ? selectedUnitId : undefined,
+            start_date: startDate || undefined,
+            end_date: endDate || undefined,
+            receipt_number: receiptNumber || undefined,
+            exclude_reversed: excludeReversed,
+        });
+    };
+
+    const handleExportCSV = async () => {
+        setIsExportingCsv(true);
         try {
-            const reportData = await pettyCashService.getPaymentsReport(buildingId, {
-                unit_id: selectedUnitId !== 'all' ? selectedUnitId : undefined,
-                start_date: startDate || undefined,
-                end_date: endDate || undefined,
-                receipt_number: receiptNumber || undefined,
-            });
+            const reportData = await fetchReportData();
 
             if (!reportData || reportData.length === 0) {
-                toast.warning('No se encontraron pagos con los filtros seleccionados');
+                toast.warning('No se encontraron registros con los filtros seleccionados');
                 return;
             }
 
@@ -157,9 +172,40 @@ export function ExportPettyCashPaymentsDialog({
             onOpenChange(false);
         } catch (error) {
             console.error(error);
-            toast.error('Error al generar el reporte de pagos');
+            toast.error('Error al generar la exportación en CSV');
         } finally {
-            setIsExporting(false);
+            setIsExportingCsv(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setIsGeneratingPdf(true);
+        try {
+            const reportData = await fetchReportData();
+
+            if (!reportData || reportData.length === 0) {
+                toast.warning('No se encontraron registros con los filtros seleccionados');
+                return;
+            }
+
+            const selectedUnit = units.find((u) => u.id === selectedUnitId);
+
+            generatePettyCashPDF(reportData, {
+                buildingName: building?.name || 'Edificio',
+                buildingCode: building?.building_code,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
+                unitName: selectedUnitId !== 'all' ? selectedUnit?.name : undefined,
+                excludeReversed,
+            });
+
+            toast.success(`Se generó el reporte PDF con ${reportData.length} movimientos`);
+            onOpenChange(false);
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al generar el reporte en PDF');
+        } finally {
+            setIsGeneratingPdf(false);
         }
     };
 
@@ -169,10 +215,10 @@ export function ExportPettyCashPaymentsDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary" />
-                        Exportar Pagos de Caja Chica (CSV)
+                        Exportar Reporte de Caja Chica
                     </DialogTitle>
                     <DialogDescription>
-                        Filtra los pagos e ingresos a la caja chica por propietario/unidad, rango de fechas o número de recibo.
+                        Genera un archivo PDF o CSV con los movimientos de la caja chica, filtrando por unidad, fecha o número de recibo.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -232,6 +278,18 @@ export function ExportPettyCashPaymentsDialog({
                             onChange={(e) => setReceiptNumber(e.target.value)}
                         />
                     </div>
+
+                    {/* Excluir movimientos revertidos */}
+                    <div className="flex items-center space-x-2 pt-2 border-t border-border/60">
+                        <Checkbox
+                            id="exclude-reversed"
+                            checked={excludeReversed}
+                            onCheckedChange={(checked) => setExcludeReversed(!!checked)}
+                        />
+                        <Label htmlFor="exclude-reversed" className="text-sm font-normal cursor-pointer">
+                            Excluir movimientos revertidos y reversas
+                        </Label>
+                    </div>
                 </div>
 
                 <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2 gap-2">
@@ -247,17 +305,31 @@ export function ExportPettyCashPaymentsDialog({
                             Cancelar
                         </Button>
                         <Button
+                            variant="outline"
                             type="button"
-                            onClick={handleExport}
-                            disabled={isExporting}
+                            onClick={handleExportCSV}
+                            disabled={isExportingCsv || isGeneratingPdf}
                             className="gap-2"
                         >
-                            {isExporting ? (
+                            {isExportingCsv ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                                 <Download className="h-4 w-4" />
                             )}
-                            Descargar CSV
+                            CSV
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleExportPDF}
+                            disabled={isExportingCsv || isGeneratingPdf}
+                            className="gap-2"
+                        >
+                            {isGeneratingPdf ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileText className="h-4 w-4" />
+                            )}
+                            Descargar PDF
                         </Button>
                     </div>
                 </DialogFooter>
@@ -265,3 +337,4 @@ export function ExportPettyCashPaymentsDialog({
         </Dialog>
     );
 }
+

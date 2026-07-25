@@ -526,6 +526,7 @@ export interface PettyCashPaymentReportItem {
   type: string;
   description: string;
   proof_url: string | null;
+  is_reversed?: boolean;
 }
 
 export interface PettyCashPaymentReportFilters {
@@ -534,6 +535,7 @@ export interface PettyCashPaymentReportFilters {
   end_date?: string;
   search?: string;
   receipt_number?: string;
+  exclude_reversed?: boolean;
 }
 
 // ─── Decisions (Presupuestos y Votaciones) ─────────────────────────────────
