@@ -454,7 +454,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         onClick={() => setExportDialogOpen(true)}
                     >
                         <Download className="h-4 w-4 text-primary" />
-                        Exportar pagos (CSV)
+                        Exportar reporte (PDF / CSV)
                     </Button>
                     {canEdit && (
                         <>
