@@ -119,12 +119,19 @@ export default function PaymentsPage() {
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
             if (filterPeriod) query.period = filterPeriod;
 
-            const [paymentsResp, buildingsData, unitsData] = await Promise.all([
+            const buildingsData = isSuperAdmin ? await buildingsService.getBuildings() : [];
+            let unitsData: Unit[] = [];
+            if (activeBuildingId) {
+                unitsData = await unitsService.getUnits(activeBuildingId);
+            } else if (buildingsData.length > 0) {
+                const unitsList = await Promise.all(
+                    buildingsData.map(b => unitsService.getUnits(b.id).catch(() => []))
+                );
+                unitsData = unitsList.flat();
+            }
+
+            const [paymentsResp] = await Promise.all([
                 paymentsService.getAdminPaymentsPaginated(query),
-                isSuperAdmin ? buildingsService.getBuildings() : Promise.resolve([] as Building[]),
-                activeBuildingId
-                    ? unitsService.getUnits(activeBuildingId)
-                    : Promise.resolve([] as Unit[]),
             ]);
 
             setPayments(paymentsResp.data);
@@ -188,15 +195,16 @@ export default function PaymentsPage() {
                             { value: 'all', label: 'Todas las unidades' },
                             ...units.map(u => ({
                                 value: u.id,
-                                label: u.name,
+                                label: u.name.toLowerCase().includes('unidad') || u.name.toLowerCase().includes('apto')
+                                    ? u.name
+                                    : `Unidad ${u.name}`,
                                 icon: Home
                             }))
                         ]}
                         value={filterUnitId}
                         onValueChange={setFilterUnitId}
                         placeholder="Todas las unidades"
-                        searchPlaceholder="Buscar unidad..."
-                        disabled={!isSuperAdmin && !buildingId && filterBuildingId === 'all'}
+                        searchPlaceholder="Buscar unidad (ej. 52)..."
                         triggerIcon={Home}
                     />
                 </div>
