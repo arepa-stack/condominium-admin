@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { PettyCashPaymentReportItem } from '@/types/models';
+import { APTO_LOGO_BASE64 } from './logo-base64';
 
 export interface GeneratePettyCashPdfOptions {
     buildingName: string;
@@ -31,17 +32,27 @@ export function generatePettyCashPDF(
     doc.setFillColor(30, 41, 59); // Slate 800
     doc.rect(0, 0, pageWidth, 26, 'F');
 
+    // Logo
+    try {
+        doc.addImage(APTO_LOGO_BASE64, 'PNG', margin, 5.5, 15, 15);
+    } catch {
+        // Fallback if image fails to render
+    }
+
+    const headerTextX = margin + 18;
+
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('REPORTE DE CAJA CHICA', margin, 12);
+    doc.setFontSize(15);
+    doc.text('REPORTE DE CAJA CHICA', headerTextX, 12);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
+    doc.setTextColor(226, 232, 240);
     const buildingInfo = options.buildingCode
         ? `${options.buildingName} (${options.buildingCode})`
         : options.buildingName;
-    doc.text(buildingInfo, margin, 19);
+    doc.text(buildingInfo, headerTextX, 19);
 
     const todayStr = new Date().toLocaleDateString('es-VE', {
         day: '2-digit',
@@ -51,6 +62,7 @@ export function generatePettyCashPDF(
         minute: '2-digit',
     });
     doc.setFontSize(8);
+    doc.setTextColor(203, 213, 225);
     doc.text(`Emisión: ${todayStr}`, pageWidth - margin, 19, { align: 'right' });
 
     // ── Filters & Subtitle ───────────────────────────────────────────────────
@@ -80,9 +92,6 @@ export function generatePettyCashPDF(
     if (options.category && options.category !== 'all') {
         filterDetails.push(`Categoría: ${options.category}`);
     }
-    filterDetails.push(
-        `Revertidos: ${options.excludeReversed ? 'Excluidos' : 'Incluidos'}`
-    );
 
     doc.setFontSize(8);
     doc.text(filterDetails.join('  |  '), margin, currentY + 5);
@@ -235,18 +244,34 @@ export function generatePettyCashPDF(
             // Footer on every page
             const totalPages = (doc as any).internal.getNumberOfPages();
             const currentPage = data.pageNumber;
+            const footerY = pageHeight - 8;
 
-            doc.setFontSize(7);
+            // "Apto By Nibs" - Apto bold, Nibs lighter
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(30, 41, 59); // Slate 800
+            doc.text('Apto', margin, footerY);
+
+            const aptoWidth = doc.getTextWidth('Apto');
+
+            doc.setFont('helvetica', 'normal');
             doc.setTextColor(148, 163, 184); // Slate 400
-            doc.text(
-                'Documento generado por el Sistema de Gestión de Condominios',
-                margin,
-                pageHeight - 8
-            );
+            doc.text(' By ', margin + aptoWidth, footerY);
+
+            const byWidth = doc.getTextWidth(' By ');
+
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(148, 163, 184); // Slate 400 (lighter)
+            doc.text('Nibs', margin + aptoWidth + byWidth, footerY);
+
+            // Page numbers
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(148, 163, 184);
             doc.text(
                 `Página ${currentPage} de ${totalPages}`,
                 pageWidth - margin,
-                pageHeight - 8,
+                footerY,
                 { align: 'right' }
             );
         },
@@ -256,3 +281,4 @@ export function generatePettyCashPDF(
     const fileName = `caja_chica_${options.buildingName.replace(/\s+/g, '_').toLowerCase()}_${fileDateStr}.pdf`;
     doc.save(fileName);
 }
+
