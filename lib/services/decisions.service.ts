@@ -64,13 +64,17 @@ export const decisionsService = {
         return data;
     },
 
-    async uploadPhoto(id: string, file: File): Promise<Decision> {
+    async uploadPhoto(id: string, file: File): Promise<{ photo_url: string }> {
         const fd = new FormData();
         fd.append('photo', file);
-        const { data } = await apiClient.post<Decision>(`${P}/${id}/photo`, fd, {
+        const { data } = await apiClient.post<{ photo_url: string }>(`${P}/${id}/photo`, fd, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return data;
+    },
+
+    async deletePhoto(id: string): Promise<void> {
+        await apiClient.delete(`${P}/${id}/photo`);
     },
 
     async extendDeadlines(id: string, dto: ExtendDeadlinesDto): Promise<Decision> {
