@@ -158,7 +158,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
     const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
     const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
-    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editDescriptionDialogOpen, setEditDescriptionDialogOpen] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [entryToReverse, setEntryToReverse] = useState<PettyCashEntry | null>(null);
     const [entryToEdit, setEntryToEdit] = useState<PettyCashEntry | null>(null);
@@ -406,7 +406,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         try {
             await pettyCashService.updateEntryDescription(buildingId, entryId, newDescription);
             toast.success('Descripción actualizada');
-            setEditDialogOpen(false);
+            setEditDescriptionDialogOpen(false);
             setEntryToEdit(null);
             await fetchAll();
         } catch (e) {
@@ -420,7 +420,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
 
     const openEditDialog = (entry: PettyCashEntry) => {
         setEntryToEdit(entry);
-        setEditDialogOpen(true);
+        setEditDescriptionDialogOpen(true);
     };
 
     const handleRateChange = async (source: RateSource) => {
@@ -1075,9 +1075,9 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             />
 
             <EditEntryDescriptionDialog
-                open={editDialogOpen}
+                open={editDescriptionDialogOpen}
                 onOpenChange={(o) => {
-                    setEditDialogOpen(o);
+                    setEditDescriptionDialogOpen(o);
                     if (!o) setEntryToEdit(null);
                 }}
                 entry={entryToEdit}
