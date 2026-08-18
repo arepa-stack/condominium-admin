@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FormLabel } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import type { PettyCashEntry } from '@/types/models';
 
@@ -57,8 +57,9 @@ export function EditEntryDescriptionDialog({
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <FormLabel>Descripción</FormLabel>
+                        <Label htmlFor="edit-entry-description">Descripción</Label>
                         <Input
+                            id="edit-entry-description"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Descripción del movimiento..."
