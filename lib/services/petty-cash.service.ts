@@ -132,6 +132,18 @@ export const pettyCashService = {
         return normalizeEntry(data);
     },
 
+    async updateEntryDescription(
+        buildingId: string,
+        entryId: string,
+        description: string
+    ): Promise<PettyCashEntry> {
+        const { data } = await apiClient.patch<PettyCashEntry>(
+            `${P}/petty-cash/funds/${buildingId}/entries/${entryId}`,
+            { description }
+        );
+        return normalizeEntry(data);
+    },
+
     async getAssessmentPreview(buildingId: string): Promise<PettyCashAssessmentPreview | null> {
         try {
             const { data } = await apiClient.get<PettyCashAssessmentPreview>(

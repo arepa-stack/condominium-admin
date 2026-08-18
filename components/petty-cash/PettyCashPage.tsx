@@ -10,6 +10,7 @@ import { TransactionDialog, type PettyCashManualEntryType } from '@/components/p
 import { AssessmentPreviewDialog } from '@/components/petty-cash/AssessmentPreviewDialog';
 import { TransparencyView } from '@/components/petty-cash/TransparencyView';
 import { ReverseEntryDialog } from '@/components/petty-cash/ReverseEntryDialog';
+import { EditEntryDescriptionDialog } from '@/components/petty-cash/EditEntryDescriptionDialog';
 import { ExpressAssessmentDialog } from '@/components/petty-cash/ExpressAssessmentDialog';
 import { CancelExpressDialog, CancelSuccessSummary } from '@/components/petty-cash/CancelExpressDialog';
 import { TargetFundCard } from '@/components/petty-cash/TargetFundCard';
@@ -72,6 +73,7 @@ import {
     HandCoins,
     Download,
     Home,
+    Pencil,
 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
@@ -156,8 +158,11 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
     const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
     const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [entryToReverse, setEntryToReverse] = useState<PettyCashEntry | null>(null);
+    const [entryToEdit, setEntryToEdit] = useState<PettyCashEntry | null>(null);
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
 
     // B12: post-expense recovery offer state
     const [recoveryCoverage, setRecoveryCoverage] = useState<PettyCashCoverage | null>(null);
@@ -394,6 +399,28 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const openReverseDialog = (entry: PettyCashEntry) => {
         setEntryToReverse(entry);
         setReverseDialogOpen(true);
+    };
+
+    const handleUpdateDescription = async (entryId: string, newDescription: string) => {
+        setIsEditingDescription(true);
+        try {
+            await pettyCashService.updateEntryDescription(buildingId, entryId, newDescription);
+            toast.success('Descripción actualizada');
+            setEditDialogOpen(false);
+            setEntryToEdit(null);
+            await fetchAll();
+        } catch (e) {
+            const err = e as AxiosError<{ message?: string }>;
+            toast.error(err.response?.data?.message || 'Error al actualizar la descripción');
+            console.error(e);
+        } finally {
+            setIsEditingDescription(false);
+        }
+    };
+
+    const openEditDialog = (entry: PettyCashEntry) => {
+        setEntryToEdit(entry);
+        setEditDialogOpen(true);
     };
 
     const handleRateChange = async (source: RateSource) => {
@@ -765,12 +792,19 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                     // 1. Unit dropdown filter
                     if (filterUnitId !== 'all') {
                         const matchesUnitId = unitId === filterUnitId;
-                        const matchesUnitName = selectedUnitName && (
-                            (unitName && unitName.toLowerCase().includes(selectedUnitName)) ||
-                            entry.description.toLowerCase().includes(selectedUnitName) ||
-                            entry.description.toLowerCase().includes(`apto ${selectedUnitName}`) ||
-                            entry.description.toLowerCase().includes(`unidad ${selectedUnitName}`)
-                        );
+                        const cleanSelected = selectedUnitName.replace(/^(unidad|apto)\s+/i, '').trim();
+                        
+                        let matchesUnitName = false;
+                        if (cleanSelected) {
+                            const cleanUnitName = unitName ? unitName.toLowerCase().replace(/^(unidad|apto)\s+/i, '').trim() : '';
+                            const isExactUnit = cleanUnitName === cleanSelected;
+
+                            // Match exact unit name or word boundary in description (e.g. "apto 2-4", "unidad 2-4", "2-4")
+                            const descLower = entry.description.toLowerCase();
+                            const descMatch = new RegExp(`(?:apto|unidad|apt|apto\\.|unidad\\.)?\\s*\\b${cleanSelected.replace('-', '\\-')}\\b`, 'i').test(descLower);
+
+                            matchesUnitName = isExactUnit || descMatch;
+                        }
                         if (!matchesUnitId && !matchesUnitName) return false;
                     }
 
@@ -917,23 +951,35 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                             </TableCell>
                                             {canEdit && (
                                                 <TableCell className="text-right">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="gap-1"
-                                                        onClick={() => openReverseDialog(entry)}
-                                                        disabled={!canReverse}
-                                                        title={
-                                                            isReversal
-                                                                ? 'No se puede reversar una reversa'
-                                                                : alreadyReversed
-                                                                    ? 'Esta entrada ya fue reversada'
-                                                                    : 'Revertir movimiento'
-                                                        }
-                                                    >
-                                                        <Undo2 className="h-4 w-4" />
-                                                        Revertir
-                                                    </Button>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="gap-1 text-muted-foreground hover:text-foreground"
+                                                            onClick={() => openEditDialog(entry)}
+                                                            title="Editar descripción"
+                                                        >
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                            Editar
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="gap-1"
+                                                            onClick={() => openReverseDialog(entry)}
+                                                            disabled={!canReverse}
+                                                            title={
+                                                                isReversal
+                                                                    ? 'No se puede reversar una reversa'
+                                                                    : alreadyReversed
+                                                                        ? 'Esta entrada ya fue reversada'
+                                                                        : 'Revertir movimiento'
+                                                            }
+                                                        >
+                                                            <Undo2 className="h-4 w-4" />
+                                                            Revertir
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             )}
                                         </TableRow>
@@ -1026,6 +1072,17 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 entry={entryToReverse}
                 isReversing={isReversing}
                 onConfirm={handleReverseEntry}
+            />
+
+            <EditEntryDescriptionDialog
+                open={editDialogOpen}
+                onOpenChange={(o) => {
+                    setEditDialogOpen(o);
+                    if (!o) setEntryToEdit(null);
+                }}
+                entry={entryToEdit}
+                isSubmitting={isEditingDescription}
+                onConfirm={handleUpdateDescription}
             />
 
             {/* Direct contribution dialog */}
