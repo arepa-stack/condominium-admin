@@ -252,8 +252,12 @@ export default function BuildingBillingPage() {
             />
             <InvoiceDetailsDialog
                 isOpen={isDetailsOpen}
-                onClose={() => setIsDetailsOpen(false)}
+                onClose={() => {
+                    setIsDetailsOpen(false);
+                    fetchData();
+                }}
                 invoiceId={selectedInvoiceId}
+                onPaymentApproved={fetchData}
             />
         </div >
     );
