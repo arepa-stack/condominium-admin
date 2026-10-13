@@ -14,12 +14,15 @@ import {
     AlertTriangle,
     Plus,
     Wand2,
-    Trash2
+    Trash2,
+    TableProperties
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { CreateUnitDialog } from '@/components/buildings/CreateUnitDialog';
 import { BatchUnitWizard } from '@/components/buildings/BatchUnitWizard';
+import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
+import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -35,6 +38,7 @@ export default function BuildingUnitsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isBatchOpen, setIsBatchOpen] = useState(false);
+    const [isAliquotTableOpen, setIsAliquotTableOpen] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
     const [pendingDeleteUnit, setPendingDeleteUnit] = useState<Unit | null>(null);
@@ -134,7 +138,15 @@ export default function BuildingUnitsPage() {
                     <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Unidades</h1>
                     <p className="text-muted-foreground mt-1">Gestioná los detalles de las unidades de {building?.name}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsAliquotTableOpen(true)}
+                        className="bg-card gap-2 border-primary/20 text-primary hover:bg-primary/10"
+                    >
+                        <TableProperties className="h-4 w-4" />
+                        Cuadro de Alícuotas
+                    </Button>
                     <Button variant="outline" onClick={() => setIsCreateOpen(true)} className="bg-card">
                         <Plus className="mr-2 h-4 w-4" />
                         Agregar unidad
@@ -208,9 +220,30 @@ export default function BuildingUnitsPage() {
                                         </Link>
                                     </div>
 
-                                    <h3 className="font-bold text-lg text-foreground mb-1">
-                                        Unidad {unit.name}
-                                    </h3>
+                                    {(() => {
+                                        const coprop = getGranadaCoproprietor(unit.name);
+                                        const displayTitle = coprop ? `Apartamento ${coprop.apto}` : `Unidad ${unit.name}`;
+                                        return (
+                                            <>
+                                                <div className="flex items-baseline justify-between mb-0.5">
+                                                    <h3 className="font-bold text-lg text-foreground">
+                                                        {displayTitle}
+                                                    </h3>
+                                                    {coprop && (
+                                                        <span className="text-[11px] font-mono text-muted-foreground">
+                                                            {unit.name}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {coprop?.propietario && (
+                                                    <p className="text-xs text-muted-foreground line-clamp-1 mb-2 font-medium" title={coprop.propietario}>
+                                                        {coprop.propietario}
+                                                    </p>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
 
                                     <div className="space-y-1.5 mb-5">
                                         {unit.floor ? (
@@ -228,7 +261,7 @@ export default function BuildingUnitsPage() {
                                             {unit.aliquot > 0 ? (
                                                 <>
                                                     <div className="h-1 w-1 rounded-full bg-primary/50" />
-                                                    <span>Alícuota {unit.aliquot}%</span>
+                                                    <span className="font-mono">Alícuota {unit.aliquot}%</span>
                                                 </>
                                             ) : (
                                                 <div className="flex items-center gap-2 text-xs text-yellow-700 dark:text-yellow-500 font-bold bg-yellow-500/10 px-2 py-0.5 rounded-full w-fit border border-yellow-500/20">
@@ -309,6 +342,14 @@ export default function BuildingUnitsPage() {
                     onConfirm={handleDeleteAllUnits}
                 />
             )}
+
+            <AliquotTableDialog
+                open={isAliquotTableOpen}
+                onOpenChange={setIsAliquotTableOpen}
+                buildingId={buildingId}
+                units={units}
+                onUnitsUpdated={fetchData}
+            />
         </div>
     );
 }

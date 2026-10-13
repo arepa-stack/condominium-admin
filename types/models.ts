@@ -684,8 +684,9 @@ export interface CancelDecisionDto {
 }
 
 export interface ResolveTiebreakDto {
-  quote_id: string;
-  reason: string;
+  quote_id?: string;
+  winner_quote_id?: string;
+  reason?: string;
 }
 
 export interface GenerateChargeDto {

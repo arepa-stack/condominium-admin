@@ -25,7 +25,9 @@ import {
     ExternalLink,
     CheckCircle,
     XCircle,
+    FileText,
 } from 'lucide-react';
+import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { billingService } from '@/lib/services/billing.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
@@ -57,6 +59,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     const [isAllocationsLoading, setIsAllocationsLoading] = useState(false);
     const [proofUrl, setProofUrl] = useState<string | null>(null);
     const [isApprovingPayment, setIsApprovingPayment] = useState(false);
+    const [isAvisoOpen, setIsAvisoOpen] = useState(false);
 
     const handleApprovePayment = async (paymentId: string) => {
         setIsApprovingPayment(true);
@@ -328,7 +331,16 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-muted/50 border-t border-border flex justify-end">
+                            <div className="p-4 bg-muted/50 border-t border-border flex justify-between items-center">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsAvisoOpen(true)}
+                                    className="gap-2 text-xs border-primary/30 hover:bg-primary/10 text-primary font-medium"
+                                >
+                                    <FileText className="h-4 w-4" />
+                                    Ver Aviso de Cobro Oficial
+                                </Button>
                                 <Button variant="ghost" onClick={onClose} className="hover:bg-muted font-bold uppercase tracking-widest text-[10px]">
                                     Cerrar
                                 </Button>
@@ -337,6 +349,12 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                     )}
                 </DialogContent>
             </Dialog>
+
+            <AvisoDeCobroDialog
+                open={isAvisoOpen}
+                onOpenChange={setIsAvisoOpen}
+                invoice={invoice}
+            />
 
             {/* Nested Payment Details Dialog */}
             <Dialog open={isPaymentDetailsOpen} onOpenChange={setIsPaymentDetailsOpen}>
