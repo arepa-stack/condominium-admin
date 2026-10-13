@@ -24,6 +24,7 @@ import {
     Download,
     ExternalLink,
     CheckCircle,
+    CheckCircle2,
     XCircle,
     FileText,
 } from 'lucide-react';
@@ -60,6 +61,30 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     const [proofUrl, setProofUrl] = useState<string | null>(null);
     const [isApprovingPayment, setIsApprovingPayment] = useState(false);
     const [isAvisoOpen, setIsAvisoOpen] = useState(false);
+    const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+
+    const handleMarkInvoiceAsPaid = async () => {
+        if (!invoice) return;
+        if (!confirm(`¿Marcar la factura #${displayId} (${formatCurrency(invoice.amount)}) como PAGADA?`)) return;
+
+        setIsMarkingPaid(true);
+        try {
+            await billingService.updateInvoice(invoice.id, {
+                status: 'PAID',
+                paid_amount: invoice.amount,
+                payment_method: 'CASH',
+                payment_date: new Date().toISOString().slice(0, 10),
+            });
+            toast.success('Factura marcada como PAGADA con éxito.');
+            await fetchData();
+            onPaymentApproved?.();
+        } catch (error) {
+            console.error('Error al marcar factura como pagada:', error);
+            toast.error('Error al marcar la factura como pagada');
+        } finally {
+            setIsMarkingPaid(false);
+        }
+    };
 
     const handleApprovePayment = async (paymentId: string) => {
         setIsApprovingPayment(true);
@@ -331,16 +356,30 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-muted/50 border-t border-border flex justify-between items-center">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setIsAvisoOpen(true)}
-                                    className="gap-2 text-xs border-primary/30 hover:bg-primary/10 text-primary font-medium"
-                                >
-                                    <FileText className="h-4 w-4" />
-                                    Ver Aviso de Cobro Oficial
-                                </Button>
+                            <div className="p-4 bg-muted/50 border-t border-border flex flex-wrap gap-2 justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsAvisoOpen(true)}
+                                        className="gap-2 text-xs border-primary/30 hover:bg-primary/10 text-primary font-medium"
+                                    >
+                                        <FileText className="h-4 w-4" />
+                                        Ver Aviso de Cobro Oficial
+                                    </Button>
+
+                                    {!isPaid && (
+                                        <Button
+                                            size="sm"
+                                            onClick={handleMarkInvoiceAsPaid}
+                                            disabled={isMarkingPaid}
+                                            className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                                        >
+                                            {isMarkingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                            Marcar como Pagada
+                                        </Button>
+                                    )}
+                                </div>
                                 <Button variant="ghost" onClick={onClose} className="hover:bg-muted font-bold uppercase tracking-widest text-[10px]">
                                     Cerrar
                                 </Button>

@@ -17,7 +17,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calculator, CheckSquare, Square, Search, DollarSign, Calendar, FileText, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Calculator, CheckSquare, Square, Search, DollarSign, Calendar, FileText, Loader2, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { getGranadaCoproprietor, formatUnitDisplay } from '@/lib/data/granada-coproprietors';
 import { billingService } from '@/lib/services/billing.service';
@@ -46,7 +47,7 @@ export function GenerateByAliquotDialog({
     onOpenChange,
     buildingId,
     units,
-    onSuccess
+    onSuccess,
 }: GenerateByAliquotDialogProps) {
     // Form parameters
     const [totalBudget, setTotalBudget] = useState<string>('3100');
@@ -63,6 +64,7 @@ export function GenerateByAliquotDialog({
         d.setMonth(d.getMonth() + 1);
         return d.toISOString().split('T')[0];
     });
+    const [markAsPaid, setMarkAsPaid] = useState<boolean>(false);
 
     // Selection & filter
     const [searchQuery, setSearchQuery] = useState('');
@@ -184,6 +186,9 @@ export function GenerateByAliquotDialog({
                     period: period,
                     description: fullDescription,
                     due_date: dueDate || undefined,
+                    status: markAsPaid ? 'PAID' : 'PENDING',
+                    paid_amount: markAsPaid ? item.amount : 0,
+                    payment_method: markAsPaid ? 'CASH' : undefined,
                 });
                 successCount++;
             } catch (err) {
@@ -319,6 +324,33 @@ export function GenerateByAliquotDialog({
                                 disabled={isGenerating}
                             />
                         </div>
+                    </div>
+
+                    {/* Mark as pre-paid toggle */}
+                    <div className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all ${
+                        markAsPaid
+                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                            : 'bg-muted/30 border-border/60 hover:border-border'
+                    }`}>
+                        <div className="flex items-center gap-2.5">
+                            <Checkbox
+                                id="markAsPaidBatch"
+                                checked={markAsPaid}
+                                onCheckedChange={(val) => setMarkAsPaid(!!val)}
+                                disabled={isGenerating}
+                            />
+                            <label htmlFor="markAsPaidBatch" className="text-xs font-semibold cursor-pointer">
+                                <span>Marcar facturas generadas como ya pagadas</span>
+                                <span className="block text-[11px] font-normal text-muted-foreground mt-0.5">
+                                    Útil si las cuotas (ej. cisterna de agua) ya fueron recolectadas previamente. Saldo pendiente quedará en $0.00.
+                                </span>
+                            </label>
+                        </div>
+                        {markAsPaid && (
+                            <Badge className="bg-emerald-600 text-white text-[10px] shrink-0 self-start sm:self-center">
+                                Generar como PAGADAS
+                            </Badge>
+                        )}
                     </div>
 
                     {/* Summary Cards */}

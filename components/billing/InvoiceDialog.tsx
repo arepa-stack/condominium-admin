@@ -30,16 +30,26 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { billingService } from '@/lib/services/billing.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Building2, Home, DollarSign, FileText, Calendar, Loader2 } from 'lucide-react';
-import type { Unit, Building } from '@/types/models';
+import {
+    Building2,
+    Home,
+    DollarSign,
+    FileText,
+    Calendar,
+    Loader2,
+    CheckCircle2,
+    Receipt,
+    Sparkles,
+} from 'lucide-react';
+import type { Unit, Building, BillingDebtPayload } from '@/types/models';
 
-// Schema defined outside component to avoid re-creation
-// Schema defined outside component to avoid re-creation
 const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
     building_id: z.string().optional(),
     unit_id: z.string().min(1, 'La unidad es obligatoria'),
@@ -47,27 +57,31 @@ const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
     period: z.string().regex(/^\d{4}-\d{2}$/, 'El período debe estar en formato AAAA-MM'),
     description: z.string().min(3, 'La descripción debe tener al menos 3 caracteres'),
     due_date: z.string().optional(),
+    receipt_number: z.string().optional(),
+    is_paid: z.boolean(),
+    payment_method: z.string().optional(),
+    payment_date: z.string().optional(),
 }).refine(data => !needsBuildingSelector || (data.building_id && data.building_id.length > 0), {
     message: "El edificio es obligatorio",
     path: ["building_id"],
 });
 
-type InvoiceFormData = {
-    building_id?: string;
-    unit_id: string;
-    amount: string;
-    period: string;
-    description: string;
-    due_date?: string;
-};
+type InvoiceFormData = z.infer<ReturnType<typeof createInvoiceSchema>>;
 
 interface InvoiceDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess: () => void;
     initialUnitId?: string;
-    buildingId?: string; // Pre-selected building (for board members)
+    buildingId?: string;
 }
+
+const COMMON_CONCEPTS = [
+    'Cisterna de agua',
+    'Cuota de condominio',
+    'Gasto extraordinario',
+    'Mantenimiento / Reparación',
+];
 
 export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, buildingId: propBuildingId }: InvoiceDialogProps) {
     const { isSuperAdmin } = usePermissions();
@@ -88,9 +102,14 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
             period: new Date().toISOString().slice(0, 7),
             description: '',
             due_date: '',
+            receipt_number: '',
+            is_paid: false,
+            payment_method: 'CASH',
+            payment_date: new Date().toISOString().slice(0, 10),
         },
     });
 
+    const isPaid = form.watch('is_paid');
     const selectedBuildingId = form.watch('building_id') || propBuildingId;
 
     // Fetch all buildings for admin
@@ -141,26 +160,42 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
 
     const onSubmit = async (values: InvoiceFormData) => {
         try {
-            // Check building_id if admin
             if (needsBuildingSelector && !values.building_id) {
                 toast.error('Seleccioná un edificio');
                 return;
             }
 
-            // POST /billing/debt - Only needs unit_id
-            const payload = {
+            const numAmount = Number(values.amount);
+
+            const payload: BillingDebtPayload = {
                 unit_id: values.unit_id,
-                amount: Number(values.amount),
+                amount: numAmount,
                 period: values.period,
                 description: values.description,
                 due_date: values.due_date || undefined,
+                receipt_number: values.receipt_number?.trim() || undefined,
+                status: values.is_paid ? 'PAID' : 'PENDING',
+                paid_amount: values.is_paid ? numAmount : 0,
+                payment_method: values.is_paid ? (values.payment_method || 'CASH') : undefined,
+                payment_date: values.is_paid ? (values.payment_date || new Date().toISOString().slice(0, 10)) : undefined,
             };
 
             await billingService.loadDebt(payload);
-            toast.success('Factura creada correctamente');
+            toast.success(values.is_paid ? 'Factura creada y registrada como PAGADA' : 'Factura creada correctamente');
             onSuccess();
             onOpenChange(false);
-            form.reset();
+            form.reset({
+                building_id: propBuildingId || '',
+                unit_id: initialUnitId || '',
+                amount: '',
+                period: new Date().toISOString().slice(0, 7),
+                description: '',
+                due_date: '',
+                receipt_number: '',
+                is_paid: false,
+                payment_method: 'CASH',
+                payment_date: new Date().toISOString().slice(0, 10),
+            });
         } catch (error: any) {
             console.error('Failed to create invoice', error);
             toast.error(error.response?.data?.message || 'Error al crear la factura');
@@ -169,19 +204,19 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
+            <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
-                        <FileText className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
-                        Crear nueva factura
+                        <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        Crear Factura / Cobro
                     </DialogTitle>
                     <DialogDescription>
-                        Cargá una nueva deuda a una unidad específica para el período seleccionado.
+                        Carga una nueva factura a una unidad. Puedes marcarla como <strong>ya pagada</strong> si el pago ya fue realizado.
                     </DialogDescription>
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-1">
                         {/* Building Selector - Only for Admin without pre-selected building */}
                         {needsBuildingSelector && (
                             <FormField
@@ -214,9 +249,6 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        <FormDescription className="text-xs">
-                                            Elegí el edificio que contiene la unidad
-                                        </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -231,7 +263,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 <FormItem>
                                     <FormLabel className="flex items-center gap-2">
                                         <Home className="h-4 w-4 text-muted-foreground" />
-                                        Unidad <span className="text-destructive">*</span>
+                                        Unidad / Apartamento <span className="text-destructive">*</span>
                                     </FormLabel>
                                     <Select
                                         disabled={!selectedBuildingId || !!initialUnitId || isLoadingUnits}
@@ -277,15 +309,15 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 <FormItem>
                                     <FormLabel className="flex items-center gap-2">
                                         <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                        Monto <span className="text-destructive">*</span>
+                                        Monto (USD) <span className="text-destructive">*</span>
                                     </FormLabel>
                                     <FormControl>
                                         <Input
                                             type="number"
                                             step="0.01"
-                                            placeholder="100.00"
+                                            placeholder="Ej. 50.00"
                                             {...field}
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors text-base font-semibold"
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -293,8 +325,44 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                             )}
                         />
 
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Period */}
+                        {/* Description & Quick Suggestions */}
+                        <div className="space-y-1.5">
+                            <FormField
+                                control={form.control}
+                                name="description"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Concepto / Descripción <span className="text-destructive">*</span></FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="Ej. Cisterna de agua (Unidad 14)"
+                                                {...field}
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Quick Chips */}
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                <span className="text-[11px] text-muted-foreground self-center mr-1">Rápidos:</span>
+                                {COMMON_CONCEPTS.map((concept) => (
+                                    <button
+                                        key={concept}
+                                        type="button"
+                                        onClick={() => form.setValue('description', concept, { shouldValidate: true })}
+                                        className="text-[11px] px-2 py-0.5 rounded-md border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        {concept}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Period & Due Date */}
+                        <div className="grid grid-cols-2 gap-3">
                             <FormField
                                 control={form.control}
                                 name="period"
@@ -308,16 +376,15 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                             <Input
                                                 placeholder="2026-02"
                                                 {...field}
-                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-sm"
                                             />
                                         </FormControl>
-                                        <FormDescription className="text-xs">AAAA-MM</FormDescription>
+                                        <FormDescription className="text-[11px]">AAAA-MM</FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
 
-                            {/* Due Date */}
                             <FormField
                                 control={form.control}
                                 name="due_date"
@@ -328,7 +395,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                             <Input
                                                 type="date"
                                                 {...field}
-                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors text-sm"
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -337,26 +404,121 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                             />
                         </div>
 
-                        {/* Description */}
+                        {/* Receipt Number (Explicitly Optional) */}
                         <FormField
                             control={form.control}
-                            name="description"
+                            name="receipt_number"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Descripción <span className="text-destructive">*</span></FormLabel>
+                                    <FormLabel className="flex items-center justify-between">
+                                        <span className="flex items-center gap-2">
+                                            <Receipt className="h-4 w-4 text-muted-foreground" />
+                                            N° de Recibo (Opcional)
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground border-border">
+                                            Opcional
+                                        </Badge>
+                                    </FormLabel>
                                     <FormControl>
                                         <Input
-                                            placeholder="Expensas mensuales"
+                                            placeholder="Ej. REC-014 o dejar vacío"
                                             {...field}
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-sm"
                                         />
                                     </FormControl>
+                                    <FormDescription className="text-[11px]">
+                                        Si no te pasaron el comprobante o número de recibo, puedes dejarlo vacío.
+                                    </FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
 
-                        <DialogFooter className="pt-4">
+                        {/* Mark As Already Paid Toggle */}
+                        <div className={`p-3.5 rounded-xl border transition-all ${
+                            isPaid
+                                ? 'bg-emerald-500/10 border-emerald-500/30'
+                                : 'bg-muted/30 border-border/60 hover:border-border'
+                        }`}>
+                            <FormField
+                                control={form.control}
+                                name="is_paid"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                                className="mt-0.5"
+                                            />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel className="text-sm font-semibold cursor-pointer flex items-center gap-1.5">
+                                                <span>Marcar como ya pagada</span>
+                                                {isPaid && (
+                                                    <Badge className="bg-emerald-600 text-white text-[10px] h-4 px-1.5">
+                                                        Pagada
+                                                    </Badge>
+                                                )}
+                                            </FormLabel>
+                                            <FormDescription className="text-xs">
+                                                Marca esto si la unidad ya pagó este concepto (ej. Cisterna pagada en efectivo o transferencia previa). Saldo restante quedará en <strong>$0.00</strong>.
+                                            </FormDescription>
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Additional Paid Details (Optional) */}
+                            {isPaid && (
+                                <div className="mt-3 pt-3 border-t border-emerald-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in-50 duration-200">
+                                    <FormField
+                                        control={form.control}
+                                        name="payment_method"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                                                    Método de Pago
+                                                </FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value || 'CASH'}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="h-8 text-xs bg-background">
+                                                            <SelectValue placeholder="Método" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="CASH">Efectivo / Zelle (Directo)</SelectItem>
+                                                        <SelectItem value="TRANSFER">Transferencia Bancaria</SelectItem>
+                                                        <SelectItem value="PAGO_MOVIL">Pago Móvil</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="payment_date"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                                                    Fecha en que se pagó
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="date"
+                                                        {...field}
+                                                        className="h-8 text-xs bg-background"
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <DialogFooter className="pt-2">
                             <Button
                                 type="button"
                                 variant="outline"
@@ -368,10 +530,21 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                             <Button
                                 type="submit"
                                 disabled={form.formState.isSubmitting}
-                                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30"
+                                className={
+                                    isPaid
+                                        ? "bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-md shadow-emerald-600/30 font-semibold"
+                                        : "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                                }
                             >
                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Crear factura
+                                {isPaid ? (
+                                    <>
+                                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                        Crear Factura Pagada
+                                    </>
+                                ) : (
+                                    'Crear Factura'
+                                )}
                             </Button>
                         </DialogFooter>
                     </form>
