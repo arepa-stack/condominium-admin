@@ -107,7 +107,12 @@ export const decisionsService = {
     },
 
     async resolveTiebreak(id: string, dto: ResolveTiebreakDto): Promise<Decision> {
-        const { data } = await apiClient.post<Decision>(`${P}/${id}/resolve-tiebreak`, dto);
+        const payload = {
+            winner_quote_id: dto.winner_quote_id || dto.quote_id,
+            quote_id: dto.quote_id || dto.winner_quote_id,
+            reason: dto.reason,
+        };
+        const { data } = await apiClient.post<Decision>(`${P}/${id}/resolve-tiebreak`, payload);
         return data;
     },
 

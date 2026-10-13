@@ -66,6 +66,7 @@ export function ResolveTiebreakDialog({
     const handleSubmit = async (values: FormValues) => {
         try {
             const decision = await decisionsService.resolveTiebreak(decisionId, {
+                winner_quote_id: values.quote_id,
                 quote_id: values.quote_id,
                 reason: values.reason,
             });

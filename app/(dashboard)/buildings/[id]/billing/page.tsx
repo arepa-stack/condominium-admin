@@ -24,8 +24,11 @@ import { useParams } from 'next/navigation';
 import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
 import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog';
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
+import { GenerateByAliquotDialog } from '@/components/billing/GenerateByAliquotDialog';
+import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
+import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Eye, Plus, FileSpreadsheet, Home, FileText } from 'lucide-react';
+import { Eye, Plus, FileSpreadsheet, Home, FileText, Calculator, TableProperties } from 'lucide-react';
 import type { Invoice, Unit } from '@/types/models';
 
 export default function BuildingBillingPage() {
@@ -38,6 +41,8 @@ export default function BuildingBillingPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
     const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
+    const [isAliquotDialogOpen, setIsAliquotDialogOpen] = useState(false);
+    const [isTableDialogOpen, setIsTableDialogOpen] = useState(false);
     const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
@@ -86,7 +91,15 @@ export default function BuildingBillingPage() {
                     <p className="text-muted-foreground mt-1">Gestioná facturas y deudas de este edificio</p>
                 </div>
                 {(isSuperAdmin || isBoardMember) && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsTableDialogOpen(true)}
+                            className="gap-2"
+                        >
+                            <TableProperties className="h-4 w-4" />
+                            Cuadro de Alícuotas
+                        </Button>
                         <Button
                             variant="outline"
                             onClick={() => setIsExcelLoaderOpen(true)}
@@ -95,9 +108,20 @@ export default function BuildingBillingPage() {
                             <FileSpreadsheet className="h-4 w-4" />
                             Importar Excel
                         </Button>
-                        <Button onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2">
+                        <Button
+                            onClick={() => setIsAliquotDialogOpen(true)}
+                            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
+                        >
+                            <Calculator className="h-4 w-4" />
+                            Generar por Alícuotas
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsInvoiceDialogOpen(true)}
+                            className="gap-2"
+                        >
                             <Plus className="h-4 w-4" />
-                            Crear Factura
+                            Factura Individual
                         </Button>
                     </div>
                 )}
@@ -196,10 +220,22 @@ export default function BuildingBillingPage() {
                                             setIsDetailsOpen(true);
                                         }}
                                     >
-                                        <TableCell className="font-medium">{invoice.number || invoice.receipt_number || '--'}</TableCell>
+                                        <TableCell className="font-medium font-mono text-xs">{invoice.number || invoice.receipt_number || '--'}</TableCell>
                                         <TableCell>
-                                            <div className="font-semibold group-hover:text-primary transition-colors">{invoice.unit?.name || 'Unidad desconocida'}</div>
-                                            <div className="text-xs text-muted-foreground">{invoice.user?.name}</div>
+                                            {(() => {
+                                                const coprop = getGranadaCoproprietor(invoice.unit?.name || '');
+                                                const unitDisplayName = coprop ? `Apartamento ${coprop.apto}` : (invoice.unit?.name || 'Unidad desconocida');
+                                                const ownerDisplayName = invoice.user?.name || coprop?.propietario || 'Copropietario';
+                                                return (
+                                                    <>
+                                                        <div className="font-semibold group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                                            {unitDisplayName}
+                                                            {coprop && <span className="text-[10px] text-muted-foreground font-normal">({invoice.unit?.name})</span>}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">{ownerDisplayName}</div>
+                                                    </>
+                                                );
+                                            })()}
                                         </TableCell>
                                         <TableCell className="text-muted-foreground tabular-nums">
                                             {invoice.period || (invoice.year && invoice.month ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}` : '--')}
@@ -259,6 +295,23 @@ export default function BuildingBillingPage() {
                 invoiceId={selectedInvoiceId}
                 onPaymentApproved={fetchData}
             />
-        </div >
+
+            <GenerateByAliquotDialog
+                open={isAliquotDialogOpen}
+                onOpenChange={setIsAliquotDialogOpen}
+                buildingId={buildingId}
+                units={units}
+                onSuccess={fetchData}
+            />
+
+            <AliquotTableDialog
+                open={isTableDialogOpen}
+                onOpenChange={setIsTableDialogOpen}
+                buildingId={buildingId}
+                units={units}
+                onUnitsUpdated={fetchData}
+                onOpenBillingDialog={() => setIsAliquotDialogOpen(true)}
+            />
+        </div>
     );
 }
