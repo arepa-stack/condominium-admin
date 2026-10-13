@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,7 +36,13 @@ import { toast } from 'sonner';
 import { billingService } from '@/lib/services/billing.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
+import { decisionsService } from '@/lib/services/decisions.service';
 import { usePermissions } from '@/lib/hooks/usePermissions';
+import {
+    extractActiveBudgets,
+    calculateUnitAmountForBudget,
+    type ActiveBudgetOption,
+} from '@/lib/utils/budget-helpers';
 import {
     Building2,
     Home,
@@ -47,8 +53,10 @@ import {
     CheckCircle2,
     Receipt,
     Sparkles,
+    Calculator,
+    FolderKanban,
 } from 'lucide-react';
-import type { Unit, Building, BillingDebtPayload } from '@/types/models';
+import type { Unit, Building, BillingDebtPayload, Invoice, Decision } from '@/types/models';
 
 const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
     building_id: z.string().optional(),
@@ -74,6 +82,8 @@ interface InvoiceDialogProps {
     onSuccess: () => void;
     initialUnitId?: string;
     buildingId?: string;
+    initialBudgetOption?: ActiveBudgetOption | null;
+    existingInvoices?: Invoice[];
 }
 
 const COMMON_CONCEPTS = [
@@ -83,12 +93,25 @@ const COMMON_CONCEPTS = [
     'Mantenimiento / Reparación',
 ];
 
-export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, buildingId: propBuildingId }: InvoiceDialogProps) {
+export function InvoiceDialog({
+    open,
+    onOpenChange,
+    onSuccess,
+    initialUnitId,
+    buildingId: propBuildingId,
+    initialBudgetOption,
+    existingInvoices = [],
+}: InvoiceDialogProps) {
     const { isSuperAdmin } = usePermissions();
     const [buildings, setBuildings] = useState<Building[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [decisions, setDecisions] = useState<Decision[]>([]);
     const [isLoadingBuildings, setIsLoadingBuildings] = useState(false);
     const [isLoadingUnits, setIsLoadingUnits] = useState(false);
+
+    // Active budget selection
+    const [selectedBudgetId, setSelectedBudgetId] = useState<string>('none');
+    const [budgetHint, setBudgetHint] = useState<string | null>(null);
 
     // Admin needs to select building, board has it pre-selected
     const needsBuildingSelector = isSuperAdmin && !propBuildingId;
@@ -111,6 +134,12 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
 
     const isPaid = form.watch('is_paid');
     const selectedBuildingId = form.watch('building_id') || propBuildingId;
+    const selectedUnitId = form.watch('unit_id');
+
+    // Extract active budgets from existing invoices & decisions
+    const activeBudgets = useMemo(() => {
+        return extractActiveBudgets(existingInvoices, decisions);
+    }, [existingInvoices, decisions]);
 
     // Fetch all buildings for admin
     useEffect(() => {
@@ -131,16 +160,20 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
         fetchBuildings();
     }, [open, needsBuildingSelector]);
 
-    // Fetch units when building is selected
+    // Fetch units & decisions when building is selected
     useEffect(() => {
-        const fetchUnits = async () => {
+        const fetchUnitsAndDecisions = async () => {
             if (open && selectedBuildingId) {
                 try {
                     setIsLoadingUnits(true);
-                    const data = await unitsService.getUnits(selectedBuildingId);
-                    setUnits(data);
+                    const [unitsData, decisionsData] = await Promise.all([
+                        unitsService.getUnits(selectedBuildingId),
+                        decisionsService.list({ building_id: selectedBuildingId }).catch(() => ({ data: [] })),
+                    ]);
+                    setUnits(unitsData);
+                    setDecisions(decisionsData.data || []);
                 } catch (error) {
-                    console.error('Failed to fetch units', error);
+                    console.error('Failed to fetch units or decisions', error);
                     toast.error('Error al cargar las unidades');
                     setUnits([]);
                 } finally {
@@ -148,7 +181,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                 }
             }
         };
-        fetchUnits();
+        fetchUnitsAndDecisions();
     }, [open, selectedBuildingId]);
 
     // Set initial unit if provided
@@ -157,6 +190,51 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
             form.setValue('unit_id', initialUnitId);
         }
     }, [initialUnitId, open, form]);
+
+    // Set initial budget option if provided
+    useEffect(() => {
+        if (initialBudgetOption && open) {
+            setSelectedBudgetId(initialBudgetOption.id);
+        } else if (!open) {
+            setSelectedBudgetId('none');
+            setBudgetHint(null);
+        }
+    }, [initialBudgetOption, open]);
+
+    // Automatically recalculate amount and description when budget or unit changes
+    useEffect(() => {
+        if (selectedBudgetId === 'none') {
+            setBudgetHint(null);
+            return;
+        }
+
+        const budget = activeBudgets.find(b => b.id === selectedBudgetId);
+        if (!budget) return;
+
+        const currentUnit = units.find(u => u.id === selectedUnitId);
+
+        if (budget.baseBudget && currentUnit) {
+            const { amount: calcAmount, aliquot } = calculateUnitAmountForBudget(currentUnit, budget.baseBudget);
+            form.setValue('amount', calcAmount.toString(), { shouldValidate: true });
+
+            const fullDescription = `${budget.title} - Base: $${budget.baseBudget.toFixed(2)} (Alícuota: ${aliquot.toFixed(4)}%)${budget.details ? ` | ${budget.details}` : ''}`;
+            form.setValue('description', fullDescription, { shouldValidate: true });
+
+            if (budget.period) {
+                form.setValue('period', budget.period);
+            }
+
+            setBudgetHint(
+                `Alícuota de la unidad: ${aliquot.toFixed(4)}% sobre presupuesto base de $${budget.baseBudget.toFixed(2)} → Monto: $${calcAmount.toFixed(2)} USD`
+            );
+        } else if (budget.title) {
+            form.setValue('description', budget.title, { shouldValidate: true });
+            if (budget.period) {
+                form.setValue('period', budget.period);
+            }
+            setBudgetHint(`Factura vinculada a: ${budget.title}`);
+        }
+    }, [selectedBudgetId, selectedUnitId, units, activeBudgets, form]);
 
     const onSubmit = async (values: InvoiceFormData) => {
         try {
@@ -196,6 +274,8 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                 payment_method: 'CASH',
                 payment_date: new Date().toISOString().slice(0, 10),
             });
+            setSelectedBudgetId('none');
+            setBudgetHint(null);
         } catch (error: any) {
             console.error('Failed to create invoice', error);
             toast.error(error.response?.data?.message || 'Error al crear la factura');
@@ -204,14 +284,14 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
+            <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
+                    <DialogTitle className="flex items-center gap-2 text-xl font-display">
                         <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                         Crear Factura / Cobro
                     </DialogTitle>
                     <DialogDescription>
-                        Carga una nueva factura a una unidad. Puedes marcarla como <strong>ya pagada</strong> si el pago ya fue realizado.
+                        Carga una nueva factura a una unidad. Puedes vincularla a un <strong>presupuesto activo</strong> o marcarla como <strong>ya pagada</strong>.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -224,7 +304,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 name="building_id"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="flex items-center gap-2">
+                                        <FormLabel className="flex items-center gap-2 text-xs font-semibold">
                                             <Building2 className="h-4 w-4 text-muted-foreground" />
                                             Edificio <span className="text-destructive">*</span>
                                         </FormLabel>
@@ -234,13 +314,13 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                             disabled={isLoadingBuildings}
                                         >
                                             <FormControl>
-                                                <SelectTrigger className="bg-background/50 border-border/50">
+                                                <SelectTrigger className="bg-background/50 border-border/50 text-xs">
                                                     <SelectValue placeholder={isLoadingBuildings ? "Cargando edificios..." : "Seleccionar edificio"} />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {buildings.map((building) => (
-                                                    <SelectItem key={building.id} value={building.id}>
+                                                    <SelectItem key={building.id} value={building.id} className="text-xs">
                                                         <div className="flex items-center gap-2">
                                                             <Building2 className="h-4 w-4 text-primary" />
                                                             {building.name}
@@ -255,13 +335,61 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                             />
                         )}
 
+                        {/* Active Budget Selector Field */}
+                        <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                                    <FolderKanban className="h-3.5 w-3.5 text-primary" />
+                                    Vincular a Presupuesto Activo
+                                </label>
+                                {selectedBudgetId !== 'none' && (
+                                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                                        Vinculado
+                                    </Badge>
+                                )}
+                            </div>
+                            <Select
+                                value={selectedBudgetId}
+                                onValueChange={setSelectedBudgetId}
+                            >
+                                <SelectTrigger className="h-9 text-xs bg-background/80 border-border">
+                                    <SelectValue placeholder="Selecciona un presupuesto..." />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-56">
+                                    <SelectItem value="none" className="text-xs">
+                                        Ninguno (Factura individual regular / ordinaria)
+                                    </SelectItem>
+                                    {activeBudgets.map((b) => (
+                                        <SelectItem key={b.id} value={b.id} className="text-xs font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <Calculator className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                <span className="truncate">{b.title}</span>
+                                                {b.baseBudget && (
+                                                    <Badge variant="secondary" className="text-[10px] ml-auto shrink-0 font-mono">
+                                                        Base: ${b.baseBudget.toFixed(2)}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            {budgetHint && (
+                                <p className="text-[11px] text-primary flex items-center gap-1.5 pt-0.5 font-medium animate-in fade-in-50">
+                                    <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                    <span>{budgetHint}</span>
+                                </p>
+                            )}
+                        </div>
+
                         {/* Unit Selector */}
                         <FormField
                             control={form.control}
                             name="unit_id"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="flex items-center gap-2">
+                                    <FormLabel className="flex items-center gap-2 text-xs font-semibold">
                                         <Home className="h-4 w-4 text-muted-foreground" />
                                         Unidad / Apartamento <span className="text-destructive">*</span>
                                     </FormLabel>
@@ -271,7 +399,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                         value={field.value}
                                     >
                                         <FormControl>
-                                            <SelectTrigger className="bg-background/50 border-border/50">
+                                            <SelectTrigger className="bg-background/50 border-border/50 text-xs">
                                                 <SelectValue placeholder={
                                                     !selectedBuildingId
                                                         ? "Primero seleccioná un edificio"
@@ -281,15 +409,16 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                                 } />
                                             </SelectTrigger>
                                         </FormControl>
-                                        <SelectContent>
+                                        <SelectContent className="max-h-56">
                                             {units.length === 0 ? (
-                                                <SelectItem value="none" disabled>No se encontraron unidades</SelectItem>
+                                                <SelectItem value="none" disabled className="text-xs">No se encontraron unidades</SelectItem>
                                             ) : (
                                                 units.map((unit) => (
-                                                    <SelectItem key={unit.id} value={unit.id}>
+                                                    <SelectItem key={unit.id} value={unit.id} className="text-xs">
                                                         <div className="flex items-center gap-2">
                                                             <Home className="h-4 w-4 text-primary" />
-                                                            {unit.name} {unit.floor ? `(Piso ${unit.floor})` : ''}
+                                                            Apartamento {unit.name} {unit.floor ? `(Piso ${unit.floor})` : ''}
+                                                            {unit.aliquot ? ` - ${unit.aliquot}%` : ''}
                                                         </div>
                                                     </SelectItem>
                                                 ))
@@ -307,9 +436,16 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                             name="amount"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="flex items-center gap-2">
-                                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                        Monto (USD) <span className="text-destructive">*</span>
+                                    <FormLabel className="flex items-center justify-between text-xs font-semibold">
+                                        <span className="flex items-center gap-2">
+                                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                            Monto (USD) <span className="text-destructive">*</span>
+                                        </span>
+                                        {selectedBudgetId !== 'none' && (
+                                            <span className="text-[10px] text-muted-foreground font-normal">
+                                                Calculado automáticamente según alícuota
+                                            </span>
+                                        )}
                                     </FormLabel>
                                     <FormControl>
                                         <Input
@@ -317,7 +453,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                             step="0.01"
                                             placeholder="Ej. 50.00"
                                             {...field}
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors text-base font-semibold"
+                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors text-base font-semibold font-mono"
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -332,12 +468,14 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Concepto / Descripción <span className="text-destructive">*</span></FormLabel>
+                                        <FormLabel className="text-xs font-semibold">
+                                            Concepto / Descripción <span className="text-destructive">*</span>
+                                        </FormLabel>
                                         <FormControl>
                                             <Input
                                                 placeholder="Ej. Cisterna de agua (Unidad 14)"
                                                 {...field}
-                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors text-xs"
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -345,20 +483,22 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 )}
                             />
 
-                            {/* Quick Chips */}
-                            <div className="flex flex-wrap gap-1.5 pt-1">
-                                <span className="text-[11px] text-muted-foreground self-center mr-1">Rápidos:</span>
-                                {COMMON_CONCEPTS.map((concept) => (
-                                    <button
-                                        key={concept}
-                                        type="button"
-                                        onClick={() => form.setValue('description', concept, { shouldValidate: true })}
-                                        className="text-[11px] px-2 py-0.5 rounded-md border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                        {concept}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* Quick Chips if no active budget is selected */}
+                            {selectedBudgetId === 'none' && (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                    <span className="text-[11px] text-muted-foreground self-center mr-1">Rápidos:</span>
+                                    {COMMON_CONCEPTS.map((concept) => (
+                                        <button
+                                            key={concept}
+                                            type="button"
+                                            onClick={() => form.setValue('description', concept, { shouldValidate: true })}
+                                            className="text-[11px] px-2 py-0.5 rounded-md border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                        >
+                                            {concept}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Period & Due Date */}
@@ -368,15 +508,15 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 name="period"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="flex items-center gap-2">
+                                        <FormLabel className="flex items-center gap-2 text-xs font-semibold">
                                             <Calendar className="h-4 w-4 text-muted-foreground" />
                                             Período <span className="text-destructive">*</span>
                                         </FormLabel>
                                         <FormControl>
                                             <Input
-                                                placeholder="2026-02"
+                                                placeholder="2026-10"
                                                 {...field}
-                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-sm"
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-xs"
                                             />
                                         </FormControl>
                                         <FormDescription className="text-[11px]">AAAA-MM</FormDescription>
@@ -390,12 +530,12 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 name="due_date"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Vencimiento (opcional)</FormLabel>
+                                        <FormLabel className="text-xs font-semibold">Vencimiento (opcional)</FormLabel>
                                         <FormControl>
                                             <Input
                                                 type="date"
                                                 {...field}
-                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors text-sm"
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors text-xs"
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -410,7 +550,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                             name="receipt_number"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="flex items-center justify-between">
+                                    <FormLabel className="flex items-center justify-between text-xs font-semibold">
                                         <span className="flex items-center gap-2">
                                             <Receipt className="h-4 w-4 text-muted-foreground" />
                                             N° de Recibo (Opcional)
@@ -423,7 +563,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                         <Input
                                             placeholder="Ej. REC-014 o dejar vacío"
                                             {...field}
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-sm"
+                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-xs"
                                         />
                                     </FormControl>
                                     <FormDescription className="text-[11px]">
@@ -487,9 +627,9 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="CASH">Efectivo / Zelle (Directo)</SelectItem>
-                                                        <SelectItem value="TRANSFER">Transferencia Bancaria</SelectItem>
-                                                        <SelectItem value="PAGO_MOVIL">Pago Móvil</SelectItem>
+                                                        <SelectItem value="CASH" className="text-xs">Efectivo / Zelle (Directo)</SelectItem>
+                                                        <SelectItem value="TRANSFER" className="text-xs">Transferencia Bancaria</SelectItem>
+                                                        <SelectItem value="PAGO_MOVIL" className="text-xs">Pago Móvil</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </FormItem>
@@ -523,7 +663,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                className="border-border/50"
+                                className="border-border/50 text-xs"
                             >
                                 Cancelar
                             </Button>
@@ -532,8 +672,8 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                                 disabled={form.formState.isSubmitting}
                                 className={
                                     isPaid
-                                        ? "bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-md shadow-emerald-600/30 font-semibold"
-                                        : "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                                        ? "bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-md shadow-emerald-600/30 font-semibold text-xs"
+                                        : "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs"
                                 }
                             >
                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
