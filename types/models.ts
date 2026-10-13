@@ -231,6 +231,11 @@ export interface BillingDebtPayload {
   period: string; // "YYYY-MM"
   description: string;
   due_date?: string;
+  receipt_number?: string;
+  status?: 'PENDING' | 'PAID' | 'PARTIAL';
+  paid_amount?: number;
+  payment_method?: string;
+  payment_date?: string;
 }
 
 export interface UnitInvoice {
