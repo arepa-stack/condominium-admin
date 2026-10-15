@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Eye, Info, Loader2 } from 'lucide-react';
+import { Eye, Info, Loader2, Upload, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -11,6 +11,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { paymentsService } from '@/lib/services/payments.service';
 import { billingService } from '@/lib/services/billing.service';
 import { formatCurrency, formatDate, formatPaymentMethod, formatPeriod } from '@/lib/utils/format';
@@ -47,6 +49,15 @@ export function PaymentApprovalDialog({
     const [proofUrl, setProofUrl] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Upload & Edit Proof State
+    const [showUploadForm, setShowUploadForm] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [filePreview, setFilePreview] = useState<string | null>(null);
+    const [editReference, setEditReference] = useState('');
+    const [editBank, setEditBank] = useState('');
+    const [editNotes, setEditNotes] = useState('');
+    const [isUploadingProof, setIsUploadingProof] = useState(false);
+
     const loadDetails = useCallback(async (id: string) => {
         setDetailedPayment(null);
         setAllocations([]);
@@ -58,10 +69,21 @@ export function PaymentApprovalDialog({
             ]);
             setDetailedPayment(detailed);
             setAllocations(allocs);
+            if (detailed) {
+                setEditReference(detailed.reference || '');
+                setEditBank(detailed.bank || '');
+                setEditNotes(detailed.notes || '');
+            }
         } catch (e) {
             console.error('Failed to fetch payment details', e);
             try {
-                setDetailedPayment(await paymentsService.getPaymentById(id));
+                const detailed = await paymentsService.getPaymentById(id);
+                setDetailedPayment(detailed);
+                if (detailed) {
+                    setEditReference(detailed.reference || '');
+                    setEditBank(detailed.bank || '');
+                    setEditNotes(detailed.notes || '');
+                }
             } catch {
                 toast.error('No se pudieron cargar los detalles del pago');
                 onClose();
@@ -78,8 +100,41 @@ export function PaymentApprovalDialog({
             setDetailedPayment(null);
             setAllocations([]);
             setProofUrl(null);
+            setShowUploadForm(false);
+            setSelectedFile(null);
+            setFilePreview(null);
         }
     }, [payment, loadDetails]);
+
+    const handleUploadProof = async () => {
+        if (!payment) return;
+        if (!selectedFile && !editReference && !editBank && !editNotes) {
+            toast.error('Selecciona una imagen o ingresa datos para actualizar');
+            return;
+        }
+
+        setIsUploadingProof(true);
+        try {
+            const fd = new FormData();
+            if (selectedFile) fd.append('proof_image', selectedFile);
+            if (editReference.trim()) fd.append('reference', editReference.trim());
+            if (editBank.trim()) fd.append('bank', editBank.trim());
+            if (editNotes.trim()) fd.append('notes', editNotes.trim());
+
+            await paymentsService.uploadPaymentProof(payment.id, fd);
+            toast.success('Comprobante y datos de pago guardados correctamente');
+            setShowUploadForm(false);
+            setSelectedFile(null);
+            setFilePreview(null);
+            await loadDetails(payment.id);
+            onSuccess();
+        } catch (error) {
+            console.error('Error uploading payment proof', error);
+            toast.error('Error al subir el comprobante');
+        } finally {
+            setIsUploadingProof(false);
+        }
+    };
 
     const handleApprove = async () => {
         if (!payment) return;
@@ -118,11 +173,11 @@ export function PaymentApprovalDialog({
     return (
         <>
             <Dialog open={!!payment} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="sm:max-w-[560px]">
+                <DialogContent className="sm:max-w-[580px] max-h-[92vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Revisar Pago</DialogTitle>
+                        <DialogTitle>Detalle del Pago</DialogTitle>
                         <DialogDescription>
-                            Verificá los detalles y las imputaciones antes de aprobar.
+                            Verifica el comprobante, imputaciones y datos del pago.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -131,28 +186,189 @@ export function PaymentApprovalDialog({
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
                     ) : (
-                        <div className="py-4 space-y-6">
-                            <div className="grid grid-cols-2 gap-6 p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="py-4 space-y-5">
+                            {/* Amount and Method Grid */}
+                            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
                                 <div>
-                                    <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider block mb-1">Monto</span>
+                                    <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider block mb-1">Monto Pagado</span>
                                     <span className="text-2xl font-bold text-foreground tabular-nums">{formatCurrency(detailedPayment.amount)}</span>
+                                    {detailedPayment.original_currency === 'VES' && detailedPayment.original_amount && (
+                                        <span className="text-xs text-muted-foreground block mt-0.5">
+                                            Equiv: {detailedPayment.original_amount.toLocaleString('es-VE')} Bs.
+                                        </span>
+                                    )}
                                 </div>
                                 <div>
-                                    <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider block mb-1">Método</span>
+                                    <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider block mb-1">Método de Pago</span>
+                                    <span className="text-base font-semibold text-foreground block">{formatPaymentMethod(detailedPayment.method)}</span>
+                                    <span className="text-xs text-muted-foreground font-mono">
+                                        Ref: {detailedPayment.reference || 'Sin ref'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Comprobante de Pago Card with Upload / Replace */}
+                            <div className="p-4 rounded-xl bg-muted/20 border border-border/50 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <ImageIcon className="h-4 w-4 text-primary" />
+                                        Comprobante / Capture de Pago
+                                    </span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-base font-semibold text-foreground">{formatPaymentMethod(detailedPayment.method)}</span>
                                         {detailedPayment.proof_url && (
                                             <Button
+                                                type="button"
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => setProofUrl(detailedPayment.proof_url!)}
-                                                className="h-7 px-2 text-[10px]"
+                                                className="h-7 px-2.5 text-xs gap-1 border-border/60"
                                             >
-                                                <Eye className="h-3 w-3 mr-1" /> Ver Comprobante
+                                                <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                                                Ver Comprobante
                                             </Button>
                                         )}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowUploadForm(!showUploadForm)}
+                                            className="h-7 px-2.5 text-xs gap-1 text-primary hover:bg-primary/10"
+                                        >
+                                            <Upload className="h-3.5 w-3.5" />
+                                            {detailedPayment.proof_url ? 'Cambiar Foto' : 'Adjuntar Foto'}
+                                        </Button>
                                     </div>
                                 </div>
+
+                                {/* Existing proof preview if available and not currently editing */}
+                                {detailedPayment.proof_url && !showUploadForm && (
+                                    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-background/60 border border-border/40">
+                                        <div
+                                            className="relative h-16 w-16 rounded overflow-hidden cursor-pointer border border-border shrink-0 hover:opacity-80 transition-opacity"
+                                            onClick={() => setProofUrl(detailedPayment.proof_url!)}
+                                        >
+                                            <Image src={detailedPayment.proof_url} alt="Comprobante" fill className="object-cover" unoptimized />
+                                        </div>
+                                        <div className="text-xs space-y-0.5 min-w-0 flex-1">
+                                            <p className="font-semibold text-foreground truncate">
+                                                Referencia: {detailedPayment.reference || 'Sin referencia'}
+                                            </p>
+                                            <p className="text-muted-foreground truncate">
+                                                Banco: {detailedPayment.bank || 'No especificado'}
+                                            </p>
+                                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                                <CheckCircle2 className="h-3 w-3" /> Foto de comprobante registrada
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Notice when no proof is attached and form is closed */}
+                                {!detailedPayment.proof_url && !showUploadForm && (
+                                    <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+                                        <div className="flex items-center gap-2">
+                                            <Info className="h-4 w-4 text-amber-600 shrink-0" />
+                                            <span>No se ha adjuntado captura del pago móvil o transferencia.</span>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setShowUploadForm(true)}
+                                            className="h-7 px-2.5 text-xs border-amber-500/40 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20"
+                                        >
+                                            Subir ahora
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Upload / Edit Form */}
+                                {showUploadForm && (
+                                    <div className="p-3.5 rounded-lg bg-card border border-border space-y-3 animate-in fade-in-50 duration-150">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold">Seleccionar Foto o Capture del Pago Móvil</Label>
+                                            <Input
+                                                type="file"
+                                                accept="image/*,application/pdf"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    setSelectedFile(file);
+                                                    if (file && file.type.startsWith('image/')) {
+                                                        setFilePreview(URL.createObjectURL(file));
+                                                    } else {
+                                                        setFilePreview(null);
+                                                    }
+                                                }}
+                                                className="text-xs bg-background"
+                                            />
+                                        </div>
+
+                                        {/* Local Preview */}
+                                        {filePreview && (
+                                            <div className="relative h-28 w-28 rounded border border-border overflow-hidden">
+                                                <Image src={filePreview} alt="Vista previa" fill className="object-cover" unoptimized />
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <div className="space-y-1">
+                                                <Label className="text-[11px] font-medium text-muted-foreground">N° de Referencia / Operación</Label>
+                                                <Input
+                                                    value={editReference}
+                                                    onChange={(e) => setEditReference(e.target.value)}
+                                                    placeholder="Ej. 123456"
+                                                    className="h-7 text-xs bg-background font-mono"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[11px] font-medium text-muted-foreground">Banco Emisor</Label>
+                                                <Input
+                                                    value={editBank}
+                                                    onChange={(e) => setEditBank(e.target.value)}
+                                                    placeholder="Ej. Banesco, Venezuela"
+                                                    className="h-7 text-xs bg-background"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-medium text-muted-foreground">Notas Adicionales (Opcional)</Label>
+                                            <Input
+                                                value={editNotes}
+                                                onChange={(e) => setEditNotes(e.target.value)}
+                                                placeholder="Ej. Pago móvil realizado desde cuenta de familiar..."
+                                                className="h-7 text-xs bg-background"
+                                            />
+                                        </div>
+
+                                        <div className="flex justify-end gap-2 pt-1">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setShowUploadForm(false);
+                                                    setSelectedFile(null);
+                                                    setFilePreview(null);
+                                                }}
+                                                disabled={isUploadingProof}
+                                                className="h-7 px-2.5 text-xs"
+                                            >
+                                                Cancelar
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={handleUploadProof}
+                                                disabled={isUploadingProof || (!selectedFile && !editReference && !editBank && !editNotes)}
+                                                className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+                                            >
+                                                {isUploadingProof ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                                Guardar Comprobante
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {isAllocationsLoading ? (

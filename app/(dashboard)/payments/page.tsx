@@ -35,7 +35,7 @@ import { formatCurrency, formatDate, formatPaymentMethod } from '@/lib/utils/for
 const PAGE_SIZE = 20;
 import { toast } from 'sonner';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Eye, CheckCircle, XCircle, Building2, Home, DollarSign, RotateCcw, Receipt, Loader2 } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Building2, Home, DollarSign, RotateCcw, Receipt, Loader2, Upload } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import { PaymentApprovalDialog } from '@/components/payments/PaymentApprovalDialog';
@@ -369,9 +369,22 @@ export default function PaymentsPage() {
                                     <TableCell className="text-muted-foreground">
                                         {payment.proof_url ? (
                                             <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setProofUrl(payment.proof_url!); }}>
-                                                <Eye className="h-4 w-4 mr-1" /> Ver
+                                                <Eye className="h-4 w-4 mr-1 text-emerald-600" /> Ver
                                             </Button>
-                                        ) : '-'}
+                                        ) : (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 px-2 text-xs text-primary hover:bg-primary/10 gap-1 border border-dashed border-primary/40"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setApprovalPayment(payment);
+                                                }}
+                                                title="Adjuntar comprobante"
+                                            >
+                                                <Upload className="h-3.5 w-3.5" /> Subir
+                                            </Button>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <StatusBadge status={payment.status} />

@@ -119,6 +119,11 @@ export interface Payment {
   status: PaymentStatus;
   notes?: string; // Rejection reason or notes
   unit_id?: string; // UUID link
+  original_currency?: string;
+  original_amount?: number;
+  exchange_rate?: number;
+  rate_source?: string;
+  rate_date?: string;
   processed_at?: string; // [NEW] Audit information
   processed_by?: string; // [NEW] Audit information
   processor?: { id: string; name: string }; // [NEW] Audit information

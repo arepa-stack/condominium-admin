@@ -107,4 +107,20 @@ export const paymentsService = {
         });
         return data;
     },
+
+    async uploadPaymentProof(
+        paymentId: string,
+        formData: FormData,
+    ): Promise<{ success: boolean; proof_url?: string; payment?: Payment }> {
+        const { data } = await apiClient.post(
+            `${P}/payments/admin/payments/${paymentId}/proof`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            },
+        );
+        return data;
+    },
 };
