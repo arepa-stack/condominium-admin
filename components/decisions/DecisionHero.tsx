@@ -7,6 +7,8 @@ import type { Decision, DecisionTally } from '@/types/models';
 import { Progress } from '@/components/ui/progress';
 import { useState } from 'react';
 
+import { Camera, ImagePlus } from 'lucide-react';
+
 interface DecisionHeroProps {
     decision: Decision;
     tally: DecisionTally | null;
@@ -14,6 +16,9 @@ interface DecisionHeroProps {
     actionsSlot?: React.ReactNode;
     /** Invoked when the photo thumbnail is clicked. Host page shows the lightbox. */
     onPhotoClick?: () => void;
+    /** Invoked when user wants to change/edit the photo. */
+    onEditPhoto?: () => void;
+    canManage?: boolean;
     buildingLabel?: string;
 }
 
@@ -22,6 +27,8 @@ export function DecisionHero({
     tally,
     actionsSlot,
     onPhotoClick,
+    onEditPhoto,
+    canManage = false,
     buildingLabel,
 }: DecisionHeroProps) {
     const theme = getPhaseTheme(decision.status);
@@ -55,22 +62,49 @@ export function DecisionHero({
         >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 items-start gap-4">
-                    {decision.photo_url && !photoError && (
+                    {decision.photo_url && !photoError ? (
+                        <div className="relative group flex-shrink-0">
+                            <button
+                                type="button"
+                                onClick={onPhotoClick}
+                                aria-label="Ver foto de la decisión"
+                                className="relative block h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted transition hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={decision.photo_url}
+                                    alt="Foto de la decisión"
+                                    className="h-full w-full object-cover"
+                                    onError={() => setPhotoError(true)}
+                                />
+                            </button>
+                            {canManage && onEditPhoto && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditPhoto();
+                                    }}
+                                    aria-label="Cambiar foto de la decisión"
+                                    title="Cambiar imagen"
+                                    className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-card text-foreground border border-border shadow-md hover:bg-primary hover:text-primary-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                >
+                                    <Camera className="h-3 w-3" />
+                                </button>
+                            )}
+                        </div>
+                    ) : canManage && onEditPhoto ? (
                         <button
                             type="button"
-                            onClick={onPhotoClick}
-                            aria-label="Ver foto de la decisión"
-                            className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted transition hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            onClick={onEditPhoto}
+                            aria-label="Subir foto de la decisión"
+                            title="Subir imagen"
+                            className="flex h-20 w-20 flex-shrink-0 flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/30 text-muted-foreground transition hover:border-primary/60 hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={decision.photo_url}
-                                alt="Foto de la decisión"
-                                className="h-full w-full object-cover"
-                                onError={() => setPhotoError(true)}
-                            />
+                            <ImagePlus className="h-5 w-5 mb-1 opacity-80" />
+                            <span className="text-[10px] font-medium leading-none">Subir foto</span>
                         </button>
-                    )}
+                    ) : null}
                     <div className="min-w-0 flex-1">
                         <div className={cn(
                             'flex items-center gap-2 text-xs font-medium uppercase tracking-wide',

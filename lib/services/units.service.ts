@@ -27,6 +27,11 @@ export const unitsService = {
         return data;
     },
 
+    async updateUnit(buildingId: string, unitId: string, payload: Partial<CreateUnitDto>): Promise<Unit> {
+        const { data } = await apiClient.patch<Unit>(`${P}/buildings/${buildingId}/units/${unitId}`, payload);
+        return data;
+    },
+
     async deleteUnit(buildingId: string, unitId: string): Promise<void> {
         await apiClient.delete(`${P}/buildings/${buildingId}/units/${unitId}`);
     },

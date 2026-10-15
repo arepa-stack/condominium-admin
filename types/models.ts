@@ -231,6 +231,11 @@ export interface BillingDebtPayload {
   period: string; // "YYYY-MM"
   description: string;
   due_date?: string;
+  receipt_number?: string;
+  status?: 'PENDING' | 'PAID' | 'PARTIAL';
+  paid_amount?: number;
+  payment_method?: string;
+  payment_date?: string;
 }
 
 export interface UnitInvoice {
@@ -508,6 +513,38 @@ export interface ReversePettyCashEntryDto {
   reason: string;
 }
 
+export interface PettyCashPaymentReportItem {
+  id: string;
+  date: string;
+  unit_id: string | null;
+  unit_name: string | null;
+  owner_name: string | null;
+  receipt_number: string | null;
+  assessment_description: string | null;
+  amount: number;
+  original_currency: string;
+  original_amount: number | null;
+  exchange_rate: number | null;
+  payment_method: string | null;
+  payment_reference: string | null;
+  bank: string | null;
+  type: string;
+  description: string;
+  proof_url: string | null;
+  is_reversed?: boolean;
+}
+
+export interface PettyCashPaymentReportFilters {
+  unit_id?: string;
+  type?: string;
+  category?: string;
+  start_date?: string;
+  end_date?: string;
+  search?: string;
+  receipt_number?: string;
+  exclude_reversed?: boolean;
+}
+
 // ─── Decisions (Presupuestos y Votaciones) ─────────────────────────────────
 
 export type DecisionStatus =
@@ -652,8 +689,9 @@ export interface CancelDecisionDto {
 }
 
 export interface ResolveTiebreakDto {
-  quote_id: string;
-  reason: string;
+  quote_id?: string;
+  winner_quote_id?: string;
+  reason?: string;
 }
 
 export interface GenerateChargeDto {
@@ -936,5 +974,5 @@ export interface RegisterContributionDto {
   amount: number;
   description?: string;
   currency?: 'USD' | 'VES';
-  proof_image: File;
+  proof_image?: File;
 }

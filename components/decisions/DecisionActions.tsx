@@ -16,7 +16,7 @@ import {
     type PrimaryAction,
 } from '@/lib/utils/decision-actions';
 import type { Decision } from '@/types/models';
-import { Clock, FileText, History, MoreHorizontal, Upload, Vote, XCircle } from 'lucide-react';
+import { Clock, FileText, History, Image as ImageIcon, MoreHorizontal, Upload, Vote, XCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export interface DecisionActionsHandlers {
@@ -29,6 +29,7 @@ export interface DecisionActionsHandlers {
     onGenerateCharge: () => void;
     onCancel: () => void;
     onOpenAuditLog: () => void;
+    onEditPhoto?: () => void;
 }
 
 interface DecisionActionsProps {
@@ -153,6 +154,11 @@ export function DecisionActions({
                             }
                         >
                             <Vote className="mr-2 h-4 w-4" /> Abrir proceso de votación
+                        </DropdownMenuItem>
+                    )}
+                    {handlers.onEditPhoto && (
+                        <DropdownMenuItem onSelect={handlers.onEditPhoto}>
+                            <ImageIcon className="mr-2 h-4 w-4" /> {decision.photo_url ? 'Cambiar imagen' : 'Subir imagen'}
                         </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onSelect={handlers.onOpenAuditLog}>

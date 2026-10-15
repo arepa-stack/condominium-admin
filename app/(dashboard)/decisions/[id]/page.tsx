@@ -21,6 +21,7 @@ import { DirectAwardDialog } from '@/components/decisions/DirectAwardDialog';
 import { TallyCard } from '@/components/decisions/TallyCard';
 import { VotesList } from '@/components/decisions/VotesList';
 import { PhotoLightbox } from '@/components/decisions/PhotoLightbox';
+import { EditDecisionPhotoDialog } from '@/components/decisions/EditDecisionPhotoDialog';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import { decisionsService } from '@/lib/services/decisions.service';
@@ -59,6 +60,7 @@ export default function DecisionDetailPage() {
     const [quoteUploadOpen, setQuoteUploadOpen] = useState(false);
     const [forceFinalizeOpen, setForceFinalizeOpen] = useState(false);
     const [directAwardOpen, setDirectAwardOpen] = useState(false);
+    const [editPhotoOpen, setEditPhotoOpen] = useState(false);
 
     const load = useCallback(async () => {
         setIsLoading(true);
@@ -165,10 +167,12 @@ export default function DecisionDetailPage() {
             <DecisionHero
                 decision={decision}
                 tally={tally}
+                canManage={canManage}
                 buildingLabel={
                     availableBuildings.find((b) => b.id === decision.building_id)?.name ??
                     undefined
                 }
+                onEditPhoto={() => setEditPhotoOpen(true)}
                 onPhotoClick={async () => {
                     try {
                         // Re-fetch the decision so the signed photo URL is fresh
@@ -210,6 +214,7 @@ export default function DecisionDetailPage() {
                             onGenerateCharge: () => setChargeOpen(true),
                             onCancel: () => setCancelOpen(true),
                             onOpenAuditLog: () => setAuditOpen(true),
+                            onEditPhoto: () => setEditPhotoOpen(true),
                         }}
                     />
                 }
@@ -440,6 +445,15 @@ export default function DecisionDetailPage() {
                 onClose={() => {
                     setLightboxOpen(false);
                     setLightboxUrl(null);
+                }}
+            />
+
+            <EditDecisionPhotoDialog
+                open={editPhotoOpen}
+                onOpenChange={setEditPhotoOpen}
+                decision={decision}
+                onUpdated={(newUrl) => {
+                    setDecision((prev) => (prev ? { ...prev, photo_url: newUrl } : prev));
                 }}
             />
         </div>

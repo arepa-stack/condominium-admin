@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { buildingsService } from '@/lib/services/buildings.service';
+import { unitsService } from '@/lib/services/units.service';
 import { BalanceCard } from '@/components/petty-cash/BalanceCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TransactionDialog, type PettyCashManualEntryType } from '@/components/petty-cash/TransactionDialog';
 import { AssessmentPreviewDialog } from '@/components/petty-cash/AssessmentPreviewDialog';
 import { TransparencyView } from '@/components/petty-cash/TransparencyView';
 import { ReverseEntryDialog } from '@/components/petty-cash/ReverseEntryDialog';
+import { EditEntryDescriptionDialog } from '@/components/petty-cash/EditEntryDescriptionDialog';
 import { ExpressAssessmentDialog } from '@/components/petty-cash/ExpressAssessmentDialog';
 import { CancelExpressDialog, CancelSuccessSummary } from '@/components/petty-cash/CancelExpressDialog';
 import { TargetFundCard } from '@/components/petty-cash/TargetFundCard';
 import { ContributionDialog } from '@/components/petty-cash/ContributionDialog';
+import { ExportPettyCashPaymentsDialog } from '@/components/petty-cash/ExportPettyCashPaymentsDialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { FilterBar } from '@/components/ui/filter-bar';
@@ -32,6 +35,7 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import type {
     PettyCashBalance,
     PettyCashEntry,
@@ -44,9 +48,11 @@ import type {
     CreateExpressAssessmentDto,
     PaginationMetadata,
     Building,
+    Unit,
     RateSource,
     PettyCashCoverage,
     ContributionResponse,
+    PettyCashPaymentReportItem,
 } from '@/types/models';
 import { Paginator } from '@/components/ui/paginator';
 import { formatDate, formatMoney } from '@/lib/utils/format';
@@ -65,7 +71,11 @@ import {
     LayoutList,
     X,
     HandCoins,
+    Download,
+    Home,
+    Pencil,
 } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { usePermissions } from '@/lib/hooks/usePermissions';
@@ -125,17 +135,34 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
     const [isLoading, setIsLoading] = useState(true);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isReversing, setIsReversing] = useState(false);
+    const [units, setUnits] = useState<Unit[]>([]);
+    const [reportItems, setReportItems] = useState<PettyCashPaymentReportItem[]>([]);
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
+    const [filterUnitId, setFilterUnitId] = useState<string>('all');
     const [filterType, setFilterType] = useState<TypeFilter>('all');
     const [filterCategory, setFilterCategory] = useState<CategoryFilter>('all');
     const [page, setPage] = useState(1);
     const pageSize = 20;
+
+    useEffect(() => {
+        if (!buildingId) return;
+        unitsService.getUnits(buildingId)
+            .then(setUnits)
+            .catch(() => setUnits([]));
+    }, [buildingId]);
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogType, setDialogType] = useState<PettyCashManualEntryType>('income');
     const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
     const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
     const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
+    const [editDescriptionDialogOpen, setEditDescriptionDialogOpen] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [entryToReverse, setEntryToReverse] = useState<PettyCashEntry | null>(null);
+    const [entryToEdit, setEntryToEdit] = useState<PettyCashEntry | null>(null);
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
 
     // B12: post-expense recovery offer state
     const [recoveryCoverage, setRecoveryCoverage] = useState<PettyCashCoverage | null>(null);
@@ -162,19 +189,28 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         if (!buildingId) return;
         setIsLoading(true);
         try {
-            const [balResult, historyResult, previewResult, transResult, bldResult] =
+            const isFiltering = filterUnitId !== 'all' || searchQuery.trim() !== '' || startDate !== '' || endDate !== '' || filterType !== 'all' || filterCategory !== 'all';
+
+            const [balResult, historyResult, previewResult, transResult, bldResult, reportResult] =
                 await Promise.allSettled([
                     pettyCashService.getBalance(buildingId),
                     pettyCashService.getHistoryPaginated(buildingId, {
                         type: filterType !== 'all' ? filterType : undefined,
                         category: filterCategory !== 'all' ? filterCategory : undefined,
-                        page,
-                        limit: pageSize,
+                        page: isFiltering ? 1 : page,
+                        limit: isFiltering ? 'all' : pageSize,
                     }),
                     pettyCashService.getAssessmentPreview(buildingId),
                     pettyCashService.getTransparency(buildingId, period),
                     buildingsService.getBuildingById(buildingId).catch(() => null),
+                    pettyCashService.getPaymentsReport(buildingId).catch(() => []),
                 ]);
+
+            if (reportResult.status === 'fulfilled') {
+                setReportItems(reportResult.value);
+            } else {
+                setReportItems([]);
+            }
 
             if (balResult.status === 'fulfilled') {
                 setBalance(balResult.value);
@@ -227,7 +263,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         } finally {
             setIsLoading(false);
         }
-    }, [buildingId, filterType, filterCategory, page, period]);
+    }, [buildingId, filterType, filterCategory, page, period, filterUnitId, searchQuery, startDate, endDate]);
 
     useEffect(() => {
         fetchAll();
@@ -365,6 +401,28 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
         setReverseDialogOpen(true);
     };
 
+    const handleUpdateDescription = async (entryId: string, newDescription: string) => {
+        setIsEditingDescription(true);
+        try {
+            await pettyCashService.updateEntryDescription(buildingId, entryId, newDescription);
+            toast.success('Descripción actualizada');
+            setEditDescriptionDialogOpen(false);
+            setEntryToEdit(null);
+            await fetchAll();
+        } catch (e) {
+            const err = e as AxiosError<{ message?: string }>;
+            toast.error(err.response?.data?.message || 'Error al actualizar la descripción');
+            console.error(e);
+        } finally {
+            setIsEditingDescription(false);
+        }
+    };
+
+    const openEditDialog = (entry: PettyCashEntry) => {
+        setEntryToEdit(entry);
+        setEditDescriptionDialogOpen(true);
+    };
+
     const handleRateChange = async (source: RateSource) => {
         setSavingRate(true);
         try {
@@ -444,30 +502,32 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         Saldo, movimientos y prorrateos del fondo del edificio
                     </p>
                 </div>
-                {canEdit && (
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => openDialog('income')}
-                        >
-                            <ArrowUpCircle className="h-4 w-4 text-chart-1" />
-                            Registrar ingreso
-                        </Button>
-                        <Button className="gap-2" onClick={() => openDialog('expense')}>
-                            <ArrowDownCircle className="h-4 w-4" />
-                            Registrar egreso
-                        </Button>
-                        <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => setContributionDialogOpen(true)}
-                        >
-                            <HandCoins className="h-4 w-4 text-chart-1" />
-                            Registrar aporte
-                        </Button>
-                    </div>
-                )}
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setExportDialogOpen(true)}
+                    >
+                        <Download className="h-4 w-4 text-primary" />
+                        Exportar reporte (PDF / CSV)
+                    </Button>
+                    {canEdit && (
+                        <>
+                            <Button className="gap-2" onClick={() => openDialog('expense')}>
+                                <ArrowDownCircle className="h-4 w-4" />
+                                Registrar egreso
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="gap-2"
+                                onClick={() => setContributionDialogOpen(true)}
+                            >
+                                <HandCoins className="h-4 w-4 text-chart-1" />
+                                Registrar aporte
+                            </Button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* B12: Post-expense recovery offer — shown INSTEAD of the normal pending banner */}
@@ -602,7 +662,61 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
             />
 
             <FilterBar>
-                <div className="w-full md:w-48">
+                <div className="w-full md:w-60">
+                    <Input
+                        placeholder="Buscar unidad, persona o concepto..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setPage(1);
+                        }}
+                    />
+                </div>
+                <div className="w-full md:w-52">
+                    <SearchableSelect
+                        options={[
+                            { value: 'all', label: 'Todas las unidades' },
+                            ...units.map((u) => ({
+                                value: u.id,
+                                label: u.name.toLowerCase().includes('unidad') || u.name.toLowerCase().includes('apto')
+                                    ? u.name
+                                    : `Unidad ${u.name}`,
+                                icon: Home,
+                            })),
+                        ]}
+                        value={filterUnitId}
+                        onValueChange={(v) => {
+                            setPage(1);
+                            setFilterUnitId(v);
+                        }}
+                        placeholder="Todas las unidades"
+                        searchPlaceholder="Buscar unidad (ej. 52)..."
+                        triggerIcon={Home}
+                    />
+                </div>
+                <div className="w-full md:w-36">
+                    <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => {
+                            setStartDate(e.target.value);
+                            setPage(1);
+                        }}
+                        title="Fecha desde"
+                    />
+                </div>
+                <div className="w-full md:w-36">
+                    <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => {
+                            setEndDate(e.target.value);
+                            setPage(1);
+                        }}
+                        title="Fecha hasta"
+                    />
+                </div>
+                <div className="w-full md:w-44">
                     <Select
                         value={filterType}
                         onValueChange={(v) => {
@@ -622,7 +736,7 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="w-full md:w-56">
+                <div className="w-full md:w-48">
                     <Select
                         value={filterCategory}
                         onValueChange={(v) => {
@@ -643,45 +757,122 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         </SelectContent>
                     </Select>
                 </div>
+                {(searchQuery || filterUnitId !== 'all' || filterType !== 'all' || filterCategory !== 'all' || startDate || endDate) && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            setSearchQuery('');
+                            setFilterUnitId('all');
+                            setFilterType('all');
+                            setFilterCategory('all');
+                            setStartDate('');
+                            setEndDate('');
+                            setPage(1);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                        Limpiar filtros
+                    </Button>
+                )}
             </FilterBar>
 
             {isLoading ? (
                 <TableSkeleton rows={5} columns={7} />
-            ) : (
-                <>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Tipo</TableHead>
-                                <TableHead>Monto</TableHead>
-                                <TableHead>Descripción</TableHead>
-                                <TableHead>Categoría</TableHead>
-                                <TableHead>Evidencia</TableHead>
-                                {canEdit && <TableHead className="text-right">Acciones</TableHead>}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {entries.length === 0 ? (
+            ) : (() => {
+                const selectedUnit = units.find((u) => u.id === filterUnitId);
+                const selectedUnitName = selectedUnit?.name?.toLowerCase() || '';
+
+                const displayedEntries = entries.filter((entry) => {
+                    const reportItem = reportItems.find((r) => r.id === entry.id);
+                    const unitId = reportItem?.unit_id || (entry as any).unit_id || null;
+                    const unitName = reportItem?.unit_name || null;
+                    const ownerName = reportItem?.owner_name || null;
+
+                    // 1. Unit dropdown filter
+                    if (filterUnitId !== 'all') {
+                        const matchesUnitId = unitId === filterUnitId;
+                        const cleanSelected = selectedUnitName.replace(/^(unidad|apto)\s+/i, '').trim();
+                        
+                        let matchesUnitName = false;
+                        if (cleanSelected) {
+                            const cleanUnitName = unitName ? unitName.toLowerCase().replace(/^(unidad|apto)\s+/i, '').trim() : '';
+                            const isExactUnit = cleanUnitName === cleanSelected;
+
+                            // Match exact unit name or word boundary in description (e.g. "apto 2-4", "unidad 2-4", "2-4")
+                            const descLower = entry.description.toLowerCase();
+                            const descMatch = new RegExp(`(?:apto|unidad|apt|apto\\.|unidad\\.)?\\s*\\b${cleanSelected.replace('-', '\\-')}\\b`, 'i').test(descLower);
+
+                            matchesUnitName = isExactUnit || descMatch;
+                        }
+                        if (!matchesUnitId && !matchesUnitName) return false;
+                    }
+
+                    // 2. Search Query filter (unit, owner/person name, concept, category, receipt)
+                    if (searchQuery.trim()) {
+                        const q = searchQuery.trim().toLowerCase();
+                        const matches =
+                            (unitName && unitName.toLowerCase().includes(q)) ||
+                            (ownerName && ownerName.toLowerCase().includes(q)) ||
+                            entry.description.toLowerCase().includes(q) ||
+                            (entry.category && entry.category.toLowerCase().includes(q)) ||
+                            (reportItem?.receipt_number && reportItem.receipt_number.toLowerCase().includes(q)) ||
+                            (reportItem?.payment_reference && reportItem.payment_reference.toLowerCase().includes(q)) ||
+                            formatDate(entry.created_at).toLowerCase().includes(q);
+                        if (!matches) return false;
+                    }
+
+                    // 3. Date range filters
+                    if (startDate) {
+                        const entryDate = new Date(entry.created_at).toISOString().split('T')[0];
+                        if (entryDate < startDate) return false;
+                    }
+                    if (endDate) {
+                        const entryDate = new Date(entry.created_at).toISOString().split('T')[0];
+                        if (entryDate > endDate) return false;
+                    }
+
+                    return true;
+                });
+
+                return (
+                    <>
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell
-                                        colSpan={canEdit ? 7 : 6}
-                                        className="p-0"
-                                    >
-                                        <EmptyState
-                                            icon={Receipt}
-                                            message="No hay movimientos registrados"
-                                            variant="inline"
-                                        />
-                                    </TableCell>
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Monto</TableHead>
+                                    <TableHead>Descripción</TableHead>
+                                    <TableHead>Propietario</TableHead>
+                                    <TableHead>Evidencia</TableHead>
+                                    {canEdit && <TableHead className="text-right">Acciones</TableHead>}
                                 </TableRow>
-                            ) : (
-                                entries.map((entry) => {
+                            </TableHeader>
+                            <TableBody>
+                                {displayedEntries.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={canEdit ? 7 : 6}
+                                            className="p-0"
+                                        >
+                                            <EmptyState
+                                                icon={Receipt}
+                                                message="No hay movimientos registrados para el filtro seleccionado"
+                                                variant="inline"
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    displayedEntries.map((entry) => {
                                     const meta = ENTRY_TYPE_META[entry.type];
                                     const isReversal = entry.type === 'reversal';
                                     const alreadyReversed = entry.is_reversed ?? false;
                                     const canReverse =
                                         canEdit && !isReversal && !alreadyReversed;
+                                    const reportItem = reportItems.find((r) => r.id === entry.id);
+                                    const owner = reportItem?.owner_name;
+                                    const unitName = reportItem?.unit_name;
 
                                     return (
                                         <TableRow
@@ -726,8 +917,20 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                             <TableCell className="max-w-xs truncate whitespace-normal">
                                                 {entry.description}
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {entry.category || '—'}
+                                            <TableCell className="text-sm">
+                                                {owner && unitName ? (
+                                                    <div>
+                                                        <span className="font-medium text-foreground">{owner}</span>
+                                                        <br />
+                                                        <span className="text-xs text-muted-foreground">Unidad {unitName}</span>
+                                                    </div>
+                                                ) : owner ? (
+                                                    <span className="font-medium text-foreground">{owner}</span>
+                                                ) : unitName ? (
+                                                    <span className="text-xs text-muted-foreground font-medium">Unidad {unitName}</span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {entry.evidence_url ? (
@@ -748,23 +951,35 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                                             </TableCell>
                                             {canEdit && (
                                                 <TableCell className="text-right">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="gap-1"
-                                                        onClick={() => openReverseDialog(entry)}
-                                                        disabled={!canReverse}
-                                                        title={
-                                                            isReversal
-                                                                ? 'No se puede reversar una reversa'
-                                                                : alreadyReversed
-                                                                    ? 'Esta entrada ya fue reversada'
-                                                                    : 'Revertir movimiento'
-                                                        }
-                                                    >
-                                                        <Undo2 className="h-4 w-4" />
-                                                        Revertir
-                                                    </Button>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="gap-1 text-muted-foreground hover:text-foreground"
+                                                            onClick={() => openEditDialog(entry)}
+                                                            title="Editar descripción"
+                                                        >
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                            Editar
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="gap-1"
+                                                            onClick={() => openReverseDialog(entry)}
+                                                            disabled={!canReverse}
+                                                            title={
+                                                                isReversal
+                                                                    ? 'No se puede reversar una reversa'
+                                                                    : alreadyReversed
+                                                                        ? 'Esta entrada ya fue reversada'
+                                                                        : 'Revertir movimiento'
+                                                            }
+                                                        >
+                                                            <Undo2 className="h-4 w-4" />
+                                                            Revertir
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             )}
                                         </TableRow>
@@ -779,7 +994,8 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                         onPageChange={setPage}
                     />
                 </>
-            )}
+                );
+            })()}
 
             {/* TransactionDialog: expense success now passes entry for coverage detection */}
             <TransactionDialog
@@ -858,6 +1074,17 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 onConfirm={handleReverseEntry}
             />
 
+            <EditEntryDescriptionDialog
+                open={editDescriptionDialogOpen}
+                onOpenChange={(o) => {
+                    setEditDescriptionDialogOpen(o);
+                    if (!o) setEntryToEdit(null);
+                }}
+                entry={entryToEdit}
+                isSubmitting={isEditingDescription}
+                onConfirm={handleUpdateDescription}
+            />
+
             {/* Direct contribution dialog */}
             <ContributionDialog
                 open={contributionDialogOpen}
@@ -866,6 +1093,14 @@ export function PettyCashPage({ buildingId, variant = 'default' }: PettyCashPage
                 onSuccess={(_result: ContributionResponse) => {
                     fetchAll();
                 }}
+            />
+
+            <ExportPettyCashPaymentsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                buildingId={buildingId}
+                initialType={filterType}
+                initialCategory={filterCategory}
             />
 
             <Dialog open={!!evidenceUrl} onOpenChange={(o) => !o && setEvidenceUrl(null)}>

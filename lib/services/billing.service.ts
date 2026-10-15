@@ -107,4 +107,20 @@ export const billingService = {
         );
         return data;
     },
+
+    async updateInvoice(
+        id: string,
+        data: {
+            status?: string;
+            paid_amount?: number;
+            receipt_number?: string;
+            description?: string;
+            due_date?: string;
+            payment_method?: string;
+            payment_date?: string;
+        }
+    ): Promise<Invoice> {
+        const { data: res } = await apiClient.patch<Invoice>(`${P}/billing/invoices/${id}`, data);
+        return res;
+    },
 };

@@ -22,8 +22,15 @@ import {
     ArrowUpRight,
     Loader2,
     Download,
-    ExternalLink
+    ExternalLink,
+    CheckCircle,
+    CheckCircle2,
+    XCircle,
+    FileText,
+    Receipt,
 } from 'lucide-react';
+import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
+import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { billingService } from '@/lib/services/billing.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
@@ -38,9 +45,10 @@ interface InvoiceDetailsDialogProps {
     invoiceId: string | null;
     buildingName?: string;
     unitName?: string;
+    onPaymentApproved?: () => void;
 }
 
-export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName, unitName }: InvoiceDetailsDialogProps) {
+export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName, unitName, onPaymentApproved }: InvoiceDetailsDialogProps) {
     const { availableBuildings } = useBuildingContext();
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [payments, setPayments] = useState<InvoicePayment[]>([]);
@@ -53,6 +61,67 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     const [isPaymentDetailsOpen, setIsPaymentDetailsOpen] = useState(false);
     const [isAllocationsLoading, setIsAllocationsLoading] = useState(false);
     const [proofUrl, setProofUrl] = useState<string | null>(null);
+    const [isApprovingPayment, setIsApprovingPayment] = useState(false);
+    const [isAvisoOpen, setIsAvisoOpen] = useState(false);
+    const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+    const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+
+    const handleMarkInvoiceAsPaid = async () => {
+        if (!invoice) return;
+        if (!confirm(`¿Marcar la factura #${displayId} (${formatCurrency(invoice.amount)}) como PAGADA?`)) return;
+
+        setIsMarkingPaid(true);
+        try {
+            await billingService.updateInvoice(invoice.id, {
+                status: 'PAID',
+                paid_amount: invoice.amount,
+                payment_method: 'CASH',
+                payment_date: new Date().toISOString().slice(0, 10),
+            });
+            toast.success('Factura marcada como PAGADA con éxito.');
+            await fetchData();
+            onPaymentApproved?.();
+        } catch (error) {
+            console.error('Error al marcar factura como pagada:', error);
+            toast.error('Error al marcar la factura como pagada');
+        } finally {
+            setIsMarkingPaid(false);
+        }
+    };
+
+    const handleApprovePayment = async (paymentId: string) => {
+        setIsApprovingPayment(true);
+        try {
+            await paymentsService.approvePayment(paymentId);
+            toast.success('Pago aprobado con éxito. La factura ha sido actualizada.');
+            setIsPaymentDetailsOpen(false);
+            await fetchData();
+            onPaymentApproved?.();
+        } catch (error) {
+            console.error('Error al aprobar el pago:', error);
+            toast.error('Error al aprobar el pago');
+        } finally {
+            setIsApprovingPayment(false);
+        }
+    };
+
+    const handleRejectPayment = async (paymentId: string) => {
+        const reason = prompt('Motivo del rechazo:');
+        if (reason === null) return;
+        setIsApprovingPayment(true);
+        try {
+            await paymentsService.rejectPayment(paymentId, reason);
+            toast.success('Pago rechazado');
+            setIsPaymentDetailsOpen(false);
+            await fetchData();
+            onPaymentApproved?.();
+        } catch (error) {
+            console.error('Error al rechazar el pago:', error);
+            toast.error('Error al rechazar el pago');
+        } finally {
+            setIsApprovingPayment(false);
+        }
+    };
 
     useEffect(() => {
         if (isOpen && invoiceId) {
@@ -250,10 +319,37 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-4 mt-3 sm:mt-0 w-full sm:w-auto justify-between sm:justify-end">
+                                                    <div className="flex items-center gap-2 mt-3 sm:mt-0 w-full sm:w-auto justify-between sm:justify-end">
                                                         <Badge variant="outline" className="text-[9px] uppercase font-black border-border text-muted-foreground">
                                                             {formatPaymentMethod(p.method)}
                                                         </Badge>
+                                                        {p.status === 'PENDING' ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[9px] uppercase font-black">
+                                                                    PENDIENTE
+                                                                </Badge>
+                                                                <Button
+                                                                    size="sm"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleApprovePayment(p.id);
+                                                                    }}
+                                                                    disabled={isApprovingPayment}
+                                                                    className="h-7 px-2 text-[10px] gap-1 bg-chart-1 text-chart-1-foreground hover:bg-chart-1/90"
+                                                                >
+                                                                    <CheckCircle className="h-3 w-3" />
+                                                                    Aprobar
+                                                                </Button>
+                                                            </div>
+                                                        ) : p.status === 'APPROVED' ? (
+                                                            <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 text-[9px] uppercase font-black">
+                                                                APROBADO
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-[9px] uppercase font-black">
+                                                                {p.status}
+                                                            </Badge>
+                                                        )}
                                                         <ArrowUpRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-all" />
                                                     </div>
                                                 </div>
@@ -263,7 +359,40 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-muted/50 border-t border-border flex justify-end">
+                            <div className="p-4 bg-muted/50 border-t border-border flex flex-wrap gap-2 justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsAvisoOpen(true)}
+                                        className="gap-2 text-xs border-primary/30 hover:bg-primary/10 text-primary font-medium"
+                                    >
+                                        <FileText className="h-4 w-4" />
+                                        Ver Aviso de Cobro
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsReceiptOpen(true)}
+                                        className="gap-2 text-xs border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
+                                    >
+                                        <Receipt className="h-4 w-4 text-emerald-600" />
+                                        Factura / Recibo PDF
+                                    </Button>
+
+                                    {!isPaid && (
+                                        <Button
+                                            size="sm"
+                                            onClick={handleMarkInvoiceAsPaid}
+                                            disabled={isMarkingPaid}
+                                            className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                                        >
+                                            {isMarkingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                            Marcar como Pagada
+                                        </Button>
+                                    )}
+                                </div>
                                 <Button variant="ghost" onClick={onClose} className="hover:bg-muted font-bold uppercase tracking-widest text-[10px]">
                                     Cerrar
                                 </Button>
@@ -272,6 +401,12 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                     )}
                 </DialogContent>
             </Dialog>
+
+            <AvisoDeCobroDialog
+                open={isAvisoOpen}
+                onOpenChange={setIsAvisoOpen}
+                invoice={invoice}
+            />
 
             {/* Nested Payment Details Dialog */}
             <Dialog open={isPaymentDetailsOpen} onOpenChange={setIsPaymentDetailsOpen}>
@@ -337,6 +472,23 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 </div>
                             </div>
 
+                            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border text-xs">
+                                <span className="font-semibold text-muted-foreground">Estado del Pago:</span>
+                                {detailedPayment.status === 'PENDING' ? (
+                                    <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold uppercase">
+                                        Pendiente de Aprobación
+                                    </Badge>
+                                ) : detailedPayment.status === 'APPROVED' ? (
+                                    <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30 text-[10px] font-bold uppercase">
+                                        Aprobado
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline" className="text-[10px] font-bold uppercase">
+                                        {detailedPayment.status}
+                                    </Badge>
+                                )}
+                            </div>
+
                             {detailedPayment.proof_url && (
                                 <Button
                                     variant="outline"
@@ -345,6 +497,33 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                 >
                                     <Eye className="h-4 w-4" /> Ver comprobante completo
                                 </Button>
+                            )}
+
+                            {detailedPayment.status === 'PENDING' && (
+                                <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => handleRejectPayment(detailedPayment.id)}
+                                        disabled={isApprovingPayment}
+                                    >
+                                        <XCircle className="h-4 w-4 mr-1.5" />
+                                        Rechazar
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleApprovePayment(detailedPayment.id)}
+                                        disabled={isApprovingPayment}
+                                        className="bg-chart-1 text-chart-1-foreground hover:bg-chart-1/90 px-4 font-bold"
+                                    >
+                                        {isApprovingPayment ? (
+                                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                                        ) : (
+                                            <CheckCircle className="h-4 w-4 mr-1.5" />
+                                        )}
+                                        Aprobar Pago
+                                    </Button>
+                                </div>
                             )}
                         </div>
                     )}
@@ -382,6 +561,15 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Official Invoice Receipt Dialog */}
+            <InvoiceReceiptDialog
+                open={isReceiptOpen}
+                onOpenChange={setIsReceiptOpen}
+                invoice={invoice}
+                buildingName={resolvedBuildingName}
+                unit={invoice?.unit}
+            />
         </>
     );
 }

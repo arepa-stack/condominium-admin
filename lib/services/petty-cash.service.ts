@@ -12,6 +12,8 @@ import type {
     PettyCashAssessmentPreview,
     PettyCashAssessmentResponse,
     PettyCashTransparency,
+    PettyCashPaymentReportItem,
+    PettyCashPaymentReportFilters,
     PaginatedResponse,
     PaginationParams,
     RateSet,
@@ -130,6 +132,18 @@ export const pettyCashService = {
         return normalizeEntry(data);
     },
 
+    async updateEntryDescription(
+        buildingId: string,
+        entryId: string,
+        description: string
+    ): Promise<PettyCashEntry> {
+        const { data } = await apiClient.patch<PettyCashEntry>(
+            `${P}/petty-cash/funds/${buildingId}/entries/${entryId}`,
+            { description }
+        );
+        return normalizeEntry(data);
+    },
+
     async getAssessmentPreview(buildingId: string): Promise<PettyCashAssessmentPreview | null> {
         try {
             const { data } = await apiClient.get<PettyCashAssessmentPreview>(
@@ -230,6 +244,17 @@ export const pettyCashService = {
                     'Content-Type': 'multipart/form-data',
                 },
             }
+        );
+        return data;
+    },
+
+    async getPaymentsReport(
+        buildingId: string,
+        filters?: PettyCashPaymentReportFilters
+    ): Promise<PettyCashPaymentReportItem[]> {
+        const { data } = await apiClient.get<PettyCashPaymentReportItem[]>(
+            `${P}/petty-cash/funds/${buildingId}/payments-report`,
+            { params: filters }
         );
         return data;
     },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,16 +30,41 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { billingService } from '@/lib/services/billing.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
+import { decisionsService } from '@/lib/services/decisions.service';
+import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import { Building2, Home, DollarSign, FileText, Calendar, Loader2 } from 'lucide-react';
-import type { Unit, Building } from '@/types/models';
+import {
+    extractActiveBudgets,
+    calculateUnitAmountForBudget,
+    type ActiveBudgetOption,
+} from '@/lib/utils/budget-helpers';
+import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
+import {
+    Building2,
+    Home,
+    DollarSign,
+    FileText,
+    Calendar,
+    Loader2,
+    CheckCircle2,
+    Receipt,
+    Sparkles,
+    Calculator,
+    FolderKanban,
+    Coins,
+    RefreshCw,
+    Download,
+    ArrowRight,
+} from 'lucide-react';
+import type { Unit, Building, BillingDebtPayload, Invoice, Decision, RateSet } from '@/types/models';
+import type { InvoicePdfPaymentDetails } from '@/lib/utils/invoice-pdf';
 
-// Schema defined outside component to avoid re-creation
-// Schema defined outside component to avoid re-creation
 const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
     building_id: z.string().optional(),
     unit_id: z.string().min(1, 'La unidad es obligatoria'),
@@ -47,34 +72,67 @@ const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
     period: z.string().regex(/^\d{4}-\d{2}$/, 'El período debe estar en formato AAAA-MM'),
     description: z.string().min(3, 'La descripción debe tener al menos 3 caracteres'),
     due_date: z.string().optional(),
+    receipt_number: z.string().optional(),
+    is_paid: z.boolean(),
+    payment_method: z.string().optional(),
+    payment_date: z.string().optional(),
+    payment_currency: z.enum(['USD', 'VES']).optional(),
+    rate_type: z.enum(['EUR_BCV', 'USD_BCV', 'CUSTOM']).optional(),
+    exchange_rate: z.string().optional(),
+    amount_ves: z.string().optional(),
+    include_rate_in_notes: z.boolean().optional(),
 }).refine(data => !needsBuildingSelector || (data.building_id && data.building_id.length > 0), {
     message: "El edificio es obligatorio",
     path: ["building_id"],
 });
 
-type InvoiceFormData = {
-    building_id?: string;
-    unit_id: string;
-    amount: string;
-    period: string;
-    description: string;
-    due_date?: string;
-};
+type InvoiceFormData = z.infer<ReturnType<typeof createInvoiceSchema>>;
 
 interface InvoiceDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess: () => void;
     initialUnitId?: string;
-    buildingId?: string; // Pre-selected building (for board members)
+    buildingId?: string;
+    initialBudgetOption?: ActiveBudgetOption | null;
+    existingInvoices?: Invoice[];
 }
 
-export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, buildingId: propBuildingId }: InvoiceDialogProps) {
+const COMMON_CONCEPTS = [
+    'Cisterna de agua',
+    'Cuota de condominio',
+    'Gasto extraordinario',
+    'Mantenimiento / Reparación',
+];
+
+export function InvoiceDialog({
+    open,
+    onOpenChange,
+    onSuccess,
+    initialUnitId,
+    buildingId: propBuildingId,
+    initialBudgetOption,
+    existingInvoices = [],
+}: InvoiceDialogProps) {
     const { isSuperAdmin } = usePermissions();
     const [buildings, setBuildings] = useState<Building[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [decisions, setDecisions] = useState<Decision[]>([]);
     const [isLoadingBuildings, setIsLoadingBuildings] = useState(false);
     const [isLoadingUnits, setIsLoadingUnits] = useState(false);
+
+    // Active budget selection
+    const [selectedBudgetId, setSelectedBudgetId] = useState<string>('none');
+    const [budgetHint, setBudgetHint] = useState<string | null>(null);
+
+    // Exchange rates state
+    const [ratesData, setRatesData] = useState<RateSet | null>(null);
+    const [isLoadingRates, setIsLoadingRates] = useState(false);
+
+    // Receipt Dialog for newly created paid invoice
+    const [createdInvoiceForReceipt, setCreatedInvoiceForReceipt] = useState<Invoice | null>(null);
+    const [createdPaymentDetails, setCreatedPaymentDetails] = useState<InvoicePdfPaymentDetails | null>(null);
+    const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
     // Admin needs to select building, board has it pre-selected
     const needsBuildingSelector = isSuperAdmin && !propBuildingId;
@@ -88,10 +146,82 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
             period: new Date().toISOString().slice(0, 7),
             description: '',
             due_date: '',
+            receipt_number: '',
+            is_paid: false,
+            payment_method: 'PAGO_MOVIL',
+            payment_date: new Date().toISOString().slice(0, 10),
+            payment_currency: 'VES',
+            rate_type: 'EUR_BCV',
+            exchange_rate: '',
+            amount_ves: '',
+            include_rate_in_notes: true,
         },
     });
 
+    const isPaid = form.watch('is_paid');
+    const paymentCurrency = form.watch('payment_currency');
+    const rateType = form.watch('rate_type');
+    const paymentDate = form.watch('payment_date');
+    const currentAmount = form.watch('amount');
+    const exchangeRate = form.watch('exchange_rate');
     const selectedBuildingId = form.watch('building_id') || propBuildingId;
+    const selectedUnitId = form.watch('unit_id');
+
+    // Extract active budgets from existing invoices & decisions
+    const activeBudgets = useMemo(() => {
+        return extractActiveBudgets(existingInvoices, decisions);
+    }, [existingInvoices, decisions]);
+
+    // Fetch rates whenever payment date changes or dialog opens
+    const fetchRates = useCallback(async (dateStr?: string) => {
+        try {
+            setIsLoadingRates(true);
+            const data = await pettyCashService.getRates(dateStr);
+            setRatesData(data);
+            return data;
+        } catch (error) {
+            console.warn('Could not fetch exchange rates from backend API', error);
+            return null;
+        } finally {
+            setIsLoadingRates(false);
+        }
+    }, []);
+
+    // Initial rates load
+    useEffect(() => {
+        if (open && isPaid && paymentCurrency === 'VES') {
+            fetchRates(paymentDate);
+        }
+    }, [open, isPaid, paymentCurrency, paymentDate, fetchRates]);
+
+    // Update exchange rate value when rateType or ratesData changes
+    useEffect(() => {
+        if (!isPaid || paymentCurrency !== 'VES' || rateType === 'CUSTOM') return;
+
+        let selectedRateValue: number | undefined;
+        if (rateType === 'EUR_BCV' && ratesData?.rates?.euro_oficial?.bs_per_unit) {
+            selectedRateValue = ratesData.rates.euro_oficial.bs_per_unit;
+        } else if (rateType === 'USD_BCV' && ratesData?.rates?.dolar_oficial?.bs_per_unit) {
+            selectedRateValue = ratesData.rates.dolar_oficial.bs_per_unit;
+        }
+
+        if (selectedRateValue) {
+            form.setValue('exchange_rate', selectedRateValue.toFixed(4), { shouldValidate: true });
+        }
+    }, [isPaid, paymentCurrency, rateType, ratesData, form]);
+
+    // Automatically recalculate Amount in VES when amount (USD) or exchange_rate changes
+    useEffect(() => {
+        if (!isPaid || paymentCurrency !== 'VES') return;
+
+        const numAmount = parseFloat(currentAmount);
+        const numRate = parseFloat(exchangeRate || '0');
+
+        if (!isNaN(numAmount) && numAmount > 0 && !isNaN(numRate) && numRate > 0) {
+            const calculatedVes = (numAmount * numRate).toFixed(2);
+            form.setValue('amount_ves', calculatedVes, { shouldValidate: false });
+        }
+    }, [isPaid, paymentCurrency, currentAmount, exchangeRate, form]);
 
     // Fetch all buildings for admin
     useEffect(() => {
@@ -112,16 +242,20 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
         fetchBuildings();
     }, [open, needsBuildingSelector]);
 
-    // Fetch units when building is selected
+    // Fetch units & decisions when building is selected
     useEffect(() => {
-        const fetchUnits = async () => {
+        const fetchUnitsAndDecisions = async () => {
             if (open && selectedBuildingId) {
                 try {
                     setIsLoadingUnits(true);
-                    const data = await unitsService.getUnits(selectedBuildingId);
-                    setUnits(data);
+                    const [unitsData, decisionsData] = await Promise.all([
+                        unitsService.getUnits(selectedBuildingId),
+                        decisionsService.list({ building_id: selectedBuildingId }).catch(() => ({ data: [] })),
+                    ]);
+                    setUnits(unitsData);
+                    setDecisions(decisionsData.data || []);
                 } catch (error) {
-                    console.error('Failed to fetch units', error);
+                    console.error('Failed to fetch units or decisions', error);
                     toast.error('Error al cargar las unidades');
                     setUnits([]);
                 } finally {
@@ -129,7 +263,7 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
                 }
             }
         };
-        fetchUnits();
+        fetchUnitsAndDecisions();
     }, [open, selectedBuildingId]);
 
     // Set initial unit if provided
@@ -139,244 +273,756 @@ export function InvoiceDialog({ open, onOpenChange, onSuccess, initialUnitId, bu
         }
     }, [initialUnitId, open, form]);
 
+    // Set initial budget option if provided
+    useEffect(() => {
+        if (initialBudgetOption && open) {
+            setSelectedBudgetId(initialBudgetOption.id);
+        } else if (!open) {
+            setSelectedBudgetId('none');
+            setBudgetHint(null);
+        }
+    }, [initialBudgetOption, open]);
+
+    // Automatically recalculate amount and description when budget or unit changes
+    useEffect(() => {
+        if (selectedBudgetId === 'none') {
+            setBudgetHint(null);
+            return;
+        }
+
+        const budget = activeBudgets.find(b => b.id === selectedBudgetId);
+        if (!budget) return;
+
+        const currentUnit = units.find(u => u.id === selectedUnitId);
+
+        if (budget.baseBudget && currentUnit) {
+            const { amount: calcAmount, aliquot } = calculateUnitAmountForBudget(currentUnit, budget.baseBudget);
+            form.setValue('amount', calcAmount.toString(), { shouldValidate: true });
+
+            const fullDescription = `${budget.title} - Base: $${budget.baseBudget.toFixed(2)} (Alícuota: ${aliquot.toFixed(4)}%)${budget.details ? ` | ${budget.details}` : ''}`;
+            form.setValue('description', fullDescription, { shouldValidate: true });
+
+            if (budget.period) {
+                form.setValue('period', budget.period);
+            }
+
+            setBudgetHint(
+                `Alícuota de la unidad: ${aliquot.toFixed(4)}% sobre presupuesto base de $${budget.baseBudget.toFixed(2)} → Monto: $${calcAmount.toFixed(2)} USD`
+            );
+        } else if (budget.title) {
+            form.setValue('description', budget.title, { shouldValidate: true });
+            if (budget.period) {
+                form.setValue('period', budget.period);
+            }
+            setBudgetHint(`Factura vinculada a: ${budget.title}`);
+        }
+    }, [selectedBudgetId, selectedUnitId, units, activeBudgets, form]);
+
     const onSubmit = async (values: InvoiceFormData) => {
         try {
-            // Check building_id if admin
             if (needsBuildingSelector && !values.building_id) {
                 toast.error('Seleccioná un edificio');
                 return;
             }
 
-            // POST /billing/debt - Only needs unit_id
-            const payload = {
+            const numAmount = Number(values.amount);
+            let finalDescription = values.description.trim();
+
+            const isVesPayment = values.is_paid && values.payment_currency === 'VES';
+            const numRate = parseFloat(values.exchange_rate || '0');
+            const numVes = parseFloat(values.amount_ves || '0');
+
+            // Format exchange rate string if paid in VES
+            if (isVesPayment && numRate > 0 && values.include_rate_in_notes) {
+                const rateLabel = values.rate_type === 'EUR_BCV'
+                    ? 'Tasa Euro BCV'
+                    : values.rate_type === 'USD_BCV'
+                    ? 'Tasa USD BCV'
+                    : 'Tasa';
+                const formattedBs = numVes > 0
+                    ? numVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : (numAmount * numRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                
+                const paymentDateFormatted = values.payment_date || new Date().toISOString().slice(0, 10);
+                const paymentNote = ` | Pagado en Bs: ${formattedBs} Bs. (${rateLabel}: ${numRate.toFixed(4)} Bs. - Fecha: ${paymentDateFormatted})`;
+
+                // Avoid duplicating if already present
+                if (!finalDescription.includes('Pagado en Bs:')) {
+                    finalDescription += paymentNote;
+                }
+            }
+
+            const payload: BillingDebtPayload = {
                 unit_id: values.unit_id,
-                amount: Number(values.amount),
+                amount: numAmount,
                 period: values.period,
-                description: values.description,
+                description: finalDescription,
                 due_date: values.due_date || undefined,
+                receipt_number: values.receipt_number?.trim() || undefined,
+                status: values.is_paid ? 'PAID' : 'PENDING',
+                paid_amount: values.is_paid ? numAmount : 0,
+                payment_method: values.is_paid ? (values.payment_method || 'CASH') : undefined,
+                payment_date: values.is_paid ? (values.payment_date || new Date().toISOString().slice(0, 10)) : undefined,
             };
 
-            await billingService.loadDebt(payload);
-            toast.success('Factura creada correctamente');
+            const createdInvoice = await billingService.loadDebt(payload);
+
+            toast.success(
+                values.is_paid
+                    ? 'Factura creada y registrada como PAGADA'
+                    : 'Factura creada correctamente'
+            );
+
+            // Notify parent to refresh table
             onSuccess();
+
+            // If it was marked as paid, provide immediate receipt download/view option
+            if (values.is_paid) {
+                const selectedUnitObj = units.find(u => u.id === values.unit_id);
+                const selectedBuildingObj = buildings.find(b => b.id === (values.building_id || propBuildingId));
+
+                const invoiceWithUnit: Invoice = {
+                    ...createdInvoice,
+                    unit: selectedUnitObj,
+                    building_id: values.building_id || propBuildingId,
+                };
+
+                const paymentDetailsData: InvoicePdfPaymentDetails = {
+                    paymentMethod: values.payment_method || 'PAGO_MOVIL',
+                    paymentDate: values.payment_date || new Date().toISOString().slice(0, 10),
+                    currency: values.payment_currency,
+                    rateType: values.rate_type,
+                    exchangeRate: numRate > 0 ? numRate : undefined,
+                    amountVes: numVes > 0 ? numVes : (numRate > 0 ? numAmount * numRate : undefined),
+                    amountUsd: numAmount,
+                };
+
+                setCreatedInvoiceForReceipt(invoiceWithUnit);
+                setCreatedPaymentDetails(paymentDetailsData);
+                setIsReceiptOpen(true);
+            }
+
             onOpenChange(false);
-            form.reset();
+
+            form.reset({
+                building_id: propBuildingId || '',
+                unit_id: initialUnitId || '',
+                amount: '',
+                period: new Date().toISOString().slice(0, 7),
+                description: '',
+                due_date: '',
+                receipt_number: '',
+                is_paid: false,
+                payment_method: 'PAGO_MOVIL',
+                payment_date: new Date().toISOString().slice(0, 10),
+                payment_currency: 'VES',
+                rate_type: 'EUR_BCV',
+                exchange_rate: '',
+                amount_ves: '',
+                include_rate_in_notes: true,
+            });
+            setSelectedBudgetId('none');
+            setBudgetHint(null);
         } catch (error: any) {
             console.error('Failed to create invoice', error);
             toast.error(error.response?.data?.message || 'Error al crear la factura');
         }
     };
 
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
-                        <FileText className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
-                        Crear nueva factura
-                    </DialogTitle>
-                    <DialogDescription>
-                        Cargá una nueva deuda a una unidad específica para el período seleccionado.
-                    </DialogDescription>
-                </DialogHeader>
+    const selectedUnitObj = units.find(u => u.id === selectedUnitId);
+    const selectedBuildingObj = buildings.find(b => b.id === selectedBuildingId);
+    const resolvedBuildingName = selectedBuildingObj?.name || 'Edificio Granada';
 
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        {/* Building Selector - Only for Admin without pre-selected building */}
-                        {needsBuildingSelector && (
+    return (
+        <>
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="sm:max-w-[620px] max-h-[92vh] overflow-y-auto border-border/50 bg-gradient-to-br from-card/95 to-card/100 backdrop-blur">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-display">
+                            <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            Crear Factura / Cobro
+                        </DialogTitle>
+                        <DialogDescription>
+                            Carga una nueva factura a una unidad. Puedes vincularla a un <strong>presupuesto activo</strong> o marcarla como <strong>ya pagada</strong> con cálculo a tasa oficial.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-1">
+                            {/* Building Selector - Only for Admin without pre-selected building */}
+                            {needsBuildingSelector && (
+                                <FormField
+                                    control={form.control}
+                                    name="building_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-2 text-xs font-semibold">
+                                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                                Edificio <span className="text-destructive">*</span>
+                                            </FormLabel>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                disabled={isLoadingBuildings}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-background/50 border-border/50 text-xs">
+                                                        <SelectValue placeholder={isLoadingBuildings ? "Cargando edificios..." : "Seleccionar edificio"} />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {buildings.map((building) => (
+                                                        <SelectItem key={building.id} value={building.id} className="text-xs">
+                                                            <div className="flex items-center gap-2">
+                                                                <Building2 className="h-4 w-4 text-primary" />
+                                                                {building.name}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+
+                            {/* Active Budget Selector Field */}
+                            <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                                        <FolderKanban className="h-3.5 w-3.5 text-primary" />
+                                        Vincular a Presupuesto Activo
+                                    </label>
+                                    {selectedBudgetId !== 'none' && (
+                                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                                            Vinculado
+                                        </Badge>
+                                    )}
+                                </div>
+                                <Select
+                                    value={selectedBudgetId}
+                                    onValueChange={setSelectedBudgetId}
+                                >
+                                    <SelectTrigger className="h-9 text-xs bg-background/80 border-border">
+                                        <SelectValue placeholder="Selecciona un presupuesto..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-56">
+                                        <SelectItem value="none" className="text-xs">
+                                            Ninguno (Factura individual regular / ordinaria)
+                                        </SelectItem>
+                                        {activeBudgets.map((b) => (
+                                            <SelectItem key={b.id} value={b.id} className="text-xs font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    <Calculator className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                    <span className="truncate">{b.title}</span>
+                                                    {b.baseBudget && (
+                                                        <Badge variant="secondary" className="text-[10px] ml-auto shrink-0 font-mono">
+                                                            Base: ${b.baseBudget.toFixed(2)}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {budgetHint && (
+                                    <p className="text-[11px] text-primary flex items-center gap-1.5 pt-0.5 font-medium animate-in fade-in-50">
+                                        <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                        <span>{budgetHint}</span>
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Unit Selector */}
                             <FormField
                                 control={form.control}
-                                name="building_id"
+                                name="unit_id"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="flex items-center gap-2">
-                                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                                            Edificio <span className="text-destructive">*</span>
+                                        <FormLabel className="flex items-center gap-2 text-xs font-semibold">
+                                            <Home className="h-4 w-4 text-muted-foreground" />
+                                            Unidad / Apartamento <span className="text-destructive">*</span>
                                         </FormLabel>
                                         <Select
+                                            disabled={!selectedBuildingId || !!initialUnitId || isLoadingUnits}
                                             onValueChange={field.onChange}
                                             value={field.value}
-                                            disabled={isLoadingBuildings}
                                         >
                                             <FormControl>
-                                                <SelectTrigger className="bg-background/50 border-border/50">
-                                                    <SelectValue placeholder={isLoadingBuildings ? "Cargando edificios..." : "Seleccionar edificio"} />
+                                                <SelectTrigger className="bg-background/50 border-border/50 text-xs">
+                                                    <SelectValue placeholder={
+                                                        !selectedBuildingId
+                                                            ? "Primero seleccioná un edificio"
+                                                            : isLoadingUnits
+                                                                ? "Cargando unidades..."
+                                                                : "Seleccioná una unidad"
+                                                    } />
                                                 </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent>
-                                                {buildings.map((building) => (
-                                                    <SelectItem key={building.id} value={building.id}>
-                                                        <div className="flex items-center gap-2">
-                                                            <Building2 className="h-4 w-4 text-primary" />
-                                                            {building.name}
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
+                                            <SelectContent className="max-h-56">
+                                                {units.length === 0 ? (
+                                                    <SelectItem value="none" disabled className="text-xs">No se encontraron unidades</SelectItem>
+                                                ) : (
+                                                    units.map((unit) => (
+                                                        <SelectItem key={unit.id} value={unit.id} className="text-xs">
+                                                            <div className="flex items-center gap-2">
+                                                                <Home className="h-4 w-4 text-primary" />
+                                                                Apartamento {unit.name} {unit.floor ? `(Piso ${unit.floor})` : ''}
+                                                                {unit.aliquot ? ` - ${unit.aliquot}%` : ''}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))
+                                                )}
                                             </SelectContent>
                                         </Select>
-                                        <FormDescription className="text-xs">
-                                            Elegí el edificio que contiene la unidad
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Amount in USD */}
+                            <FormField
+                                control={form.control}
+                                name="amount"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center justify-between text-xs font-semibold">
+                                            <span className="flex items-center gap-2">
+                                                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                                Monto (USD) <span className="text-destructive">*</span>
+                                            </span>
+                                            {selectedBudgetId !== 'none' && (
+                                                <span className="text-[10px] text-muted-foreground font-normal">
+                                                    Calculado automáticamente según alícuota
+                                                </span>
+                                            )}
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="Ej. 50.00"
+                                                {...field}
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors text-base font-semibold font-mono"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Description & Quick Suggestions */}
+                            <div className="space-y-1.5">
+                                <FormField
+                                    control={form.control}
+                                    name="description"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-semibold">
+                                                Concepto / Descripción <span className="text-destructive">*</span>
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="Ej. Cuota Especial: Reparaciones Mayores y Pintura"
+                                                    {...field}
+                                                    className="bg-background/50 border-border/50 focus:border-primary transition-colors text-xs"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Quick Chips if no active budget is selected */}
+                                {selectedBudgetId === 'none' && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                        <span className="text-[11px] text-muted-foreground self-center mr-1">Rápidos:</span>
+                                        {COMMON_CONCEPTS.map((concept) => (
+                                            <button
+                                                key={concept}
+                                                type="button"
+                                                onClick={() => form.setValue('description', concept, { shouldValidate: true })}
+                                                className="text-[11px] px-2 py-0.5 rounded-md border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                            >
+                                                {concept}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Period & Due Date */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <FormField
+                                    control={form.control}
+                                    name="period"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-2 text-xs font-semibold">
+                                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                Período <span className="text-destructive">*</span>
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="2026-10"
+                                                    {...field}
+                                                    className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-xs"
+                                                />
+                                            </FormControl>
+                                            <FormDescription className="text-[11px]">AAAA-MM</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="due_date"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-semibold">Vencimiento (opcional)</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="date"
+                                                    {...field}
+                                                    className="bg-background/50 border-border/50 focus:border-primary transition-colors text-xs"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            {/* Receipt Number (Explicitly Optional) */}
+                            <FormField
+                                control={form.control}
+                                name="receipt_number"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="flex items-center justify-between text-xs font-semibold">
+                                            <span className="flex items-center gap-2">
+                                                <Receipt className="h-4 w-4 text-muted-foreground" />
+                                                N° de Recibo / Factura (Opcional)
+                                            </span>
+                                            <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground border-border">
+                                                Opcional
+                                            </Badge>
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="Ej. REC-014 o dejar vacío"
+                                                {...field}
+                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors font-mono text-xs"
+                                            />
+                                        </FormControl>
+                                        <FormDescription className="text-[11px]">
+                                            Si lo dejas vacío, el sistema generará una referencia automática.
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                        )}
 
-                        {/* Unit Selector */}
-                        <FormField
-                            control={form.control}
-                            name="unit_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="flex items-center gap-2">
-                                        <Home className="h-4 w-4 text-muted-foreground" />
-                                        Unidad <span className="text-destructive">*</span>
-                                    </FormLabel>
-                                    <Select
-                                        disabled={!selectedBuildingId || !!initialUnitId || isLoadingUnits}
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger className="bg-background/50 border-border/50">
-                                                <SelectValue placeholder={
-                                                    !selectedBuildingId
-                                                        ? "Primero seleccioná un edificio"
-                                                        : isLoadingUnits
-                                                            ? "Cargando unidades..."
-                                                            : "Seleccioná una unidad"
-                                                } />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {units.length === 0 ? (
-                                                <SelectItem value="none" disabled>No se encontraron unidades</SelectItem>
-                                            ) : (
-                                                units.map((unit) => (
-                                                    <SelectItem key={unit.id} value={unit.id}>
+                            {/* Mark As Already Paid Toggle */}
+                            <div className={`p-4 rounded-xl border transition-all ${
+                                isPaid
+                                    ? 'bg-emerald-500/10 border-emerald-500/30'
+                                    : 'bg-muted/30 border-border/60 hover:border-border'
+                            }`}>
+                                <FormField
+                                    control={form.control}
+                                    name="is_paid"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                    className="mt-0.5"
+                                                />
+                                            </FormControl>
+                                            <div className="space-y-1 leading-none">
+                                                <FormLabel className="text-sm font-semibold cursor-pointer flex items-center gap-1.5">
+                                                    <span>Marcar como ya pagada</span>
+                                                    {isPaid && (
+                                                        <Badge className="bg-emerald-600 text-white text-[10px] h-4 px-1.5">
+                                                            Pagada
+                                                        </Badge>
+                                                    )}
+                                                </FormLabel>
+                                                <FormDescription className="text-xs">
+                                                    Marca esto si la unidad ya pagó este concepto (saldo restante quedará en <strong>$0.00</strong>). Podrás registrar la tasa de cambio y descargar la factura para entregarla.
+                                                </FormDescription>
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Additional Paid Details */}
+                                {isPaid && (
+                                    <div className="mt-4 pt-3.5 border-t border-emerald-500/20 space-y-3.5 animate-in fade-in-50 duration-200">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {/* Payment Method */}
+                                            <FormField
+                                                control={form.control}
+                                                name="payment_method"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                                                            Método de Pago
+                                                        </FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value || 'PAGO_MOVIL'}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="h-8 text-xs bg-background">
+                                                                    <SelectValue placeholder="Método" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="PAGO_MOVIL" className="text-xs">Pago Móvil</SelectItem>
+                                                                <SelectItem value="TRANSFER" className="text-xs">Transferencia Bancaria</SelectItem>
+                                                                <SelectItem value="CASH" className="text-xs">Efectivo / Zelle</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            {/* Payment Date */}
+                                            <FormField
+                                                control={form.control}
+                                                name="payment_date"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                                                            Fecha en que se pagó
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="date"
+                                                                {...field}
+                                                                className="h-8 text-xs bg-background"
+                                                            />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            {/* Currency Selector (USD vs VES) */}
+                                            <FormField
+                                                control={form.control}
+                                                name="payment_currency"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                                                            Moneda del Pago
+                                                        </FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value || 'VES'}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="h-8 text-xs bg-background font-semibold">
+                                                                    <SelectValue placeholder="Moneda" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="VES" className="text-xs font-medium">
+                                                                    Bolívares (VES a Tasa)
+                                                                </SelectItem>
+                                                                <SelectItem value="USD" className="text-xs font-medium">
+                                                                    Dólares (USD Directo)
+                                                                </SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+
+                                        {/* Venezuelan Bolívares Exchange Rate Section */}
+                                        {paymentCurrency === 'VES' && (
+                                            <div className="p-3 bg-background/80 rounded-lg border border-emerald-500/30 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                                                        <Coins className="h-3.5 w-3.5 text-emerald-600" />
+                                                        Cálculo a Tasa de Cambio (Bolívares)
+                                                    </span>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => fetchRates(paymentDate)}
+                                                        disabled={isLoadingRates}
+                                                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground gap-1"
+                                                    >
+                                                        <RefreshCw className={`h-3 w-3 ${isLoadingRates ? 'animate-spin' : ''}`} />
+                                                        Actualizar tasa
+                                                    </Button>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    {/* Rate Type Selector */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="rate_type"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-[11px] font-medium text-muted-foreground">
+                                                                    Tipo de Tasa
+                                                                </FormLabel>
+                                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                                    <FormControl>
+                                                                        <SelectTrigger className="h-8 text-xs bg-card">
+                                                                            <SelectValue placeholder="Tasa" />
+                                                                        </SelectTrigger>
+                                                                    </FormControl>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="EUR_BCV" className="text-xs">
+                                                                            Euro Oficial (BCV)
+                                                                        </SelectItem>
+                                                                        <SelectItem value="USD_BCV" className="text-xs">
+                                                                            Dólar Oficial (BCV)
+                                                                        </SelectItem>
+                                                                        <SelectItem value="CUSTOM" className="text-xs">
+                                                                            Tasa Personalizada
+                                                                        </SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    {/* Rate Value */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="exchange_rate"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-[11px] font-medium text-muted-foreground flex justify-between">
+                                                                    <span>Tasa (Bs./unidad)</span>
+                                                                    {rateType === 'EUR_BCV' && <span className="text-emerald-600 font-bold">€ EUR</span>}
+                                                                    {rateType === 'USD_BCV' && <span className="text-emerald-600 font-bold">$ USD</span>}
+                                                                </FormLabel>
+                                                                <FormControl>
+                                                                    <Input
+                                                                        type="number"
+                                                                        step="0.0001"
+                                                                        placeholder="Ej. 45.20"
+                                                                        {...field}
+                                                                        className="h-8 text-xs font-mono font-semibold bg-card"
+                                                                    />
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    {/* Amount in Bolivares (VES) */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="amount_ves"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-[11px] font-medium text-muted-foreground">
+                                                                    Monto a Pagar en Bolívares (Bs.)
+                                                                </FormLabel>
+                                                                <FormControl>
+                                                                    <Input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        placeholder="Ej. 2260.00"
+                                                                        {...field}
+                                                                        className="h-8 text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-card"
+                                                                    />
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+
+                                                {/* Live Rate Summary Banner */}
+                                                {currentAmount && exchangeRate && parseFloat(exchangeRate) > 0 && (
+                                                    <div className="p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                                         <div className="flex items-center gap-2">
-                                                            <Home className="h-4 w-4 text-primary" />
-                                                            {unit.name} {unit.floor ? `(Piso ${unit.floor})` : ''}
+                                                            <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
+                                                            <span>
+                                                                Fecha: <strong>{paymentDate || 'Hoy'}</strong> • ${parseFloat(currentAmount || '0').toFixed(2)} USD a {rateType === 'EUR_BCV' ? 'Tasa Euro BCV' : rateType === 'USD_BCV' ? 'Tasa Dólar BCV' : 'Tasa'} ({parseFloat(exchangeRate).toFixed(4)} Bs.)
+                                                            </span>
                                                         </div>
-                                                    </SelectItem>
-                                                ))
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                                        <Badge className="bg-emerald-600 text-white font-mono text-xs px-2 self-start sm:self-auto shrink-0">
+                                                            Bs. {(parseFloat(currentAmount || '0') * parseFloat(exchangeRate)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </Badge>
+                                                    </div>
+                                                )}
 
-                        {/* Amount */}
-                        <FormField
-                            control={form.control}
-                            name="amount"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="flex items-center gap-2">
-                                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                        Monto <span className="text-destructive">*</span>
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="100.00"
-                                            {...field}
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Period */}
-                            <FormField
-                                control={form.control}
-                                name="period"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="flex items-center gap-2">
-                                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                                            Período <span className="text-destructive">*</span>
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                placeholder="2026-02"
-                                                {...field}
-                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
-                                            />
-                                        </FormControl>
-                                        <FormDescription className="text-xs">AAAA-MM</FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
+                                                {/* Checkbox to include note in description */}
+                                                <FormField
+                                                    control={form.control}
+                                                    name="include_rate_in_notes"
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex flex-row items-center space-x-2 space-y-0 pt-0.5">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value}
+                                                                    onCheckedChange={field.onChange}
+                                                                />
+                                                            </FormControl>
+                                                            <FormLabel className="text-[11px] text-muted-foreground cursor-pointer">
+                                                                Incluir detalle del pago en Bolívares y tasa en el concepto de la factura
+                                                            </FormLabel>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
-                            />
+                            </div>
 
-                            {/* Due Date */}
-                            <FormField
-                                control={form.control}
-                                name="due_date"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Vencimiento (opcional)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="date"
-                                                {...field}
-                                                className="bg-background/50 border-border/50 focus:border-primary transition-colors"
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                            <DialogFooter className="pt-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => onOpenChange(false)}
+                                    className="border-border/50 text-xs"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={form.formState.isSubmitting}
+                                    className={
+                                        isPaid
+                                            ? "bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-md shadow-emerald-600/30 font-semibold text-xs"
+                                            : "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs"
+                                    }
+                                >
+                                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {isPaid ? (
+                                        <>
+                                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                            Crear Factura Pagada
+                                        </>
+                                    ) : (
+                                        'Crear Factura'
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
 
-                        {/* Description */}
-                        <FormField
-                            control={form.control}
-                            name="description"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Descripción <span className="text-destructive">*</span></FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="Expensas mensuales"
-                                            {...field}
-                                            className="bg-background/50 border-border/50 focus:border-primary transition-colors"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <DialogFooter className="pt-4">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => onOpenChange(false)}
-                                className="border-border/50"
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={form.formState.isSubmitting}
-                                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/30"
-                            >
-                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Crear factura
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+            {/* Receipt Modal for Immediate PDF Download / Print */}
+            {createdInvoiceForReceipt && (
+                <InvoiceReceiptDialog
+                    open={isReceiptOpen}
+                    onOpenChange={setIsReceiptOpen}
+                    invoice={createdInvoiceForReceipt}
+                    buildingName={resolvedBuildingName}
+                    unit={selectedUnitObj}
+                    paymentDetails={createdPaymentDetails || undefined}
+                />
+            )}
+        </>
     );
 }
