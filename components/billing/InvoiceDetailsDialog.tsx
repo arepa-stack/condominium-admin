@@ -27,8 +27,10 @@ import {
     CheckCircle2,
     XCircle,
     FileText,
+    Receipt,
 } from 'lucide-react';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
+import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { billingService } from '@/lib/services/billing.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
@@ -61,6 +63,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     const [proofUrl, setProofUrl] = useState<string | null>(null);
     const [isApprovingPayment, setIsApprovingPayment] = useState(false);
     const [isAvisoOpen, setIsAvisoOpen] = useState(false);
+    const [isReceiptOpen, setIsReceiptOpen] = useState(false);
     const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
     const handleMarkInvoiceAsPaid = async () => {
@@ -365,7 +368,17 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                         className="gap-2 text-xs border-primary/30 hover:bg-primary/10 text-primary font-medium"
                                     >
                                         <FileText className="h-4 w-4" />
-                                        Ver Aviso de Cobro Oficial
+                                        Ver Aviso de Cobro
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsReceiptOpen(true)}
+                                        className="gap-2 text-xs border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
+                                    >
+                                        <Receipt className="h-4 w-4 text-emerald-600" />
+                                        Factura / Recibo PDF
                                     </Button>
 
                                     {!isPaid && (
@@ -548,6 +561,15 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Official Invoice Receipt Dialog */}
+            <InvoiceReceiptDialog
+                open={isReceiptOpen}
+                onOpenChange={setIsReceiptOpen}
+                invoice={invoice}
+                buildingName={resolvedBuildingName}
+                unit={invoice?.unit}
+            />
         </>
     );
 }
