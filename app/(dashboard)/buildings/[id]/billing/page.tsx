@@ -29,6 +29,7 @@ import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { GenerateByAliquotDialog } from '@/components/billing/GenerateByAliquotDialog';
 import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
+import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
@@ -49,6 +50,7 @@ import {
     ChevronRight,
     Droplets,
     Printer,
+    Receipt,
     Sparkles,
     FolderKanban,
     List,
@@ -74,6 +76,8 @@ export default function BuildingBillingPage() {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [avisoInvoice, setAvisoInvoice] = useState<Invoice | null>(null);
     const [isAvisoOpen, setIsAvisoOpen] = useState(false);
+    const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
+    const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
     // Active budget to attach when creating invoice from a specific group
     const [selectedBudgetForNewInvoice, setSelectedBudgetForNewInvoice] = useState<ActiveBudgetOption | null>(null);
@@ -605,6 +609,21 @@ export default function BuildingBillingPage() {
                                                             </TableCell>
                                                             <TableCell className="text-right">
                                                                 <div className="flex justify-end gap-1">
+                                                                    {invoice.status === 'PAID' && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setReceiptInvoice(invoice);
+                                                                                setIsReceiptOpen(true);
+                                                                            }}
+                                                                            title="Descargar Factura / Recibo Oficial"
+                                                                            className="h-8 px-2 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 hover:bg-emerald-500/10 font-semibold"
+                                                                        >
+                                                                            <Receipt className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Recibo
+                                                                        </Button>
+                                                                    )}
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="sm"
@@ -613,7 +632,7 @@ export default function BuildingBillingPage() {
                                                                             setAvisoInvoice(invoice);
                                                                             setIsAvisoOpen(true);
                                                                         }}
-                                                                        title="Ver Aviso de Cobro / Recibo"
+                                                                        title="Ver Aviso de Cobro"
                                                                         className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
                                                                     >
                                                                         <Printer className="h-3.5 w-3.5 mr-1" /> Aviso
@@ -724,6 +743,21 @@ export default function BuildingBillingPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-1">
+                                            {invoice.status === 'PAID' && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setReceiptInvoice(invoice);
+                                                        setIsReceiptOpen(true);
+                                                    }}
+                                                    title="Descargar Factura / Recibo Oficial"
+                                                    className="h-8 px-2 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 hover:bg-emerald-500/10 font-semibold"
+                                                >
+                                                    <Receipt className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Recibo
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -789,6 +823,13 @@ export default function BuildingBillingPage() {
                 open={isAvisoOpen}
                 onOpenChange={setIsAvisoOpen}
                 invoice={avisoInvoice}
+            />
+
+            <InvoiceReceiptDialog
+                open={isReceiptOpen}
+                onOpenChange={setIsReceiptOpen}
+                invoice={receiptInvoice}
+                buildingName="Edificio Granada"
             />
 
             <GenerateByAliquotDialog
