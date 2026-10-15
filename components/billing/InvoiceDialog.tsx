@@ -53,6 +53,7 @@ import {
     Calendar,
     Loader2,
     CheckCircle2,
+    AlertCircle,
     Receipt,
     Sparkles,
     Calculator,
@@ -69,6 +70,7 @@ const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
     building_id: z.string().optional(),
     unit_id: z.string().min(1, 'La unidad es obligatoria'),
     amount: z.string().min(1, 'El monto es obligatorio'),
+    paid_amount: z.string().optional(),
     period: z.string().regex(/^\d{4}-\d{2}$/, 'El período debe estar en formato AAAA-MM'),
     description: z.string().min(3, 'La descripción debe tener al menos 3 caracteres'),
     due_date: z.string().optional(),
@@ -143,6 +145,7 @@ export function InvoiceDialog({
             building_id: propBuildingId || '',
             unit_id: initialUnitId || '',
             amount: '',
+            paid_amount: '',
             period: new Date().toISOString().slice(0, 7),
             description: '',
             due_date: '',
@@ -163,9 +166,17 @@ export function InvoiceDialog({
     const rateType = form.watch('rate_type');
     const paymentDate = form.watch('payment_date');
     const currentAmount = form.watch('amount');
+    const currentPaidAmount = form.watch('paid_amount');
     const exchangeRate = form.watch('exchange_rate');
     const selectedBuildingId = form.watch('building_id') || propBuildingId;
     const selectedUnitId = form.watch('unit_id');
+
+    // Calculation of paid amount in USD vs total amount
+    const numTotal = parseFloat(currentAmount || '0') || 0;
+    const numPaidInput = parseFloat(currentPaidAmount || '');
+    const effectivePaidUsd = !isNaN(numPaidInput) && numPaidInput > 0 ? numPaidInput : numTotal;
+    const isPartialPayment = isPaid && numTotal > 0 && effectivePaidUsd < numTotal;
+    const remainingBalance = Math.max(0, numTotal - effectivePaidUsd);
 
     // Extract active budgets from existing invoices & decisions
     const activeBudgets = useMemo(() => {
@@ -210,18 +221,18 @@ export function InvoiceDialog({
         }
     }, [isPaid, paymentCurrency, rateType, ratesData, form]);
 
-    // Automatically recalculate Amount in VES when amount (USD) or exchange_rate changes
+    // Automatically recalculate Amount in VES when amount/paid_amount (USD) or exchange_rate changes
     useEffect(() => {
         if (!isPaid || paymentCurrency !== 'VES') return;
 
-        const numAmount = parseFloat(currentAmount);
+        const effectiveUsd = parseFloat(currentPaidAmount || '') || parseFloat(currentAmount || '') || 0;
         const numRate = parseFloat(exchangeRate || '0');
 
-        if (!isNaN(numAmount) && numAmount > 0 && !isNaN(numRate) && numRate > 0) {
-            const calculatedVes = (numAmount * numRate).toFixed(2);
+        if (!isNaN(effectiveUsd) && effectiveUsd > 0 && !isNaN(numRate) && numRate > 0) {
+            const calculatedVes = (effectiveUsd * numRate).toFixed(2);
             form.setValue('amount_ves', calculatedVes, { shouldValidate: false });
         }
-    }, [isPaid, paymentCurrency, currentAmount, exchangeRate, form]);
+    }, [isPaid, paymentCurrency, currentAmount, currentPaidAmount, exchangeRate, form]);
 
     // Fetch all buildings for admin
     useEffect(() => {
@@ -326,6 +337,17 @@ export function InvoiceDialog({
             }
 
             const numAmount = Number(values.amount);
+            const parsedPaid = values.paid_amount ? parseFloat(values.paid_amount) : NaN;
+            const numPaidAmount = values.is_paid
+                ? (!isNaN(parsedPaid) && parsedPaid > 0 ? parsedPaid : numAmount)
+                : 0;
+
+            const isPartial = values.is_paid && numAmount > 0 && numPaidAmount < numAmount;
+            const remainingBalanceUsd = Math.max(0, numAmount - numPaidAmount);
+            const invoiceStatus = values.is_paid
+                ? (isPartial ? 'PARTIAL' : 'PAID')
+                : 'PENDING';
+
             let finalDescription = values.description.trim();
 
             const isVesPayment = values.is_paid && values.payment_currency === 'VES';
@@ -341,13 +363,15 @@ export function InvoiceDialog({
                     : 'Tasa';
                 const formattedBs = numVes > 0
                     ? numVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : (numAmount * numRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    : (numPaidAmount * numRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 
                 const paymentDateFormatted = values.payment_date || new Date().toISOString().slice(0, 10);
-                const paymentNote = ` | Pagado en Bs: ${formattedBs} Bs. (${rateLabel}: ${numRate.toFixed(4)} Bs. - Fecha: ${paymentDateFormatted})`;
+                const paymentNote = isPartial
+                    ? ` | Abono en Bs: ${formattedBs} Bs. ($${numPaidAmount.toFixed(2)} USD a ${rateLabel}: ${numRate.toFixed(4)} Bs. - Fecha: ${paymentDateFormatted}) - Resta: $${remainingBalanceUsd.toFixed(2)} USD`
+                    : ` | Pagado en Bs: ${formattedBs} Bs. (${rateLabel}: ${numRate.toFixed(4)} Bs. - Fecha: ${paymentDateFormatted})`;
 
                 // Avoid duplicating if already present
-                if (!finalDescription.includes('Pagado en Bs:')) {
+                if (!finalDescription.includes('Pagado en Bs:') && !finalDescription.includes('Abono en Bs:')) {
                     finalDescription += paymentNote;
                 }
             }
@@ -359,8 +383,8 @@ export function InvoiceDialog({
                 description: finalDescription,
                 due_date: values.due_date || undefined,
                 receipt_number: values.receipt_number?.trim() || undefined,
-                status: values.is_paid ? 'PAID' : 'PENDING',
-                paid_amount: values.is_paid ? numAmount : 0,
+                status: invoiceStatus,
+                paid_amount: numPaidAmount,
                 payment_method: values.is_paid ? (values.payment_method || 'CASH') : undefined,
                 payment_date: values.is_paid ? (values.payment_date || new Date().toISOString().slice(0, 10)) : undefined,
             };
@@ -369,7 +393,7 @@ export function InvoiceDialog({
 
             toast.success(
                 values.is_paid
-                    ? 'Factura creada y registrada como PAGADA'
+                    ? (isPartial ? 'Abono parcial registrado correctamente' : 'Factura creada y registrada como PAGADA')
                     : 'Factura creada correctamente'
             );
 
@@ -393,8 +417,11 @@ export function InvoiceDialog({
                     currency: values.payment_currency,
                     rateType: values.rate_type,
                     exchangeRate: numRate > 0 ? numRate : undefined,
-                    amountVes: numVes > 0 ? numVes : (numRate > 0 ? numAmount * numRate : undefined),
-                    amountUsd: numAmount,
+                    amountVes: numVes > 0 ? numVes : (numRate > 0 ? numPaidAmount * numRate : undefined),
+                    amountUsd: numPaidAmount,
+                    paidAmountUsd: numPaidAmount,
+                    totalAmountUsd: numAmount,
+                    remainingBalanceUsd: remainingBalanceUsd,
                 };
 
                 setCreatedInvoiceForReceipt(invoiceWithUnit);
@@ -408,6 +435,7 @@ export function InvoiceDialog({
                 building_id: propBuildingId || '',
                 unit_id: initialUnitId || '',
                 amount: '',
+                paid_amount: '',
                 period: new Date().toISOString().slice(0, 7),
                 description: '',
                 due_date: '',
@@ -729,7 +757,9 @@ export function InvoiceDialog({
                             {/* Mark As Already Paid Toggle */}
                             <div className={`p-4 rounded-xl border transition-all ${
                                 isPaid
-                                    ? 'bg-emerald-500/10 border-emerald-500/30'
+                                    ? (isPartialPayment
+                                        ? 'bg-amber-500/10 border-amber-500/30'
+                                        : 'bg-emerald-500/10 border-emerald-500/30')
                                     : 'bg-muted/30 border-border/60 hover:border-border'
                             }`}>
                                 <FormField
@@ -746,15 +776,15 @@ export function InvoiceDialog({
                                             </FormControl>
                                             <div className="space-y-1 leading-none">
                                                 <FormLabel className="text-sm font-semibold cursor-pointer flex items-center gap-1.5">
-                                                    <span>Marcar como ya pagada</span>
+                                                    <span>Marcar como ya pagada / abonada</span>
                                                     {isPaid && (
-                                                        <Badge className="bg-emerald-600 text-white text-[10px] h-4 px-1.5">
-                                                            Pagada
+                                                        <Badge className={`${isPartialPayment ? 'bg-amber-600' : 'bg-emerald-600'} text-white text-[10px] h-4 px-1.5`}>
+                                                            {isPartialPayment ? 'Abono Parcial' : 'Pagada'}
                                                         </Badge>
                                                     )}
                                                 </FormLabel>
                                                 <FormDescription className="text-xs">
-                                                    Marca esto si la unidad ya pagó este concepto (saldo restante quedará en <strong>$0.00</strong>). Podrás registrar la tasa de cambio y descargar la factura para entregarla.
+                                                    Marca esto si la unidad realizó un pago total o un abono parcial por este concepto. Podrás registrar la tasa oficial BCV, el monto abonado y descargar el recibo.
                                                 </FormDescription>
                                             </div>
                                         </FormItem>
@@ -764,6 +794,77 @@ export function InvoiceDialog({
                                 {/* Additional Paid Details */}
                                 {isPaid && (
                                     <div className="mt-4 pt-3.5 border-t border-emerald-500/20 space-y-3.5 animate-in fade-in-50 duration-200">
+                                        {/* Paid Amount vs Total Quota */}
+                                        <div className="p-3 bg-background/80 rounded-lg border border-emerald-500/30 space-y-2">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="paid_amount"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-xs font-semibold text-emerald-900 dark:text-emerald-200 flex items-center justify-between">
+                                                                <span>Monto Pagado / Abonado Hoy (USD)</span>
+                                                                <Badge variant="outline" className={`text-[10px] font-normal ${isPartialPayment ? 'border-amber-500 text-amber-700 dark:text-amber-300' : 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300'}`}>
+                                                                    {isPartialPayment ? 'Abono parcial' : 'Total o abono'}
+                                                                </Badge>
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    placeholder={currentAmount ? `Ej. ${currentAmount}` : 'Ej. 50.00'}
+                                                                    {...field}
+                                                                    className="h-8 text-xs font-mono font-bold bg-card border-emerald-500/40"
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription className="text-[11px]">
+                                                                {numTotal > 0 ? (
+                                                                    <>Total cuota: <strong>${numTotal.toFixed(2)} USD</strong>. Si abona una parte (ej. $50.00), colócalo aquí.</>
+                                                                ) : (
+                                                                    <>Indica cuánto está pagando hoy en USD.</>
+                                                                )}
+                                                            </FormDescription>
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <div className={`flex flex-col justify-center p-2.5 rounded border text-xs space-y-1 ${
+                                                    isPartialPayment
+                                                        ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+                                                        : 'bg-card/60 border-border/50'
+                                                }`}>
+                                                    <span className="text-[11px] font-medium text-muted-foreground">Estado del Saldo de la Cuota:</span>
+                                                    {isPartialPayment ? (
+                                                        <div className="space-y-0.5">
+                                                            <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold">
+                                                                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                                                                <span>Abono Parcial (Debe Resto)</span>
+                                                            </div>
+                                                            <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                                                                Cuota Total: <strong>${numTotal.toFixed(2)} USD</strong> • Pagando Hoy: <strong>${effectivePaidUsd.toFixed(2)} USD</strong>
+                                                            </p>
+                                                            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                                                                Saldo Restante Pendiente: ${remainingBalance.toFixed(2)} USD
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-0.5">
+                                                            <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold">
+                                                                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                                                                <span>Pago Total (Solvente)</span>
+                                                            </div>
+                                                            <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                                                                Cuota Total: <strong>${numTotal.toFixed(2)} USD</strong>
+                                                            </p>
+                                                            <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                                                                Saldo restante quedará en $0.00 USD
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                             {/* Payment Method */}
                                             <FormField
@@ -940,16 +1041,20 @@ export function InvoiceDialog({
                                                 </div>
 
                                                 {/* Live Rate Summary Banner */}
-                                                {currentAmount && exchangeRate && parseFloat(exchangeRate) > 0 && (
-                                                    <div className="p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                {effectivePaidUsd > 0 && exchangeRate && parseFloat(exchangeRate) > 0 && (
+                                                    <div className={`p-2.5 rounded-md border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                                                        isPartialPayment
+                                                            ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200'
+                                                            : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                                                    }`}>
                                                         <div className="flex items-center gap-2">
-                                                            <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
+                                                            <Sparkles className={`h-4 w-4 shrink-0 ${isPartialPayment ? 'text-amber-600' : 'text-emerald-600'}`} />
                                                             <span>
-                                                                Fecha: <strong>{paymentDate || 'Hoy'}</strong> • ${parseFloat(currentAmount || '0').toFixed(2)} USD a {rateType === 'EUR_BCV' ? 'Tasa Euro BCV' : rateType === 'USD_BCV' ? 'Tasa Dólar BCV' : 'Tasa'} ({parseFloat(exchangeRate).toFixed(4)} Bs.)
+                                                                Fecha: <strong>{paymentDate || 'Hoy'}</strong> • ${effectivePaidUsd.toFixed(2)} USD {isPartialPayment ? `(Abono a cuota de $${numTotal.toFixed(2)})` : ''} a {rateType === 'EUR_BCV' ? 'Tasa Euro BCV' : rateType === 'USD_BCV' ? 'Tasa Dólar BCV' : 'Tasa'} ({parseFloat(exchangeRate).toFixed(4)} Bs.)
                                                             </span>
                                                         </div>
-                                                        <Badge className="bg-emerald-600 text-white font-mono text-xs px-2 self-start sm:self-auto shrink-0">
-                                                            Bs. {(parseFloat(currentAmount || '0') * parseFloat(exchangeRate)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        <Badge className={`${isPartialPayment ? 'bg-amber-600' : 'bg-emerald-600'} text-white font-mono text-xs px-2 self-start sm:self-auto shrink-0`}>
+                                                            Bs. {(effectivePaidUsd * parseFloat(exchangeRate)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                         </Badge>
                                                     </div>
                                                 )}
@@ -992,7 +1097,9 @@ export function InvoiceDialog({
                                     disabled={form.formState.isSubmitting}
                                     className={
                                         isPaid
-                                            ? "bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-md shadow-emerald-600/30 font-semibold text-xs"
+                                            ? (isPartialPayment
+                                                ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-md shadow-amber-600/30 font-semibold text-xs"
+                                                : "bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-md shadow-emerald-600/30 font-semibold text-xs")
                                             : "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs"
                                     }
                                 >
@@ -1000,7 +1107,7 @@ export function InvoiceDialog({
                                     {isPaid ? (
                                         <>
                                             <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                            Crear Factura Pagada
+                                            {isPartialPayment ? 'Registrar Abono Parcial' : 'Crear Factura Pagada'}
                                         </>
                                     ) : (
                                         'Crear Factura'

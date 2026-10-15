@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Printer, Download, Building2, CheckCircle2, FileText, ArrowDownToLine } from 'lucide-react';
+import { Printer, Download, Building2, CheckCircle2, AlertCircle, FileText, ArrowDownToLine } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import {
@@ -43,7 +43,10 @@ export function InvoiceReceiptDialog({
     const aliquot = coprop?.aliquot ?? (invoice.unit?.aliquot || unit?.aliquot || 0);
 
     const paymentInfo = parseInvoicePaymentInfo(invoice, paymentDetails);
-    const isPaid = invoice.status === 'PAID';
+    const totalAmount = paymentInfo.totalAmountUsd ?? invoice.amount ?? 0;
+    const paidAmount = paymentInfo.paidAmountUsd ?? 0;
+    const remainingBalance = paymentInfo.remainingBalanceUsd ?? Math.max(0, totalAmount - paidAmount);
+    const isFullPaid = remainingBalance <= 0.001;
 
     const referenceNumber = invoice.receipt_number || invoice.number || `REC-${new Date().getFullYear()}-${aptoNumber.padStart(3, '0')}`;
     const issueDateStr = invoice.issue_date
@@ -54,8 +57,8 @@ export function InvoiceReceiptDialog({
         : issueDateStr;
 
     const baseBudgetMatch = invoice.description?.match(/Base:\s*\$([0-9.,]+)/i);
-    const baseBudgetStr = baseBudgetMatch ? `$${baseBudgetMatch[1]}` : (aliquot > 0 ? `$${((invoice.amount / (aliquot / 100))).toFixed(2)}` : '--');
-    const cleanDescription = (invoice.description || 'Cuota Especial de Condominio').split(' | Pago')[0];
+    const baseBudgetStr = baseBudgetMatch ? `$${baseBudgetMatch[1]}` : (aliquot > 0 ? `$${((totalAmount / (aliquot / 100))).toFixed(2)}` : '--');
+    const cleanDescription = (invoice.description || 'Cuota Especial de Condominio').split(' | Pagado')[0].split(' | Abono')[0];
 
     const rateLabel = paymentInfo.rateType === 'EUR_BCV'
         ? 'Tasa Euro Oficial (BCV)'
@@ -99,7 +102,7 @@ export function InvoiceReceiptDialog({
                     <div className="flex flex-wrap justify-between items-center pb-4 border-b border-zinc-200 print:hidden gap-3">
                         <DialogTitle className="text-lg font-bold text-zinc-800 flex items-center gap-2">
                             <FileText className="h-5 w-5 text-emerald-600" />
-                            Factura / Recibo de Pago Oficial
+                            {isFullPaid ? 'Factura / Recibo de Pago Oficial' : 'Recibo de Abono Parcial de Factura'}
                         </DialogTitle>
                         <div className="flex items-center gap-2">
                             <Button
@@ -129,7 +132,7 @@ export function InvoiceReceiptDialog({
                         </div>
                         <div className="text-right">
                             <h2 className="text-xl font-black tracking-tight text-slate-900">
-                                RECIBO DE PAGO / FACTURA
+                                {isFullPaid ? 'RECIBO DE PAGO / FACTURA' : 'RECIBO DE ABONO PARCIAL'}
                             </h2>
                             <p className="text-xs font-mono font-bold text-zinc-700">
                                 N°: <span className="text-emerald-700">{referenceNumber}</span>
@@ -142,8 +145,8 @@ export function InvoiceReceiptDialog({
 
                     <div className="h-1 bg-slate-800 w-full rounded-full" />
 
-                    {/* Paid Solvency Banner */}
-                    {isPaid && (
+                    {/* Solvency vs Partial Banner */}
+                    {isFullPaid ? (
                         <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-300 rounded-lg">
                             <div className="flex items-center gap-2.5">
                                 <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -152,12 +155,29 @@ export function InvoiceReceiptDialog({
                                         DOCUMENTO CANCELADO / TOTALMENTE SOLVENTE
                                     </span>
                                     <span className="text-xs text-emerald-700">
-                                        El importe facturado ha sido cancelado satisfactoriamente.
+                                        El importe total facturado ha sido cancelado satisfactoriamente.
                                     </span>
                                 </div>
                             </div>
                             <Badge className="bg-emerald-600 text-white text-xs px-2.5 py-0.5">
                                 Pagado el {paymentDateStr}
+                            </Badge>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between p-3.5 bg-amber-50 border border-amber-300 rounded-lg">
+                            <div className="flex items-center gap-2.5">
+                                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                                <div>
+                                    <span className="font-bold text-sm text-amber-900 block leading-tight">
+                                        ABONO PARCIAL REGISTRADO — SALDO RESTANTE: ${remainingBalance.toFixed(2)} USD
+                                    </span>
+                                    <span className="text-xs text-amber-700">
+                                        Se acreditó un abono de ${paidAmount.toFixed(2)} USD. El inmueble mantiene un saldo pendiente.
+                                    </span>
+                                </div>
+                            </div>
+                            <Badge variant="outline" className="border-amber-500 text-amber-800 bg-amber-100 text-xs px-2.5 py-0.5 font-bold">
+                                Debe: ${remainingBalance.toFixed(2)} USD
                             </Badge>
                         </div>
                     )}
@@ -193,7 +213,7 @@ export function InvoiceReceiptDialog({
                             <span>Concepto / Trabajo Facturado</span>
                             <div className="flex gap-8">
                                 <span>Base Presupuesto</span>
-                                <span>Importe a Pagar</span>
+                                <span>Monto Total Cuota</span>
                             </div>
                         </div>
                         <div className="p-4 flex justify-between items-start text-xs border-b border-zinc-100">
@@ -208,7 +228,7 @@ export function InvoiceReceiptDialog({
                             <div className="flex gap-8 text-right font-mono">
                                 <span className="text-zinc-600 font-medium">{baseBudgetStr}</span>
                                 <span className="font-bold text-zinc-900 text-sm">
-                                    {formatCurrency(invoice.amount)}
+                                    {formatCurrency(totalAmount)}
                                 </span>
                             </div>
                         </div>
@@ -261,11 +281,25 @@ export function InvoiceReceiptDialog({
                             </div>
                         )}
 
-                        <div className="flex justify-between items-center pt-2 border-t border-zinc-200 text-xs">
-                            <span className="font-bold text-zinc-700">Monto Acreditado a la Factura:</span>
-                            <span className="font-mono font-bold text-zinc-900 text-base">
-                                {formatCurrency(invoice.amount)} USD
-                            </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200 text-xs">
+                            <div>
+                                <span className="text-zinc-500 block">Monto Total de la Cuota:</span>
+                                <span className="font-mono font-bold text-zinc-800 text-sm">
+                                    {formatCurrency(totalAmount)} USD
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-zinc-500 block">Abonado Hoy:</span>
+                                <span className="font-mono font-bold text-emerald-700 text-sm">
+                                    {formatCurrency(paidAmount)} USD
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-zinc-500 block">Saldo Restante por Pagar:</span>
+                                <span className={`font-mono font-black text-sm ${isFullPaid ? 'text-emerald-700' : 'text-rose-600'}`}>
+                                    {formatCurrency(remainingBalance)} USD {isFullPaid ? '(SOLVENTE)' : '(DEBE RESTO)'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 

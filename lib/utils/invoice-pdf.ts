@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { APTO_LOGO_BASE64 } from './logo-base64';
 import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { formatCurrency } from './format';
-import type { Invoice, Unit, Building } from '@/types/models';
+import type { Invoice, Unit } from '@/types/models';
 
 export interface InvoicePdfPaymentDetails {
     paymentMethod?: string;
@@ -13,6 +13,9 @@ export interface InvoicePdfPaymentDetails {
     exchangeRate?: number;
     amountVes?: number;
     amountUsd?: number;
+    paidAmountUsd?: number;
+    totalAmountUsd?: number;
+    remainingBalanceUsd?: number;
 }
 
 export interface GenerateInvoicePdfOptions {
@@ -26,6 +29,22 @@ export interface GenerateInvoicePdfOptions {
  * Extracts exchange rate and payment details if present in the invoice description or payment details
  */
 export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: InvoicePdfPaymentDetails): InvoicePdfPaymentDetails {
+    const totalAmount = explicitDetails?.totalAmountUsd ?? invoice.amount ?? 0;
+    
+    // Determine actual paid amount in USD
+    let paidAmount = explicitDetails?.paidAmountUsd;
+    if (paidAmount === undefined) {
+        if (invoice.status === 'PAID') {
+            paidAmount = totalAmount;
+        } else if (invoice.paid_amount !== undefined && invoice.paid_amount > 0) {
+            paidAmount = invoice.paid_amount;
+        } else {
+            paidAmount = totalAmount;
+        }
+    }
+
+    const remainingBalance = Math.max(0, totalAmount - paidAmount);
+
     const details: InvoicePdfPaymentDetails = {
         paymentMethod: explicitDetails?.paymentMethod || 'PAGO_MOVIL',
         paymentDate: explicitDetails?.paymentDate || invoice.issue_date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
@@ -33,13 +52,17 @@ export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: Invo
         rateType: explicitDetails?.rateType || 'EUR_BCV',
         exchangeRate: explicitDetails?.exchangeRate,
         amountVes: explicitDetails?.amountVes,
-        amountUsd: explicitDetails?.amountUsd || invoice.amount,
+        amountUsd: paidAmount,
+        paidAmountUsd: paidAmount,
+        totalAmountUsd: totalAmount,
+        remainingBalanceUsd: remainingBalance,
     };
 
     // If explicit details were not provided with VES info, try to parse from description
     if (!details.amountVes && invoice.description) {
-        // Regex to extract e.g.: "Pagado en Bs: 2,260.00 (Tasa EUR: 45.20 Bs. - Fecha: 15/10/2026)"
-        const bsMatch = invoice.description.match(/Pagado en Bs:\s*([0-9.,]+)/i) || invoice.description.match(/Bs\.?\s*([0-9.,]+)/i);
+        const bsMatch = invoice.description.match(/Pagado en Bs:\s*([0-9.,]+)/i) || 
+                        invoice.description.match(/Abono en Bs:\s*([0-9.,]+)/i) ||
+                        invoice.description.match(/Bs\.?\s*([0-9.,]+)/i);
         const rateMatch = invoice.description.match(/Tasa\s*(?:EUR|Euro|USD|Dólar)?:\s*([0-9.,]+)/i);
         const isEuro = /euro|eur/i.test(invoice.description);
 
@@ -58,7 +81,7 @@ export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: Invo
 
     // Default calculation if rate is known but amountVes missing
     if (details.currency === 'VES' && details.exchangeRate && !details.amountVes) {
-        details.amountVes = Number((invoice.amount * details.exchangeRate).toFixed(2));
+        details.amountVes = Number((paidAmount * details.exchangeRate).toFixed(2));
     }
 
     return details;
@@ -87,7 +110,10 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     const aliquot = coprop?.aliquot ?? (invoice.unit?.aliquot || unit?.aliquot || 0);
 
     const paymentInfo = parseInvoicePaymentInfo(invoice, options.paymentDetails);
-    const isPaid = invoice.status === 'PAID';
+    const totalAmount = paymentInfo.totalAmountUsd ?? invoice.amount ?? 0;
+    const paidAmount = paymentInfo.paidAmountUsd ?? 0;
+    const remainingBalance = paymentInfo.remainingBalanceUsd ?? Math.max(0, totalAmount - paidAmount);
+    const isFullPaid = remainingBalance <= 0.001;
 
     const referenceNumber = invoice.receipt_number || invoice.number || `REC-${new Date().getFullYear()}-${aptoNumber.padStart(3, '0')}`;
     const issueDateStr = invoice.issue_date
@@ -124,7 +150,7 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(255, 255, 255);
-    doc.text('FACTURA / RECIBO', pageWidth - margin, 12, { align: 'right' });
+    doc.text(isFullPaid ? 'FACTURA / RECIBO' : 'RECIBO DE ABONO PARCIAL', pageWidth - margin, 12, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
@@ -134,21 +160,38 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
 
     let currentY = 35;
 
-    // ── Status Banner (Paid / Cancelled) ──────────────────────────────────────
-    if (isPaid) {
+    // ── Status Banner (Paid vs Partial) ──────────────────────────────────────
+    if (isFullPaid) {
         doc.setFillColor(236, 253, 245); // Emerald 50
         doc.setDrawColor(16, 185, 129); // Emerald 500
         doc.setLineWidth(0.4);
         doc.roundedRect(margin, currentY, contentWidth, 11, 2, 2, 'FD');
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
+        doc.setFontSize(9.5);
         doc.setTextColor(5, 150, 105); // Emerald 600
         doc.text('ESTADO DEL DOCUMENTO: TOTALMENTE PAGADO / SOLVENTE', margin + 4, currentY + 7);
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.5);
         doc.text(`Pagado el: ${paymentDateStr}`, pageWidth - margin - 4, currentY + 7, { align: 'right' });
+
+        currentY += 15;
+    } else {
+        // Partial Payment Banner (Amber / Warning)
+        doc.setFillColor(254, 243, 199); // Amber 100
+        doc.setDrawColor(245, 158, 11); // Amber 500
+        doc.setLineWidth(0.4);
+        doc.roundedRect(margin, currentY, contentWidth, 11, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(180, 83, 9); // Amber 700
+        doc.text(`ESTADO: ABONO PARCIAL REGISTRADO — SALDO RESTANTE: $${remainingBalance.toFixed(2)} USD`, margin + 4, currentY + 7);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.text(`Abonado el: ${paymentDateStr}`, pageWidth - margin - 4, currentY + 7, { align: 'right' });
 
         currentY += 15;
     }
@@ -202,21 +245,21 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
 
     // ── Table of Invoiced Items ──────────────────────────────────────────────
     const baseBudgetMatch = invoice.description?.match(/Base:\s*\$([0-9.,]+)/i);
-    const baseBudgetStr = baseBudgetMatch ? `$${baseBudgetMatch[1]}` : (aliquot > 0 ? `$${((invoice.amount / (aliquot / 100))).toFixed(2)}` : '--');
+    const baseBudgetStr = baseBudgetMatch ? `$${baseBudgetMatch[1]}` : (aliquot > 0 ? `$${((totalAmount / (aliquot / 100))).toFixed(2)}` : '--');
 
     // Clean description to remove appended payment notes in the main description column
-    const cleanDescription = (invoice.description || 'Cuota Especial de Condominio').split(' | Pago')[0];
+    const cleanDescription = (invoice.description || 'Cuota Especial de Condominio').split(' | Pagado')[0].split(' | Abono')[0];
 
     autoTable(doc, {
         startY: currentY,
         margin: { left: margin, right: margin },
-        head: [['CONCEPTO / DESCRIPCIÓN DEL TRABAJO O CUOTA', 'PERÍODO', 'BASE PRESUP.', 'MONTO (USD)']],
+        head: [['CONCEPTO / DESCRIPCIÓN DEL TRABAJO O CUOTA', 'PERÍODO', 'BASE PRESUP.', 'MONTO TOTAL (USD)']],
         body: [
             [
                 cleanDescription,
                 invoice.period || '--',
                 baseBudgetStr,
-                `$${invoice.amount.toFixed(2)}`,
+                `$${totalAmount.toFixed(2)}`,
             ],
         ],
         headStyles: {
@@ -245,7 +288,7 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.setFillColor(241, 245, 249); // Slate 100
     doc.setDrawColor(203, 213, 225);
     doc.setLineWidth(0.3);
-    doc.roundedRect(margin, currentY, contentWidth, 38, 2, 2, 'FD');
+    doc.roundedRect(margin, currentY, contentWidth, 42, 2, 2, 'FD');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
@@ -268,7 +311,7 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.setFontSize(8);
     doc.setTextColor(71, 85, 105);
 
-    // Row 1
+    // Row 1: Method, date, currency
     doc.text('Moneda de Pago:', margin + 4, currentY + 13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
@@ -288,7 +331,7 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.setTextColor(15, 23, 42);
     doc.text(paymentDateStr, margin + 172, currentY + 13);
 
-    // Row 2
+    // Row 2: Exchange rate and VES amount
     if (paymentInfo.currency === 'VES' || paymentInfo.exchangeRate) {
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(71, 85, 105);
@@ -310,24 +353,42 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
         doc.text(vesFormatted, margin + 155, currentY + 21);
     }
 
-    // Row 3: Totals comparison
+    // Row 3: Total vs Paid vs Remaining
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    doc.text('Abono a Factura (Ref. USD):', margin + 4, currentY + 30);
+    doc.text('Monto Total Cuota:', margin + 4, currentY + 30);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(`$${invoice.amount.toFixed(2)} USD`, margin + 48, currentY + 30);
+    doc.text(`$${totalAmount.toFixed(2)} USD`, margin + 35, currentY + 30);
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    doc.text('Saldo Restante:', margin + 85, currentY + 30);
+    doc.text('Abonado Hoy (USD):', margin + 65, currentY + 30);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(16, 185, 129);
-    const balanceRemaining = Math.max(0, invoice.amount - (isPaid ? invoice.amount : (invoice.paid_amount || 0)));
-    doc.text(`$${balanceRemaining.toFixed(2)} USD (${balanceRemaining === 0 ? 'SOLVENTE' : 'PENDIENTE'})`, margin + 110, currentY + 30);
+    doc.setTextColor(16, 185, 129); // Green
+    doc.text(`$${paidAmount.toFixed(2)} USD`, margin + 98, currentY + 30);
 
-    currentY += 44;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text('Saldo Restante:', margin + 128, currentY + 30);
+    doc.setFont('helvetica', 'bold');
+    if (isFullPaid) {
+        doc.setTextColor(16, 185, 129);
+        doc.text('$0.00 USD (SOLVENTE)', margin + 152, currentY + 30);
+    } else {
+        doc.setTextColor(225, 29, 72); // Rose/Red
+        doc.text(`$${remainingBalance.toFixed(2)} USD (DEBE RESTO)`, margin + 152, currentY + 30);
+    }
+
+    // Progress bar representation inside settlement box
+    const progressPercent = totalAmount > 0 ? Math.min(100, Math.round((paidAmount / totalAmount) * 100)) : 100;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Progreso de pago de la cuota: ${progressPercent}% cancelado ($${paidAmount.toFixed(2)} de $${totalAmount.toFixed(2)} USD)`, margin + 4, currentY + 38);
+
+    currentY += 48;
 
     // ── Official Notes / Condominium Conditions ──────────────────────────────
     doc.setFont('helvetica', 'bold');
@@ -339,9 +400,11 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.setFontSize(7);
     doc.setTextColor(100, 116, 139);
     const notes = [
-        '• Este comprobante certifica la recepción conforme del pago correspondiente a la cuota especial descrita arriba.',
+        isFullPaid
+            ? '• Este comprobante certifica la recepción conforme del pago total correspondiente a la cuota especial descrita arriba.'
+            : `• Este comprobante certifica un ABONO PARCIAL de $${paidAmount.toFixed(2)} USD a la cuota especial. El saldo restante de $${remainingBalance.toFixed(2)} USD queda pendiente para su liquidación.`,
         '• Los pagos realizados en bolívares se calculan con base en la tasa oficial vigente al momento efectivo del pago fijada por el BCV (o tasa euro según acuerdo de asamblea).',
-        '• Conserve este recibo oficial como comprobante de solvencia de la unidad para el período y concepto señalados.',
+        '• Conserve este recibo oficial como comprobante de su abono y para el control de solvencia de la unidad.',
     ];
     let noteY = currentY + 4;
     notes.forEach((n) => {
@@ -385,6 +448,6 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     );
 
     // Save PDF
-    const filename = `Factura_Apto_${aptoNumber}_${invoice.period || 'Cobro'}.pdf`;
+    const filename = `Recibo_Apto_${aptoNumber}_${invoice.period || 'Cobro'}_${isFullPaid ? 'Total' : 'Abono'}.pdf`;
     doc.save(filename);
 }
