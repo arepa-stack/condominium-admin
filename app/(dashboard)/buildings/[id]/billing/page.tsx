@@ -40,6 +40,14 @@ import {
     type ActiveBudgetOption,
 } from '@/lib/utils/budget-helpers';
 import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuCheckboxItem,
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
+import {
     Eye,
     Plus,
     FileSpreadsheet,
@@ -56,6 +64,7 @@ import {
     FolderKanban,
     List,
     X,
+    Filter,
 } from 'lucide-react';
 import type { Invoice, Unit } from '@/types/models';
 
@@ -92,7 +101,7 @@ export default function BuildingBillingPage() {
     // Filters
     const [filterUnitId, setFilterUnitId] = useState<string>('all');
     const [filterBudget, setFilterBudget] = useState<string>('all');
-    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
     const [filterMonth, setFilterMonth] = useState<string>('all');
 
@@ -172,41 +181,67 @@ export default function BuildingBillingPage() {
     // Reset pagination to first page when any filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [filterUnitId, filterBudget, filterStatus, filterYear, filterMonth]);
+    }, [filterUnitId, filterBudget, selectedStatuses, filterYear, filterMonth]);
+
+    const toggleStatus = (status: string) => {
+        setSelectedStatuses((prev) => {
+            if (prev.includes(status)) {
+                return prev.filter((s) => s !== status);
+            } else {
+                return [...prev, status];
+            }
+        });
+    };
+
+    const statusFilterLabel = useMemo(() => {
+        if (selectedStatuses.length === 0) return 'Todos los estados';
+        if (
+            selectedStatuses.length === 2 &&
+            selectedStatuses.includes('PAID') &&
+            selectedStatuses.includes('PARTIAL')
+        ) {
+            return 'Pagados + Abonos';
+        }
+        if (selectedStatuses.length === 1) {
+            switch (selectedStatuses[0]) {
+                case 'PAID':
+                    return 'Solo Pagados 100%';
+                case 'PARTIAL':
+                    return 'Solo Abonos Parciales';
+                case 'PENDING':
+                    return 'Pendientes';
+                case 'CANCELLED':
+                    return 'Cancelados';
+            }
+        }
+        return `${selectedStatuses.length} estados seleccionados`;
+    }, [selectedStatuses]);
 
     // Filter invoices by selected status and budget
     const filteredInvoices = useMemo(() => {
         let result = invoices;
 
-        // 1. Status filter
-        if (filterStatus && filterStatus !== 'all') {
-            if (filterStatus === 'PAID') {
-                // Pagados y Abonos: any invoice with payment registered (PAID, PARTIAL, or paid_amount > 0)
-                result = result.filter(
-                    (inv) =>
-                        inv.status === 'PAID' ||
-                        inv.status === 'PARTIAL' ||
-                        (inv.paid_amount && inv.paid_amount > 0)
-                );
-            } else if (filterStatus === 'PAID_FULL') {
-                result = result.filter(
-                    (inv) => inv.status === 'PAID' && inv.paid_amount >= inv.amount
-                );
-            } else if (filterStatus === 'PARTIAL') {
-                result = result.filter(
-                    (inv) =>
-                        inv.status === 'PARTIAL' ||
-                        (inv.paid_amount > 0 && inv.paid_amount < inv.amount)
-                );
-            } else if (filterStatus === 'PENDING') {
-                result = result.filter(
-                    (inv) =>
-                        inv.status === 'PENDING' &&
-                        (!inv.paid_amount || inv.paid_amount === 0)
-                );
-            } else if (filterStatus === 'CANCELLED') {
-                result = result.filter((inv) => inv.status === 'CANCELLED');
-            }
+        // 1. Status filter (multi-select combinable)
+        if (selectedStatuses.length > 0) {
+            result = result.filter((inv) => {
+                const isPartial =
+                    inv.status === 'PARTIAL' ||
+                    (inv.paid_amount > 0 && inv.paid_amount < inv.amount);
+                const isPaidFull =
+                    (inv.status === 'PAID' && !isPartial) ||
+                    (inv.paid_amount >= inv.amount && inv.amount > 0);
+                const isPending =
+                    inv.status === 'PENDING' &&
+                    (!inv.paid_amount || inv.paid_amount === 0);
+                const isCancelled = inv.status === 'CANCELLED';
+
+                if (selectedStatuses.includes('PAID') && isPaidFull) return true;
+                if (selectedStatuses.includes('PARTIAL') && isPartial) return true;
+                if (selectedStatuses.includes('PENDING') && isPending) return true;
+                if (selectedStatuses.includes('CANCELLED') && isCancelled) return true;
+
+                return false;
+            });
         }
 
         // 2. Budget filter
@@ -263,7 +298,7 @@ export default function BuildingBillingPage() {
             const aptoB = copropB?.apto || b.unit?.name || '';
             return aptoA.localeCompare(aptoB, undefined, { numeric: true });
         });
-    }, [invoices, filterStatus, filterBudget]);
+    }, [invoices, selectedStatuses, filterBudget]);
 
     // Group invoices based on filtered invoices
     const invoiceGroups = useMemo(() => {
@@ -443,20 +478,82 @@ export default function BuildingBillingPage() {
                             triggerIcon={FolderKanban}
                         />
                     </div>
-                    <div className="w-full md:w-44">
-                        <Select value={filterStatus} onValueChange={setFilterStatus}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Estado" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los estados</SelectItem>
-                                <SelectItem value="PAID">Pagados y Abonos</SelectItem>
-                                <SelectItem value="PARTIAL">Solo Abonos Parciales</SelectItem>
-                                <SelectItem value="PAID_FULL">Solo Pagados 100%</SelectItem>
-                                <SelectItem value="PENDING">Pendientes por Pagar</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelados</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="w-full md:w-52">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-between text-xs font-normal h-9 bg-background/50 border-input"
+                                >
+                                    <span className="flex items-center gap-1.5 truncate">
+                                        <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                        <span className="truncate">{statusFilterLabel}</span>
+                                    </span>
+                                    <ChevronDown className="w-3.5 h-3.5 opacity-50 shrink-0 ml-1" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56">
+                                <DropdownMenuLabel className="text-xs">Estado de la Factura</DropdownMenuLabel>
+                                <div className="p-1 flex gap-1 border-b border-border/50 mb-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 text-[10px] flex-1 px-1 font-medium text-primary hover:bg-primary/10"
+                                        onClick={() => setSelectedStatuses(['PAID', 'PARTIAL'])}
+                                    >
+                                        Pagados + Abonos
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 text-[10px] flex-1 px-1 font-medium text-muted-foreground hover:bg-muted"
+                                        onClick={() => setSelectedStatuses([])}
+                                    >
+                                        Todos (Limpiar)
+                                    </Button>
+                                </div>
+                                <DropdownMenuCheckboxItem
+                                    checked={selectedStatuses.includes('PAID')}
+                                    onCheckedChange={() => toggleStatus('PAID')}
+                                    className="text-xs"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                        Pagados 100%
+                                    </span>
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem
+                                    checked={selectedStatuses.includes('PARTIAL')}
+                                    onCheckedChange={() => toggleStatus('PARTIAL')}
+                                    className="text-xs"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                        Abonos Parciales
+                                    </span>
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem
+                                    checked={selectedStatuses.includes('PENDING')}
+                                    onCheckedChange={() => toggleStatus('PENDING')}
+                                    className="text-xs"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                        Pendientes por Pagar
+                                    </span>
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem
+                                    checked={selectedStatuses.includes('CANCELLED')}
+                                    onCheckedChange={() => toggleStatus('CANCELLED')}
+                                    className="text-xs"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                        Cancelados
+                                    </span>
+                                </DropdownMenuCheckboxItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                     <div className="w-full md:w-28">
                         <Select value={filterYear} onValueChange={setFilterYear}>
@@ -519,6 +616,20 @@ export default function BuildingBillingPage() {
                                     onClick={() => setFilterBudget('all')}
                                     className="hover:bg-primary/20 rounded-full p-0.5 ml-0.5"
                                     title="Quitar filtro de presupuesto"
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        )}
+
+                        {selectedStatuses.length > 0 && (
+                            <Badge variant="outline" className="h-7 text-xs bg-primary/10 text-primary border-primary/30 gap-1 pl-2.5 pr-1 font-normal animate-in fade-in-50">
+                                <span className="font-semibold">Estados:</span> {statusFilterLabel}
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedStatuses([])}
+                                    className="hover:bg-primary/20 rounded-full p-0.5 ml-0.5"
+                                    title="Quitar filtro de estados"
                                 >
                                     <X className="h-3 w-3" />
                                 </button>
@@ -914,6 +1025,11 @@ export default function BuildingBillingPage() {
                     fetchData();
                 }}
                 invoiceId={selectedInvoiceId}
+                buildingName="Residencias Granada"
+                unitName={
+                    invoices.find((i) => i.id === selectedInvoiceId)?.unit?.name ||
+                    units.find((u) => u.id === invoices.find((i) => i.id === selectedInvoiceId)?.unit_id)?.name
+                }
                 onPaymentApproved={fetchData}
             />
 
