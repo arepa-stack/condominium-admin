@@ -47,7 +47,13 @@ export function parseBudgetFromDescription(desc?: string): {
   if (baseMatch) {
     const parsedBase = parseFloat(baseMatch[1].replace(/,/g, ''));
     const parts = raw.split(/[-–—]\s*(?:Base|Presupuesto):/i);
-    const title = parts[0]?.trim() || 'Presupuesto Especial';
+    let title = parts[0]?.trim() || 'Presupuesto Especial';
+
+    if (/terremoto/i.test(title)) {
+      title = 'Reparación Terremoto';
+    } else if (/cisterna/i.test(title)) {
+      title = 'Cisterna de agua';
+    }
 
     // Extract optional details after '|'
     const detailsMatch = raw.split(/\|\s*/);

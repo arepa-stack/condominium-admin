@@ -17,7 +17,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { FilterBar } from '@/components/ui/filter-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/skeletons';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
@@ -32,8 +32,10 @@ import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Paginator } from '@/components/ui/paginator';
 import {
     groupInvoicesByBudget,
+    parseBudgetFromDescription,
     type BudgetInvoiceGroup,
     type ActiveBudgetOption,
 } from '@/lib/utils/budget-helpers';
@@ -51,10 +53,9 @@ import {
     Droplets,
     Printer,
     Receipt,
-    Sparkles,
     FolderKanban,
     List,
-    LayoutGrid,
+    X,
 } from 'lucide-react';
 import type { Invoice, Unit } from '@/types/models';
 
@@ -90,16 +91,21 @@ export default function BuildingBillingPage() {
 
     // Filters
     const [filterUnitId, setFilterUnitId] = useState<string>('all');
+    const [filterBudget, setFilterBudget] = useState<string>('all');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
     const [filterMonth, setFilterMonth] = useState<string>('all');
+
+    // Pagination for flat table
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [pageSize, setPageSize] = useState<number>(20);
 
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
 
             // Build query params
-            const query: any = { building_id: buildingId };
+            const query: Parameters<typeof billingService.getInvoices>[0] = { building_id: buildingId };
             if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
             if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
             if (filterYear) query.year = parseInt(filterYear);
@@ -128,15 +134,82 @@ export default function BuildingBillingPage() {
         fetchData();
     }, [fetchData]);
 
-    // Group invoices
-    const invoiceGroups = useMemo(() => {
-        return groupInvoicesByBudget(invoices);
+    // Extract available budget and concept options from all loaded invoices
+    const availableBudgets = useMemo(() => {
+        const groups = groupInvoicesByBudget(invoices);
+        return groups.map((g) => ({
+            id: g.id,
+            title: g.title,
+            count: g.count,
+            isBudget: g.isBudget,
+            baseBudget: g.baseBudget,
+        }));
     }, [invoices]);
 
-    // Financial totals across all currently shown invoices
+    const budgetOptions = useMemo(() => [
+        { value: 'all', label: 'Todos los presupuestos / conceptos' },
+        ...availableBudgets.map((b) => ({
+            value: b.title,
+            label: `${b.title} (${b.count} facturas)`,
+            icon: b.isBudget ? Calculator : FolderKanban,
+        })),
+    ], [availableBudgets]);
+
+    const unitFilterOptions = useMemo(() => [
+        { value: 'all', label: 'Todas las unidades' },
+        ...units.map((u) => {
+            const coprop = getGranadaCoproprietor(u.name);
+            const label = coprop
+                ? `Apartamento ${coprop.apto} (${u.name}) - ${coprop.propietario}`
+                : `Apartamento ${u.name}${u.floor ? ` (Piso ${u.floor})` : ''}`;
+            return {
+                value: u.id,
+                label,
+                icon: Home,
+            };
+        }),
+    ], [units]);
+
+    // Reset pagination to first page when any filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filterUnitId, filterBudget, filterStatus, filterYear, filterMonth]);
+
+    // Filter invoices by selected budget
+    const filteredInvoices = useMemo(() => {
+        if (!filterBudget || filterBudget === 'all') {
+            return invoices;
+        }
+
+        const target = filterBudget.toLowerCase().trim();
+
+        return invoices.filter((inv) => {
+            const parsed = parseBudgetFromDescription(inv.description);
+            const groupKey = parsed.title.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            const targetKey = target.replace(/[^a-z0-9]/g, '-');
+
+            if (groupKey === targetKey) return true;
+            if (parsed.title.toLowerCase() === target) return true;
+            if (inv.description && inv.description.toLowerCase().includes(target)) return true;
+
+            // Specifically handle terremoto
+            if (target.includes('terremoto') && inv.description && /terremoto/i.test(inv.description)) {
+                return true;
+            }
+
+            return false;
+        });
+    }, [invoices, filterBudget]);
+
+    // Group invoices based on filtered invoices
+    const invoiceGroups = useMemo(() => {
+        return groupInvoicesByBudget(filteredInvoices);
+    }, [filteredInvoices]);
+
+    // Financial totals across all currently filtered invoices
     const globalSummary = useMemo(() => {
-        const totalAmount = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
-        const totalPaid = invoices.reduce((sum, inv) => sum + (inv.paid_amount || 0), 0);
+        const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+        const totalPaid = filteredInvoices.reduce((sum, inv) => sum + (inv.paid_amount || 0), 0);
         const totalPending = totalAmount - totalPaid;
         const progress = totalAmount > 0 ? (totalPaid / totalAmount) * 100 : 0;
         return {
@@ -144,9 +217,16 @@ export default function BuildingBillingPage() {
             totalPaid,
             totalPending,
             progress: Math.min(100, Math.round(progress * 10) / 10),
-            count: invoices.length,
+            count: filteredInvoices.length,
         };
-    }, [invoices]);
+    }, [filteredInvoices]);
+
+    // Pagination calculations for flat table
+    const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / pageSize));
+    const paginatedInvoices = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return filteredInvoices.slice(startIndex, startIndex + pageSize);
+    }, [filteredInvoices, currentPage, pageSize]);
 
     const toggleGroup = (groupId: string) => {
         setExpandedGroupIds((prev) => {
@@ -279,24 +359,27 @@ export default function BuildingBillingPage() {
             {/* Filter Bar & View Toggle */}
             <div className="space-y-3">
                 <FilterBar>
-                    <div className="w-full md:w-64">
+                    <div className="w-full md:w-60">
                         <SearchableSelect
-                            options={[
-                                { value: 'all', label: 'Todas las unidades' },
-                                ...units.map((u) => ({
-                                    value: u.id,
-                                    label: u.name,
-                                    icon: Home,
-                                })),
-                            ]}
+                            options={unitFilterOptions}
                             value={filterUnitId}
                             onValueChange={setFilterUnitId}
                             placeholder="Todas las unidades"
-                            searchPlaceholder="Buscar unidad..."
+                            searchPlaceholder="Buscar unidad (ej. 2-3, 23)..."
                             triggerIcon={Home}
                         />
                     </div>
-                    <div className="w-full md:w-40">
+                    <div className="w-full md:w-64">
+                        <SearchableSelect
+                            options={budgetOptions}
+                            value={filterBudget}
+                            onValueChange={setFilterBudget}
+                            placeholder="Todos los presupuestos"
+                            searchPlaceholder="Filtrar por presupuesto..."
+                            triggerIcon={FolderKanban}
+                        />
+                    </div>
+                    <div className="w-full md:w-36">
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Estado" />
@@ -309,7 +392,7 @@ export default function BuildingBillingPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="w-full md:w-32">
+                    <div className="w-full md:w-28">
                         <Select value={filterYear} onValueChange={setFilterYear}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Año" />
@@ -338,27 +421,43 @@ export default function BuildingBillingPage() {
                     </div>
                 </FilterBar>
 
-                {/* View Mode Segmented Controls */}
-                <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-1.5 p-1 bg-muted/50 rounded-lg border border-border/60">
-                        <Button
-                            variant={viewMode === 'grouped' ? 'default' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewMode('grouped')}
-                            className="h-7 text-xs font-medium gap-1.5 px-3"
-                        >
-                            <FolderKanban className="w-3.5 h-3.5" />
-                            Agrupadas por Presupuesto / Concepto
-                        </Button>
-                        <Button
-                            variant={viewMode === 'flat' ? 'default' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewMode('flat')}
-                            className="h-7 text-xs font-medium gap-1.5 px-3"
-                        >
-                            <List className="w-3.5 h-3.5" />
-                            Lista Plana
-                        </Button>
+                {/* View Mode Segmented Controls & Active Budget Chip */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 p-1 bg-muted/50 rounded-lg border border-border/60">
+                            <Button
+                                variant={viewMode === 'grouped' ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => setViewMode('grouped')}
+                                className="h-7 text-xs font-medium gap-1.5 px-3"
+                            >
+                                <FolderKanban className="w-3.5 h-3.5" />
+                                Agrupadas por Presupuesto
+                            </Button>
+                            <Button
+                                variant={viewMode === 'flat' ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => setViewMode('flat')}
+                                className="h-7 text-xs font-medium gap-1.5 px-3"
+                            >
+                                <List className="w-3.5 h-3.5" />
+                                Lista Plana ({filteredInvoices.length})
+                            </Button>
+                        </div>
+
+                        {filterBudget !== 'all' && (
+                            <Badge variant="outline" className="h-7 text-xs bg-primary/10 text-primary border-primary/30 gap-1 pl-2.5 pr-1 font-normal animate-in fade-in-50">
+                                <span className="font-semibold">Presupuesto:</span> {filterBudget}
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterBudget('all')}
+                                    className="hover:bg-primary/20 rounded-full p-0.5 ml-0.5"
+                                    title="Quitar filtro de presupuesto"
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        )}
                     </div>
 
                     {viewMode === 'grouped' && invoiceGroups.length > 0 && (
@@ -387,7 +486,7 @@ export default function BuildingBillingPage() {
             {/* Invoices Rendering */}
             {isLoading ? (
                 <TableSkeleton rows={5} columns={7} />
-            ) : invoices.length === 0 ? (
+            ) : filteredInvoices.length === 0 ? (
                 <EmptyState icon={FileText} message="No se encontraron facturas para los filtros seleccionados" variant="inline" />
             ) : viewMode === 'grouped' ? (
                 /* ═══════════════════════════════════════════════════════════════════
@@ -522,141 +621,21 @@ export default function BuildingBillingPage() {
 
                                 {/* Expanded Invoices Table */}
                                 {isExpanded && (
-                                    <div className="border-t border-border bg-card/40 animate-in fade-in-50 duration-150">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-muted/30">
-                                                    <TableHead className="text-xs">Número / Recibo</TableHead>
-                                                    <TableHead className="text-xs">Unidad / Propietario</TableHead>
-                                                    <TableHead className="text-xs">Alícuota</TableHead>
-                                                    <TableHead className="text-xs">Período</TableHead>
-                                                    <TableHead className="text-xs">Monto ($ USD)</TableHead>
-                                                    <TableHead className="text-xs">Progreso</TableHead>
-                                                    <TableHead className="text-xs">Estado</TableHead>
-                                                    <TableHead className="text-xs text-right">Acciones</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {group.invoices.map((invoice) => {
-                                                    const progress =
-                                                        invoice.amount > 0
-                                                            ? (invoice.paid_amount / invoice.amount) * 100
-                                                            : 0;
-                                                    const coprop = getGranadaCoproprietor(invoice.unit?.name || '');
-                                                    const unitDisplayName = coprop
-                                                        ? `Apartamento ${coprop.apto}`
-                                                        : invoice.unit?.name || 'Unidad desconocida';
-                                                    const ownerDisplayName =
-                                                        invoice.user?.name || coprop?.propietario || 'Copropietario';
-                                                    const aliquotVal =
-                                                        coprop?.aliquot ?? (invoice.unit?.aliquot || 0);
-
-                                                    return (
-                                                        <TableRow
-                                                            key={invoice.id}
-                                                            className="cursor-pointer group hover:bg-muted/40"
-                                                            onClick={() => {
-                                                                setSelectedInvoiceId(invoice.id);
-                                                                setIsDetailsOpen(true);
-                                                            }}
-                                                        >
-                                                            <TableCell className="font-mono text-xs">
-                                                                {invoice.number || invoice.receipt_number || '--'}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="font-semibold text-xs group-hover:text-primary transition-colors flex items-center gap-1.5">
-                                                                    {unitDisplayName}
-                                                                    {coprop && (
-                                                                        <span className="text-[10px] text-muted-foreground font-normal">
-                                                                            ({invoice.unit?.name})
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-[11px] text-muted-foreground">
-                                                                    {ownerDisplayName}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs font-mono text-muted-foreground">
-                                                                {aliquotVal > 0 ? `${aliquotVal.toFixed(4)}%` : '--'}
-                                                            </TableCell>
-                                                            <TableCell className="text-xs text-muted-foreground tabular-nums">
-                                                                {invoice.period ||
-                                                                    (invoice.year && invoice.month
-                                                                        ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}`
-                                                                        : '--')}
-                                                            </TableCell>
-                                                            <TableCell className="tabular-nums">
-                                                                <div className="font-semibold text-xs">
-                                                                    {formatCurrency(invoice.amount)}
-                                                                </div>
-                                                                {invoice.paid_amount > 0 &&
-                                                                    invoice.paid_amount < invoice.amount && (
-                                                                        <div className="text-[10px] text-chart-1">
-                                                                            Pagado: {formatCurrency(invoice.paid_amount)}
-                                                                        </div>
-                                                                    )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="w-20">
-                                                                    <Progress value={progress} className="h-1.5" />
-                                                                </div>
-                                                                <div className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
-                                                                    {Math.round(progress)}%
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <StatusBadge status={invoice.status} />
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                <div className="flex justify-end gap-1">
-                                                                    {invoice.status === 'PAID' && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setReceiptInvoice(invoice);
-                                                                                setIsReceiptOpen(true);
-                                                                            }}
-                                                                            title="Descargar Factura / Recibo Oficial"
-                                                                            className="h-8 px-2 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 hover:bg-emerald-500/10 font-semibold"
-                                                                        >
-                                                                            <Receipt className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Recibo
-                                                                        </Button>
-                                                                    )}
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setAvisoInvoice(invoice);
-                                                                            setIsAvisoOpen(true);
-                                                                        }}
-                                                                        title="Ver Aviso de Cobro"
-                                                                        className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                                                    >
-                                                                        <Printer className="h-3.5 w-3.5 mr-1" /> Aviso
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setSelectedInvoiceId(invoice.id);
-                                                                            setIsDetailsOpen(true);
-                                                                        }}
-                                                                        className="h-8 px-2 text-xs"
-                                                                    >
-                                                                        <Eye className="h-3.5 w-3.5 mr-1" /> Ver
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
+                                    <GroupInvoicesTable
+                                        invoices={group.invoices}
+                                        onSelectInvoice={(id) => {
+                                            setSelectedInvoiceId(id);
+                                            setIsDetailsOpen(true);
+                                        }}
+                                        onOpenReceipt={(inv) => {
+                                            setReceiptInvoice(inv);
+                                            setIsReceiptOpen(true);
+                                        }}
+                                        onOpenAviso={(inv) => {
+                                            setAvisoInvoice(inv);
+                                            setIsAvisoOpen(true);
+                                        }}
+                                    />
                                 )}
                             </Card>
                         );
@@ -666,129 +645,174 @@ export default function BuildingBillingPage() {
                 /* ═══════════════════════════════════════════════════════════════════
                    FLAT TABLE VIEW (Lista Plana Tradicional)
                    ═══════════════════════════════════════════════════════════════════ */
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Número / Recibo</TableHead>
-                            <TableHead>Unidad / Usuario</TableHead>
-                            <TableHead>Concepto</TableHead>
-                            <TableHead>Período</TableHead>
-                            <TableHead>Monto</TableHead>
-                            <TableHead>Progreso</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {invoices.map((invoice) => {
-                            const progress =
-                                invoice.amount > 0 ? (invoice.paid_amount / invoice.amount) * 100 : 0;
-                            const coprop = getGranadaCoproprietor(invoice.unit?.name || '');
-                            const unitDisplayName = coprop
-                                ? `Apartamento ${coprop.apto}`
-                                : invoice.unit?.name || 'Unidad desconocida';
-                            const ownerDisplayName =
-                                invoice.user?.name || coprop?.propietario || 'Copropietario';
-
-                            return (
-                                <TableRow
-                                    key={invoice.id}
-                                    className="cursor-pointer group"
-                                    onClick={() => {
-                                        setSelectedInvoiceId(invoice.id);
-                                        setIsDetailsOpen(true);
-                                    }}
-                                >
-                                    <TableCell className="font-medium font-mono text-xs">
-                                        {invoice.number || invoice.receipt_number || '--'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="font-semibold group-hover:text-primary transition-colors flex items-center gap-1.5">
-                                            {unitDisplayName}
-                                            {coprop && (
-                                                <span className="text-[10px] text-muted-foreground font-normal">
-                                                    ({invoice.unit?.name})
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">{ownerDisplayName}</div>
-                                    </TableCell>
-                                    <TableCell className="text-xs max-w-xs truncate text-muted-foreground">
-                                        {invoice.description || '--'}
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground tabular-nums text-xs">
-                                        {invoice.period ||
-                                            (invoice.year && invoice.month
-                                                ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}`
-                                                : '--')}
-                                    </TableCell>
-                                    <TableCell className="tabular-nums">
-                                        <div className="font-semibold">{formatCurrency(invoice.amount)}</div>
-                                        {invoice.paid_amount > 0 && invoice.paid_amount < invoice.amount && (
-                                            <div className="text-[10px] text-chart-1">
-                                                Pagado: {formatCurrency(invoice.paid_amount)}
-                                            </div>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="w-24">
-                                            <Progress value={progress} className="h-1.5" />
-                                        </div>
-                                        <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">
-                                            {Math.round(progress)}%
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <StatusBadge status={invoice.status} />
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1">
-                                            {invoice.status === 'PAID' && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setReceiptInvoice(invoice);
-                                                        setIsReceiptOpen(true);
-                                                    }}
-                                                    title="Descargar Factura / Recibo Oficial"
-                                                    className="h-8 px-2 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 hover:bg-emerald-500/10 font-semibold"
-                                                >
-                                                    <Receipt className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Recibo
-                                                </Button>
-                                            )}
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setAvisoInvoice(invoice);
-                                                    setIsAvisoOpen(true);
-                                                }}
-                                                className="h-8 px-2 text-xs"
-                                            >
-                                                <Printer className="h-3.5 w-3.5 mr-1" /> Aviso
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedInvoiceId(invoice.id);
-                                                    setIsDetailsOpen(true);
-                                                }}
-                                                className="h-8 px-2 text-xs"
-                                            >
-                                                <Eye className="h-3.5 w-3.5 mr-1" /> Ver
-                                            </Button>
-                                        </div>
-                                    </TableCell>
+                <div className="space-y-4">
+                    <div className="border border-border/70 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/30">
+                                    <TableHead className="text-xs">Número / Recibo</TableHead>
+                                    <TableHead className="text-xs">Unidad / Usuario</TableHead>
+                                    <TableHead className="text-xs">Concepto</TableHead>
+                                    <TableHead className="text-xs">Período</TableHead>
+                                    <TableHead className="text-xs">Monto</TableHead>
+                                    <TableHead className="text-xs">Progreso</TableHead>
+                                    <TableHead className="text-xs">Estado</TableHead>
+                                    <TableHead className="text-xs text-right">Acciones</TableHead>
                                 </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedInvoices.map((invoice) => {
+                                    const progress =
+                                        invoice.amount > 0 ? (invoice.paid_amount / invoice.amount) * 100 : 0;
+                                    const coprop = getGranadaCoproprietor(invoice.unit?.name || '');
+                                    const unitDisplayName = coprop
+                                        ? `Apartamento ${coprop.apto}`
+                                        : invoice.unit?.name || 'Unidad desconocida';
+                                    const ownerDisplayName =
+                                        invoice.user?.name || coprop?.propietario || 'Copropietario';
+
+                                    return (
+                                        <TableRow
+                                            key={invoice.id}
+                                            className="cursor-pointer group hover:bg-muted/40"
+                                            onClick={() => {
+                                                setSelectedInvoiceId(invoice.id);
+                                                setIsDetailsOpen(true);
+                                            }}
+                                        >
+                                            <TableCell className="font-medium font-mono text-xs">
+                                                {invoice.number || invoice.receipt_number || '--'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="font-semibold group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                                    {unitDisplayName}
+                                                    {coprop && (
+                                                        <span className="text-[10px] text-muted-foreground font-normal">
+                                                            ({invoice.unit?.name})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">{ownerDisplayName}</div>
+                                            </TableCell>
+                                            <TableCell className="text-xs max-w-xs truncate text-muted-foreground">
+                                                {invoice.description || '--'}
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground tabular-nums text-xs">
+                                                {invoice.period ||
+                                                    (invoice.year && invoice.month
+                                                        ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}`
+                                                        : '--')}
+                                            </TableCell>
+                                            <TableCell className="tabular-nums">
+                                                <div className="font-semibold">{formatCurrency(invoice.amount)}</div>
+                                                {invoice.paid_amount > 0 && invoice.paid_amount < invoice.amount && (
+                                                    <div className="text-[10px] text-chart-1">
+                                                        Pagado: {formatCurrency(invoice.paid_amount)}
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="w-24">
+                                                    <Progress value={progress} className="h-1.5" />
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                                                    {Math.round(progress)}%
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <StatusBadge status={invoice.status} />
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    {invoice.status === 'PAID' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setReceiptInvoice(invoice);
+                                                                setIsReceiptOpen(true);
+                                                            }}
+                                                            title="Descargar Factura / Recibo Oficial"
+                                                            className="h-8 px-2 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 hover:bg-emerald-500/10 font-semibold"
+                                                        >
+                                                            <Receipt className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Recibo
+                                                        </Button>
+                                                    )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAvisoInvoice(invoice);
+                                                            setIsAvisoOpen(true);
+                                                        }}
+                                                        className="h-8 px-2 text-xs"
+                                                    >
+                                                        <Printer className="h-3.5 w-3.5 mr-1" /> Aviso
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedInvoiceId(invoice.id);
+                                                            setIsDetailsOpen(true);
+                                                        }}
+                                                        className="h-8 px-2 text-xs"
+                                                    >
+                                                        <Eye className="h-3.5 w-3.5 mr-1" /> Ver
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Pagination Bar */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border pt-4 px-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Filas por página:</span>
+                            <Select
+                                value={pageSize.toString()}
+                                onValueChange={(val) => {
+                                    setPageSize(Number(val));
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="h-8 w-16 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <span className="ml-2">
+                                Total: {filteredInvoices.length} facturas
+                            </span>
+                        </div>
+
+                        <Paginator
+                            metadata={{
+                                page: currentPage,
+                                limit: pageSize,
+                                total: filteredInvoices.length,
+                                totalPages: totalPages,
+                                hasNextPage: currentPage < totalPages,
+                                hasPrevPage: currentPage > 1,
+                            }}
+                            isLoading={isLoading}
+                            onPageChange={setCurrentPage}
+                            className="p-0"
+                        />
+                    </div>
+                </div>
             )}
 
             {/* Modals & Dialogs */}
@@ -848,6 +872,206 @@ export default function BuildingBillingPage() {
                 onUnitsUpdated={fetchData}
                 onOpenBillingDialog={() => setIsAliquotDialogOpen(true)}
             />
+        </div>
+    );
+}
+
+interface GroupInvoicesTableProps {
+    invoices: Invoice[];
+    onSelectInvoice: (id: string) => void;
+    onOpenReceipt: (invoice: Invoice) => void;
+    onOpenAviso: (invoice: Invoice) => void;
+}
+
+function GroupInvoicesTable({
+    invoices,
+    onSelectInvoice,
+    onOpenReceipt,
+    onOpenAviso,
+}: GroupInvoicesTableProps) {
+    const [page, setPage] = useState(1);
+    const [showAll, setShowAll] = useState(false);
+    const pageSize = 15;
+    const totalPages = Math.ceil(invoices.length / pageSize);
+
+    const displayedInvoices = useMemo(() => {
+        if (showAll || invoices.length <= pageSize) return invoices;
+        return invoices.slice((page - 1) * pageSize, page * pageSize);
+    }, [invoices, page, pageSize, showAll]);
+
+    return (
+        <div className="border-t border-border bg-card/40 animate-in fade-in-50 duration-150">
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-muted/30">
+                        <TableHead className="text-xs">Número / Recibo</TableHead>
+                        <TableHead className="text-xs">Unidad / Propietario</TableHead>
+                        <TableHead className="text-xs">Alícuota</TableHead>
+                        <TableHead className="text-xs">Período</TableHead>
+                        <TableHead className="text-xs">Monto ($ USD)</TableHead>
+                        <TableHead className="text-xs">Progreso</TableHead>
+                        <TableHead className="text-xs">Estado</TableHead>
+                        <TableHead className="text-xs text-right">Acciones</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {displayedInvoices.map((invoice) => {
+                        const progress =
+                            invoice.amount > 0
+                                ? (invoice.paid_amount / invoice.amount) * 100
+                                : 0;
+                        const coprop = getGranadaCoproprietor(invoice.unit?.name || '');
+                        const unitDisplayName = coprop
+                            ? `Apartamento ${coprop.apto}`
+                            : invoice.unit?.name || 'Unidad desconocida';
+                        const ownerDisplayName =
+                            invoice.user?.name || coprop?.propietario || 'Copropietario';
+                        const aliquotVal =
+                            coprop?.aliquot ?? (invoice.unit?.aliquot || 0);
+
+                        return (
+                            <TableRow
+                                key={invoice.id}
+                                className="cursor-pointer group hover:bg-muted/40"
+                                onClick={() => onSelectInvoice(invoice.id)}
+                            >
+                                <TableCell className="font-mono text-xs">
+                                    {invoice.number || invoice.receipt_number || '--'}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="font-semibold text-xs group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                        {unitDisplayName}
+                                        {coprop && (
+                                            <span className="text-[10px] text-muted-foreground font-normal">
+                                                ({invoice.unit?.name})
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                        {ownerDisplayName}
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-xs font-mono text-muted-foreground">
+                                    {aliquotVal > 0 ? `${aliquotVal.toFixed(4)}%` : '--'}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground tabular-nums">
+                                    {invoice.period ||
+                                        (invoice.year && invoice.month
+                                            ? `${invoice.year}-${String(invoice.month).padStart(2, '0')}`
+                                            : '--')}
+                                </TableCell>
+                                <TableCell className="tabular-nums">
+                                    <div className="font-semibold text-xs">
+                                        {formatCurrency(invoice.amount)}
+                                    </div>
+                                    {invoice.paid_amount > 0 &&
+                                        invoice.paid_amount < invoice.amount && (
+                                            <div className="text-[10px] text-chart-1">
+                                                Pagado: {formatCurrency(invoice.paid_amount)}
+                                            </div>
+                                        )}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="w-20">
+                                        <Progress value={progress} className="h-1.5" />
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
+                                        {Math.round(progress)}%
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <StatusBadge status={invoice.status} />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                        {invoice.status === 'PAID' && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onOpenReceipt(invoice);
+                                                }}
+                                                title="Descargar Factura / Recibo Oficial"
+                                                className="h-8 px-2 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 hover:bg-emerald-500/10 font-semibold"
+                                            >
+                                                <Receipt className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Recibo
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onOpenAviso(invoice);
+                                            }}
+                                            title="Ver Aviso de Cobro"
+                                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Printer className="h-3.5 w-3.5 mr-1" /> Aviso
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelectInvoice(invoice.id);
+                                            }}
+                                            className="h-8 px-2 text-xs"
+                                        >
+                                            <Eye className="h-3.5 w-3.5 mr-1" /> Ver
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+            {invoices.length > pageSize && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3 border-t border-border/60 text-xs text-muted-foreground bg-muted/20">
+                    <div className="flex items-center gap-2">
+                        <span>
+                            {showAll
+                                ? `Mostrando todas las ${invoices.length} facturas`
+                                : `Mostrando ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, invoices.length)} de ${invoices.length}`}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowAll(!showAll)}
+                            className="h-6 text-[11px] px-2 text-primary hover:text-primary/80 font-medium"
+                        >
+                            {showAll ? 'Paginar (15 por pág)' : 'Ver todas'}
+                        </Button>
+                    </div>
+                    {!showAll && totalPages > 1 && (
+                        <div className="flex items-center gap-1.5">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === 1}
+                                onClick={() => setPage((p) => p - 1)}
+                                className="h-6 px-2 text-xs"
+                            >
+                                Anterior
+                            </Button>
+                            <span className="tabular-nums">
+                                Página {page} de {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === totalPages}
+                                onClick={() => setPage((p) => p + 1)}
+                                className="h-6 px-2 text-xs"
+                            >
+                                Siguiente
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
