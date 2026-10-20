@@ -182,9 +182,10 @@ export default function BuildingBillingPage() {
         }
 
         const target = filterBudget.toLowerCase().trim();
+        const isEarthquakeOrRepairsTarget = /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(target);
 
         return invoices.filter((inv) => {
-            const parsed = parseBudgetFromDescription(inv.description);
+            const parsed = parseBudgetFromDescription(inv.description, inv);
             const groupKey = parsed.title.toLowerCase().replace(/[^a-z0-9]/g, '-');
             const targetKey = target.replace(/[^a-z0-9]/g, '-');
 
@@ -192,9 +193,14 @@ export default function BuildingBillingPage() {
             if (parsed.title.toLowerCase() === target) return true;
             if (inv.description && inv.description.toLowerCase().includes(target)) return true;
 
-            // Specifically handle terremoto
-            if (target.includes('terremoto') && inv.description && /terremoto/i.test(inv.description)) {
-                return true;
+            // Specifically handle terremoto and reparaciones mayores / pintura interchangeably
+            if (isEarthquakeOrRepairsTarget) {
+                if (inv.description && /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(inv.description)) {
+                    return true;
+                }
+                if (/terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(parsed.title)) {
+                    return true;
+                }
             }
 
             return false;

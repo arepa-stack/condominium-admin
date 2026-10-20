@@ -31,7 +31,32 @@ export const billingService = {
             `${P}/billing/invoices`,
             { params: { limit: 'all', ...params } },
         );
-        return mapPaginatedResponse<Invoice>(data).data;
+        const invoices = mapPaginatedResponse<Invoice>(data).data;
+
+        // If the backend list endpoint omits description, enrich in parallel chunks
+        if (invoices.length > 0 && invoices.some((inv) => inv.description === undefined)) {
+            const chunkSize = 15;
+            for (let i = 0; i < invoices.length; i += chunkSize) {
+                const chunk = invoices.slice(i, i + chunkSize);
+                await Promise.all(
+                    chunk.map(async (inv) => {
+                        if (inv.description !== undefined) return;
+                        try {
+                            const detail = await apiClient.get<Invoice>(`${P}/billing/invoices/${inv.id}`);
+                            if (detail.data) {
+                                if (detail.data.description !== undefined) inv.description = detail.data.description;
+                                if (detail.data.due_date && !inv.due_date) inv.due_date = detail.data.due_date;
+                                if (detail.data.receipt_number && !inv.receipt_number) inv.receipt_number = detail.data.receipt_number;
+                            }
+                        } catch {
+                            // Non-fatal if detail call fails
+                        }
+                    })
+                );
+            }
+        }
+
+        return invoices;
     },
 
     async getInvoicesPaginated(
