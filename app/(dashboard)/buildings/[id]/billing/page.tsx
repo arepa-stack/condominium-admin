@@ -104,10 +104,9 @@ export default function BuildingBillingPage() {
         try {
             setIsLoading(true);
 
-            // Build query params
+            // Build query params: status is filtered client-side so partial payments and totals are always accurate
             const query: Parameters<typeof billingService.getInvoices>[0] = { building_id: buildingId };
             if (filterUnitId && filterUnitId !== 'all') query.unit_id = filterUnitId;
-            if (filterStatus && filterStatus !== 'all') query.status = filterStatus;
             if (filterYear) query.year = parseInt(filterYear);
             if (filterMonth && filterMonth !== 'all') query.month = parseInt(filterMonth);
 
@@ -128,7 +127,7 @@ export default function BuildingBillingPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [buildingId, filterUnitId, filterStatus, filterYear, filterMonth]);
+    }, [buildingId, filterUnitId, filterYear, filterMonth]);
 
     useEffect(() => {
         fetchData();
@@ -175,37 +174,96 @@ export default function BuildingBillingPage() {
         setCurrentPage(1);
     }, [filterUnitId, filterBudget, filterStatus, filterYear, filterMonth]);
 
-    // Filter invoices by selected budget
+    // Filter invoices by selected status and budget
     const filteredInvoices = useMemo(() => {
-        if (!filterBudget || filterBudget === 'all') {
-            return invoices;
+        let result = invoices;
+
+        // 1. Status filter
+        if (filterStatus && filterStatus !== 'all') {
+            if (filterStatus === 'PAID') {
+                // Pagados y Abonos: any invoice with payment registered (PAID, PARTIAL, or paid_amount > 0)
+                result = result.filter(
+                    (inv) =>
+                        inv.status === 'PAID' ||
+                        inv.status === 'PARTIAL' ||
+                        (inv.paid_amount && inv.paid_amount > 0)
+                );
+            } else if (filterStatus === 'PAID_FULL') {
+                result = result.filter(
+                    (inv) => inv.status === 'PAID' && inv.paid_amount >= inv.amount
+                );
+            } else if (filterStatus === 'PARTIAL') {
+                result = result.filter(
+                    (inv) =>
+                        inv.status === 'PARTIAL' ||
+                        (inv.paid_amount > 0 && inv.paid_amount < inv.amount)
+                );
+            } else if (filterStatus === 'PENDING') {
+                result = result.filter(
+                    (inv) =>
+                        inv.status === 'PENDING' &&
+                        (!inv.paid_amount || inv.paid_amount === 0)
+                );
+            } else if (filterStatus === 'CANCELLED') {
+                result = result.filter((inv) => inv.status === 'CANCELLED');
+            }
         }
 
-        const target = filterBudget.toLowerCase().trim();
-        const isEarthquakeOrRepairsTarget = /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(target);
+        // 2. Budget filter
+        if (filterBudget && filterBudget !== 'all') {
+            const target = filterBudget.toLowerCase().trim();
+            const isEarthquakeOrRepairsTarget =
+                /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(
+                    target
+                );
 
-        return invoices.filter((inv) => {
-            const parsed = parseBudgetFromDescription(inv.description, inv);
-            const groupKey = parsed.title.toLowerCase().replace(/[^a-z0-9]/g, '-');
-            const targetKey = target.replace(/[^a-z0-9]/g, '-');
+            result = result.filter((inv) => {
+                const parsed = parseBudgetFromDescription(inv.description, inv);
+                const groupKey = parsed.title
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]/g, '-');
+                const targetKey = target.replace(/[^a-z0-9]/g, '-');
 
-            if (groupKey === targetKey) return true;
-            if (parsed.title.toLowerCase() === target) return true;
-            if (inv.description && inv.description.toLowerCase().includes(target)) return true;
-
-            // Specifically handle terremoto and reparaciones mayores / pintura interchangeably
-            if (isEarthquakeOrRepairsTarget) {
-                if (inv.description && /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(inv.description)) {
+                if (groupKey === targetKey) return true;
+                if (parsed.title.toLowerCase() === target) return true;
+                if (
+                    inv.description &&
+                    inv.description.toLowerCase().includes(target)
+                )
                     return true;
-                }
-                if (/terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(parsed.title)) {
-                    return true;
-                }
-            }
 
-            return false;
+                // Specifically handle terremoto and reparaciones mayores / pintura interchangeably
+                if (isEarthquakeOrRepairsTarget) {
+                    if (
+                        inv.description &&
+                        /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(
+                            inv.description
+                        )
+                    ) {
+                        return true;
+                    }
+                    if (
+                        /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(
+                            parsed.title
+                        )
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+        }
+
+        // 3. Natural unit sort
+        return [...result].sort((a, b) => {
+            const copropA = getGranadaCoproprietor(a.unit?.name || '');
+            const copropB = getGranadaCoproprietor(b.unit?.name || '');
+            const aptoA = copropA?.apto || a.unit?.name || '';
+            const aptoB = copropB?.apto || b.unit?.name || '';
+            return aptoA.localeCompare(aptoB, undefined, { numeric: true });
         });
-    }, [invoices, filterBudget]);
+    }, [invoices, filterStatus, filterBudget]);
 
     // Group invoices based on filtered invoices
     const invoiceGroups = useMemo(() => {
@@ -385,16 +443,18 @@ export default function BuildingBillingPage() {
                             triggerIcon={FolderKanban}
                         />
                     </div>
-                    <div className="w-full md:w-36">
+                    <div className="w-full md:w-44">
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Estado" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos los estados</SelectItem>
-                                <SelectItem value="PENDING">Pendiente</SelectItem>
-                                <SelectItem value="PAID">Pagado</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelado</SelectItem>
+                                <SelectItem value="PAID">Pagados y Abonos</SelectItem>
+                                <SelectItem value="PARTIAL">Solo Abonos Parciales</SelectItem>
+                                <SelectItem value="PAID_FULL">Solo Pagados 100%</SelectItem>
+                                <SelectItem value="PENDING">Pendientes por Pagar</SelectItem>
+                                <SelectItem value="CANCELLED">Cancelados</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -559,6 +619,14 @@ export default function BuildingBillingPage() {
                                                 <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                                                     {group.paidCount} pagadas
                                                 </span>
+                                                {group.partialCount > 0 && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                                            {group.partialCount} con abono
+                                                        </span>
+                                                    </>
+                                                )}
                                                 {group.pendingCount > 0 && (
                                                     <>
                                                         <span>•</span>
