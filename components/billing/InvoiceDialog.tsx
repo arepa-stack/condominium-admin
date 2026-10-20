@@ -555,7 +555,7 @@ export function InvoiceDialog({
                                     </SelectTrigger>
                                     <SelectContent className="max-h-56">
                                         <SelectItem value="none" className="text-xs">
-                                            Ninguno (Factura individual regular / ordinaria)
+                                            Ninguno (Gasto rutinario / Factura individual ordinaria)
                                         </SelectItem>
                                         {activeBudgets.map((b) => (
                                             <SelectItem key={b.id} value={b.id} className="text-xs font-medium">
@@ -678,7 +678,16 @@ export function InvoiceDialog({
                                             <button
                                                 key={concept}
                                                 type="button"
-                                                onClick={() => form.setValue('description', concept, { shouldValidate: true })}
+                                                onClick={() => {
+                                                    form.setValue('description', concept, { shouldValidate: true });
+                                                    if (concept === 'Cisterna de agua') {
+                                                        setSelectedBudgetId('none');
+                                                        if (!form.getValues('amount')) {
+                                                            form.setValue('amount', '10.00', { shouldValidate: true });
+                                                        }
+                                                        setBudgetHint('💧 Gasto Rutinario: Suministro de agua por camión cisterna ($10.00 USD por apto). No pertenece a un presupuesto de obra.');
+                                                    }
+                                                }}
                                                 className="text-[11px] px-2 py-0.5 rounded-md border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                             >
                                                 {concept}

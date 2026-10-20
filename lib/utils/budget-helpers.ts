@@ -79,11 +79,18 @@ export function parseBudgetFromDescription(
     const detailsMatch = raw.split(/\|\s*/);
     const details = detailsMatch.length > 1 ? detailsMatch.slice(1).join(' | ').trim() : undefined;
 
+    const isWater = /cisterna/i.test(title);
     return {
       title,
-      baseBudget: !isNaN(parsedBase) && parsedBase > 0 ? parsedBase : (isEarthquakeOrRepairs(title) ? 3100 : undefined),
+      baseBudget: isWater
+        ? undefined
+        : !isNaN(parsedBase) && parsedBase > 0
+        ? parsedBase
+        : isEarthquakeOrRepairs(title)
+        ? 3100
+        : undefined,
       details,
-      isBudget: true,
+      isBudget: !isWater,
     };
   }
 
@@ -199,6 +206,7 @@ export function groupInvoicesByBudget(invoices: Invoice[]): BudgetInvoiceGroup[]
 
 /**
  * Extracts active budget options from existing invoices and decisions.
+ * Filters out routine expenses (like Cisterna de agua) and unapproved proposals.
  */
 export function extractActiveBudgets(
   invoices: Invoice[],
@@ -206,9 +214,12 @@ export function extractActiveBudgets(
 ): ActiveBudgetOption[] {
   const optionsMap = new Map<string, ActiveBudgetOption>();
 
-  // 1. From existing invoice campaigns
+  // 1. From existing invoice campaigns (only genuine project budgets with a base budget or approved special quotas)
   for (const inv of invoices) {
     const parsed = parseBudgetFromDescription(inv.description, inv);
+    // Explicitly exclude routine operational expenses like Cisterna de agua
+    if (/cisterna/i.test(parsed.title)) continue;
+
     if (parsed.isBudget && parsed.title) {
       const key = parsed.title.toLowerCase();
       if (!optionsMap.has(key)) {
@@ -231,10 +242,18 @@ export function extractActiveBudgets(
     }
   }
 
-  // 2. From decisions in the building
+  // 2. From decisions in the building:
+  // ONLY include decisions that are RESOLVED with a winning quote AND have not already been transformed into a campaign
   for (const dec of decisions) {
-    // Include active or resolved decisions
-    if (['RECEPTION', 'VOTING', 'TIEBREAK_PENDING', 'RESOLVED'].includes(dec.status)) {
+    if (dec.status === 'RESOLVED' && dec.winner_quote_id) {
+      // Check if this decision is already represented by an existing campaign (e.g. Reparacion Columnas y vigas -> Cuota Especial: Reparaciones Mayores y Pintura)
+      const isAlreadyCovered = Array.from(optionsMap.values()).some(
+        opt =>
+          (/reparaci[oó]n.*pintura|reparaciones mayores/i.test(opt.title) && /columna|viga|reparaci[oó]n/i.test(dec.title)) ||
+          opt.title.toLowerCase() === dec.title.toLowerCase()
+      );
+      if (isAlreadyCovered) continue;
+
       const key = dec.title.toLowerCase();
       if (!optionsMap.has(key)) {
         optionsMap.set(key, {
@@ -248,13 +267,13 @@ export function extractActiveBudgets(
     }
   }
 
-  // Also include standard common concepts if not already there
-  const standardConcepts: { title: string; defaultBase?: number }[] = [
+  // 3. Fallback standard active budgets: ONLY approved special quotas with base budgets!
+  // (Cisterna is an operational routine expense, NOT a budget)
+  const standardActiveBudgets: { title: string; defaultBase: number }[] = [
     { title: 'Cuota Especial: Reparaciones Mayores y Pintura', defaultBase: 3100 },
-    { title: 'Cisterna de agua' },
   ];
 
-  for (const std of standardConcepts) {
+  for (const std of standardActiveBudgets) {
     const key = std.title.toLowerCase();
     if (!optionsMap.has(key)) {
       optionsMap.set(key, {
