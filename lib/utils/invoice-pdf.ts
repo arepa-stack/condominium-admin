@@ -85,9 +85,10 @@ export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: Invo
             details.paymentDate = dateMatch[1];
         }
 
-        const isExplicitCash = /efectivo|cash/i.test(invoice.description);
+        const hasBs = Boolean(bsMatch || /en bs|abono en bs|pagado en bs|tasa euro|tasa bcv/i.test(invoice.description));
+        const isExplicitCash = !hasBs && /efectivo|cash/i.test(invoice.description);
 
-        if (isExplicitCash) {
+        if (!hasBs && isExplicitCash) {
             details.currency = 'USD';
             details.paymentMethod = 'CASH';
             details.exchangeRate = undefined;
