@@ -23,6 +23,7 @@ export interface BudgetInvoiceGroup {
   totalAliquot: number;
   count: number;
   paidCount: number;
+  partialCount: number;
   pendingCount: number;
   progress: number;
 }
@@ -131,6 +132,7 @@ export function groupInvoicesByBudget(invoices: Invoice[]): BudgetInvoiceGroup[]
         totalAliquot: 0,
         count: 0,
         paidCount: 0,
+        partialCount: 0,
         pendingCount: 0,
         progress: 0,
       };
@@ -144,6 +146,8 @@ export function groupInvoicesByBudget(invoices: Invoice[]): BudgetInvoiceGroup[]
 
     if (invoice.status === 'PAID') {
       group.paidCount += 1;
+    } else if (invoice.status === 'PARTIAL' || (invoice.paid_amount > 0 && invoice.paid_amount < invoice.amount)) {
+      group.partialCount += 1;
     } else {
       group.pendingCount += 1;
     }
@@ -165,11 +169,19 @@ export function groupInvoicesByBudget(invoices: Invoice[]): BudgetInvoiceGroup[]
     group.totalAliquot += aliquot;
   }
 
-  // Calculate percentages and sort: budgets first, then largest invoice count
+  // Calculate percentages, sort invoices by apartment number, and sort groups: budgets first, then largest invoice count
   const result = Array.from(groupsMap.values()).map((g) => {
     const progress = g.totalAmount > 0 ? (g.totalPaid / g.totalAmount) * 100 : 0;
+    const sortedInvoices = [...g.invoices].sort((a, b) => {
+      const copropA = getGranadaCoproprietor(a.unit?.name || '');
+      const copropB = getGranadaCoproprietor(b.unit?.name || '');
+      const aptoA = copropA?.apto || a.unit?.name || '';
+      const aptoB = copropB?.apto || b.unit?.name || '';
+      return aptoA.localeCompare(aptoB, undefined, { numeric: true });
+    });
     return {
       ...g,
+      invoices: sortedInvoices,
       progress: Math.min(100, Math.round(progress * 10) / 10),
     };
   });
