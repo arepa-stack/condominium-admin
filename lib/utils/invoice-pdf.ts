@@ -28,6 +28,21 @@ export interface GenerateInvoicePdfOptions {
 /**
  * Extracts exchange rate and payment details if present in the invoice description or payment details
  */
+/**
+ * Robustly parses a Venezuelan formatted or standard decimal number string into float
+ */
+export function parseFormattedNumber(str: string): number {
+    if (!str) return 0;
+    const clean = str.trim();
+    if (clean.includes(',') && clean.includes('.')) {
+        return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    if (clean.includes(',')) {
+        return parseFloat(clean.replace(',', '.')) || 0;
+    }
+    return parseFloat(clean) || 0;
+}
+
 export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: InvoicePdfPaymentDetails): InvoicePdfPaymentDetails {
     const totalAmount = explicitDetails?.totalAmountUsd ?? invoice.amount ?? 0;
     
@@ -70,16 +85,27 @@ export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: Invo
             details.paymentDate = dateMatch[1];
         }
 
-        if (bsMatch) {
-            details.currency = 'VES';
-            details.rateType = isEuro ? 'EUR_BCV' : 'USD_BCV';
-            const rawBs = bsMatch[1].replace(/\./g, '').replace(',', '.');
-            details.amountVes = parseFloat(rawBs) || undefined;
-        }
+        const isExplicitCash = /efectivo|cash/i.test(invoice.description);
 
-        if (rateMatch) {
-            const rawRate = rateMatch[1].replace(/\./g, '').replace(',', '.');
-            details.exchangeRate = parseFloat(rawRate) || undefined;
+        if (isExplicitCash) {
+            details.currency = 'USD';
+            details.paymentMethod = 'CASH';
+            details.exchangeRate = undefined;
+            details.amountVes = undefined;
+        } else if (bsMatch) {
+            details.currency = 'VES';
+            details.paymentMethod = 'PAGO_MOVIL';
+            details.rateType = isEuro ? 'EUR_BCV' : 'USD_BCV';
+            details.amountVes = parseFormattedNumber(bsMatch[1]) || undefined;
+
+            if (rateMatch) {
+                details.exchangeRate = parseFormattedNumber(rateMatch[1]) || undefined;
+            }
+        } else {
+            details.currency = 'USD';
+            details.paymentMethod = 'CASH';
+            details.exchangeRate = undefined;
+            details.amountVes = undefined;
         }
     }
 
@@ -305,11 +331,11 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
         ? 'Tasa Dólar Oficial BCV'
         : 'Tasa Personalizada';
 
-    const methodLabel = paymentInfo.paymentMethod === 'PAGO_MOVIL'
-        ? 'Pago Móvil'
+    const methodLabel = paymentInfo.currency === 'USD' || paymentInfo.paymentMethod === 'CASH'
+        ? 'Efectivo (Dólares)'
         : paymentInfo.paymentMethod === 'TRANSFER'
         ? 'Transferencia Bancaria'
-        : 'Efectivo / Zelle';
+        : 'Pago Móvil en Bolívares';
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
@@ -335,8 +361,8 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.setTextColor(15, 23, 42);
     doc.text(paymentDateStr, margin + 172, currentY + 13);
 
-    // Row 2: Exchange rate and VES amount
-    if (paymentInfo.currency === 'VES' || paymentInfo.exchangeRate) {
+    // Row 2: Exchange rate and VES amount OR Cash confirmation
+    if (paymentInfo.currency === 'VES' && paymentInfo.exchangeRate) {
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(71, 85, 105);
         doc.text('Tasa de Cambio Aplicada:', margin + 4, currentY + 21);
@@ -355,6 +381,13 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
             ? `Bs. ${paymentInfo.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             : '--';
         doc.text(vesFormatted, margin + 155, currentY + 21);
+    } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
+        doc.text('Modalidad de Liquidación:', margin + 4, currentY + 21);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(16, 185, 129);
+        doc.text('Pago recibido íntegramente en Efectivo (Dólares USD) sin conversión cambiaria.', margin + 45, currentY + 21);
     }
 
     // Row 3: Total vs Paid vs Remaining
