@@ -66,11 +66,11 @@ export function InvoiceReceiptDialog({
         ? 'Tasa Dólar Oficial (BCV)'
         : 'Tasa Personalizada';
 
-    const methodLabel = paymentInfo.paymentMethod === 'PAGO_MOVIL'
-        ? 'Pago Móvil'
+    const methodLabel = paymentInfo.currency === 'USD' || paymentInfo.paymentMethod === 'CASH'
+        ? 'Efectivo (Dólares)'
         : paymentInfo.paymentMethod === 'TRANSFER'
         ? 'Transferencia Bancaria'
-        : 'Efectivo / Zelle';
+        : 'Pago Móvil en Bolívares';
 
     const handleDownloadPdf = () => {
         try {
@@ -238,9 +238,13 @@ export function InvoiceReceiptDialog({
                     <div className="border border-zinc-200 rounded-lg p-4 bg-slate-50 space-y-3">
                         <h3 className="text-xs font-bold tracking-wider text-slate-800 uppercase flex items-center justify-between">
                             <span>LIQUIDACIÓN DEL PAGO Y TASA DE CAMBIO APLICADA</span>
-                            {paymentInfo.currency === 'VES' && (
-                                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
-                                    Pago en Bolívares a Tasa de Cambio
+                            {paymentInfo.currency === 'VES' ? (
+                                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 font-bold">
+                                    🇻🇪 Pago en Bolívares a Tasa de Cambio
+                                </Badge>
+                            ) : (
+                                <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300 font-bold">
+                                    💵 Pago en Dólares (Efectivo)
                                 </Badge>
                             )}
                         </h3>
@@ -262,12 +266,12 @@ export function InvoiceReceiptDialog({
                             </div>
                         </div>
 
-                        {(paymentInfo.currency === 'VES' || paymentInfo.exchangeRate) && (
+                        {paymentInfo.currency === 'VES' && paymentInfo.exchangeRate ? (
                             <div className="p-3 bg-white border border-zinc-200 rounded-md grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                                 <div>
                                     <span className="text-[11px] text-zinc-500 block">Tasa de Cambio de Referencia:</span>
                                     <span className="font-bold text-sm text-slate-900 font-mono">
-                                        {rateLabel}: {paymentInfo.exchangeRate != null ? `${paymentInfo.exchangeRate.toFixed(4)} Bs.` : 'Al día'}
+                                        {rateLabel}: {paymentInfo.exchangeRate.toFixed(4)} Bs.
                                     </span>
                                 </div>
                                 <div className="text-left sm:text-right">
@@ -278,6 +282,15 @@ export function InvoiceReceiptDialog({
                                             : '--'}
                                     </span>
                                 </div>
+                            </div>
+                        ) : (
+                            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-md flex items-center justify-between mt-2">
+                                <span className="text-xs font-bold text-blue-900">
+                                    Modalidad: Pago en Efectivo (Dólares USD)
+                                </span>
+                                <span className="text-[11px] text-blue-700 font-medium">
+                                    Pago directo en divisa extranjera sin conversión cambiaria
+                                </span>
                             </div>
                         )}
 

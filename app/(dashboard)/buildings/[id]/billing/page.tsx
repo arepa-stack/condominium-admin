@@ -31,6 +31,7 @@ import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { parseFormattedNumber } from '@/lib/utils/invoice-pdf';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Paginator } from '@/components/ui/paginator';
 import {
@@ -840,6 +841,7 @@ export default function BuildingBillingPage() {
                                     <TableHead className="text-xs">Concepto</TableHead>
                                     <TableHead className="text-xs">Período</TableHead>
                                     <TableHead className="text-xs">Monto</TableHead>
+                                    <TableHead className="text-xs">Forma de Pago</TableHead>
                                     <TableHead className="text-xs">Progreso</TableHead>
                                     <TableHead className="text-xs">Estado</TableHead>
                                     <TableHead className="text-xs text-right">Acciones</TableHead>
@@ -895,6 +897,9 @@ export default function BuildingBillingPage() {
                                                         Pagado: {formatCurrency(invoice.paid_amount)}
                                                     </div>
                                                 )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <InvoicePaymentMethodBadge invoice={invoice} />
                                             </TableCell>
                                             <TableCell>
                                                 <div className="w-24">
@@ -1077,6 +1082,51 @@ interface GroupInvoicesTableProps {
     onOpenAviso: (invoice: Invoice) => void;
 }
 
+function InvoicePaymentMethodBadge({ invoice }: { invoice: Invoice }) {
+    if (!invoice.paid_amount || invoice.paid_amount <= 0) {
+        return <span className="text-[11px] text-muted-foreground/60">--</span>;
+    }
+
+    const desc = invoice.description || '';
+    const isExplicitCash = /efectivo|cash/i.test(desc);
+    const hasBs = /en bs|bs\.?\s*[0-9]|tasa/i.test(desc);
+
+    if (isExplicitCash || !hasBs) {
+        return (
+            <div className="flex flex-col items-start gap-0.5">
+                <Badge
+                    variant="outline"
+                    className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 font-semibold px-1.5 py-0.5 whitespace-nowrap"
+                >
+                    💵 Efectivo
+                </Badge>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                    ${invoice.paid_amount.toFixed(2)} USD
+                </span>
+            </div>
+        );
+    }
+
+    const rateMatch = desc.match(/Tasa[^:]*:\s*([0-9.,]+)/i);
+    const rate = rateMatch ? parseFormattedNumber(rateMatch[1]) : null;
+    const bsMatch = desc.match(/Pagado en Bs:\s*([0-9.,]+)/i) || desc.match(/Abono en Bs:\s*([0-9.,]+)/i);
+    const bsFormatted = bsMatch ? bsMatch[1] : null;
+
+    return (
+        <div className="flex flex-col items-start gap-0.5">
+            <Badge
+                variant="outline"
+                className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-semibold px-1.5 py-0.5 whitespace-nowrap"
+            >
+                🇻🇪 Bolívares
+            </Badge>
+            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[120px]" title={rate ? `Tasa: ${rate.toFixed(4)} Bs.` : bsFormatted ? `Bs. ${bsFormatted}` : undefined}>
+                {rate ? `Tasa: ${rate.toFixed(4)}` : bsFormatted ? `Bs. ${bsFormatted}` : 'BCV'}
+            </span>
+        </div>
+    );
+}
+
 function GroupInvoicesTable({
     invoices,
     onSelectInvoice,
@@ -1103,6 +1153,7 @@ function GroupInvoicesTable({
                         <TableHead className="text-xs">Alícuota</TableHead>
                         <TableHead className="text-xs">Período</TableHead>
                         <TableHead className="text-xs">Monto ($ USD)</TableHead>
+                        <TableHead className="text-xs">Forma de Pago</TableHead>
                         <TableHead className="text-xs">Progreso</TableHead>
                         <TableHead className="text-xs">Estado</TableHead>
                         <TableHead className="text-xs text-right">Acciones</TableHead>
@@ -1164,6 +1215,9 @@ function GroupInvoicesTable({
                                                 Pagado: {formatCurrency(invoice.paid_amount)}
                                             </div>
                                         )}
+                                </TableCell>
+                                <TableCell>
+                                    <InvoicePaymentMethodBadge invoice={invoice} />
                                 </TableCell>
                                 <TableCell>
                                     <div className="w-20">
