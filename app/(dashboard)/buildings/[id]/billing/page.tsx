@@ -32,6 +32,10 @@ import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { parseFormattedNumber } from '@/lib/utils/invoice-pdf';
+import {
+    generateBillingReportPDF,
+    exportBillingReportExcel,
+} from '@/lib/utils/billing-report-export';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Paginator } from '@/components/ui/paginator';
 import {
@@ -364,6 +368,36 @@ export default function BuildingBillingPage() {
         setIsInvoiceDialogOpen(true);
     };
 
+    const handleExportPDF = () => {
+        try {
+            generateBillingReportPDF({
+                buildingName: 'Residencias Granada',
+                budgetTitle: filterBudget !== 'all' ? filterBudget : 'Todos los Presupuestos',
+                statusFilterLabel,
+                invoices: filteredInvoices,
+                summary: globalSummary,
+            });
+            toast.success(`Reporte PDF generado con ${filteredInvoices.length} facturas completas`);
+        } catch (err) {
+            console.error('Error generando reporte PDF:', err);
+            toast.error('Error al generar el reporte PDF');
+        }
+    };
+
+    const handleExportExcel = () => {
+        try {
+            exportBillingReportExcel({
+                buildingName: 'Residencias Granada',
+                budgetTitle: filterBudget !== 'all' ? filterBudget : 'Todos los Presupuestos',
+                invoices: filteredInvoices,
+            });
+            toast.success(`Archivo Excel generado con ${filteredInvoices.length} facturas completas`);
+        } catch (err) {
+            console.error('Error exportando a Excel:', err);
+            toast.error('Error al exportar el archivo Excel');
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header & Main Actions */}
@@ -638,26 +672,51 @@ export default function BuildingBillingPage() {
                         )}
                     </div>
 
-                    {viewMode === 'grouped' && invoiceGroups.length > 0 && (
-                        <div className="flex gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleExpandAll}
-                                className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                Expandir todos
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleCollapseAll}
-                                className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                Colapsar todos
-                            </Button>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2 ml-auto">
+                        {viewMode === 'grouped' && invoiceGroups.length > 0 && (
+                            <div className="flex gap-1.5 mr-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleExpandAll}
+                                    className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
+                                >
+                                    Expandir todos
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCollapseAll}
+                                    className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
+                                >
+                                    Colapsar todos
+                                </Button>
+                            </div>
+                        )}
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExportPDF}
+                            disabled={filteredInvoices.length === 0}
+                            className="h-7 text-xs gap-1.5 font-medium border-rose-500/30 text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 px-2.5"
+                            title="Descargar reporte completo en PDF de todas las facturas filtradas (incluyendo todas las páginas)"
+                        >
+                            <FileText className="w-3.5 h-3.5 text-rose-600" />
+                            Reporte PDF ({filteredInvoices.length})
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExportExcel}
+                            disabled={filteredInvoices.length === 0}
+                            className="h-7 text-xs gap-1.5 font-medium border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 px-2.5"
+                            title="Exportar a Excel (CSV) todas las facturas filtradas (incluyendo todas las páginas)"
+                        >
+                            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                            Excel ({filteredInvoices.length})
+                        </Button>
+                    </div>
                 </div>
             </div>
 
