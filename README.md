@@ -1,4 +1,4 @@
-# Condominio Admin Panel
+# Condominio Admin Panel V.1
 
 A modern, minimalist admin panel for managing condominium payments, buildings, and users. Built with Next.js 14, TypeScript, Tailwind CSS, and shadcn/ui.
 
