@@ -163,12 +163,20 @@ export default function BuildingBillingPage() {
     }, [invoices]);
 
     const budgetOptions = useMemo(() => [
-        { value: 'all', label: 'Todos los presupuestos / conceptos' },
-        ...availableBudgets.map((b) => ({
-            value: b.title,
-            label: `${b.title} (${b.count} facturas)`,
-            icon: b.isBudget ? Calculator : FolderKanban,
-        })),
+        { value: 'all', label: 'Todos los cobros y conceptos' },
+        ...availableBudgets.map((b) => {
+            const isWater = /cisterna/i.test(b.title);
+            const prefix = b.isBudget
+                ? '🏗️ Presupuesto:'
+                : isWater
+                ? '💧 Gasto Rutinario:'
+                : '📋 Concepto:';
+            return {
+                value: b.title,
+                label: `${prefix} ${b.title} (${b.count} facturas)`,
+                icon: b.isBudget ? Calculator : isWater ? Droplets : FolderKanban,
+            };
+        }),
     ], [availableBudgets]);
 
     const unitFilterOptions = useMemo(() => [
@@ -459,12 +467,14 @@ export default function BuildingBillingPage() {
 
                 <Card className="border-border/60 bg-primary/5 border-primary/20 p-4 space-y-1">
                     <span className="text-[11px] font-medium text-primary uppercase tracking-wider block">
-                        Presupuestos Activos
+                        Presupuesto de Obra
                     </span>
                     <span className="text-xl font-bold font-mono text-foreground">
-                        {invoiceGroups.filter((g) => g.isBudget).length || invoiceGroups.length}
+                        {invoiceGroups.filter((g) => g.isBudget && g.baseBudget).length || 1}
                     </span>
-                    <span className="text-[10px] text-muted-foreground block">Campañas registradas</span>
+                    <span className="text-[10px] text-muted-foreground block truncate">
+                        Cuota Especial (Reparaciones y Pintura)
+                    </span>
                 </Card>
             </div>
 
@@ -750,9 +760,18 @@ export default function BuildingBillingPage() {
                                                 <h3 className="font-bold text-base font-display text-foreground truncate">
                                                     {group.title}
                                                 </h3>
-                                                {group.baseBudget && (
+                                                {group.baseBudget && group.isBudget ? (
                                                     <Badge className="bg-primary/15 text-primary border-primary/30 font-mono text-[11px]">
-                                                        Presupuesto: ${group.baseBudget.toFixed(2)} USD
+                                                        Presupuesto de Obra: ${group.baseBudget.toFixed(2)} USD
+                                                    </Badge>
+                                                ) : isWater ? (
+                                                    <Badge variant="outline" className="bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 font-medium text-[11px] gap-1">
+                                                        <Droplets className="w-3 h-3 text-sky-500" />
+                                                        Gasto Rutinario (Agua)
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="bg-muted text-muted-foreground text-[11px]">
+                                                        Gasto Operativo
                                                     </Badge>
                                                 )}
                                                 {isAllPaid && (
@@ -823,7 +842,7 @@ export default function BuildingBillingPage() {
                                                     title="Agregar una factura individual a este presupuesto"
                                                 >
                                                     <Plus className="h-3.5 w-3.5" />
-                                                    <span className="hidden sm:inline">Agregar Factura</span>
+                                                    <span className="hidden sm:inline">{isWater ? '+ Cobro Cisterna' : '+ Factura a Presupuesto'}</span>
                                                 </Button>
                                             )}
 
