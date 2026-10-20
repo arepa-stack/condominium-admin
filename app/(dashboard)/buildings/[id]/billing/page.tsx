@@ -30,6 +30,7 @@ import { GenerateByAliquotDialog } from '@/components/billing/GenerateByAliquotD
 import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
+import { ExportBillingReportDialog } from '@/components/billing/ExportBillingReportDialog';
 import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { parseFormattedNumber } from '@/lib/utils/invoice-pdf';
 import {
@@ -93,6 +94,8 @@ export default function BuildingBillingPage() {
     const [isAvisoOpen, setIsAvisoOpen] = useState(false);
     const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
     const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+    const [isExportReportDialogOpen, setIsExportReportDialogOpen] = useState(false);
+    const [exportDialogFormat, setExportDialogFormat] = useState<'pdf' | 'excel'>('pdf');
 
     // Active budget to attach when creating invoice from a specific group
     const [selectedBudgetForNewInvoice, setSelectedBudgetForNewInvoice] = useState<ActiveBudgetOption | null>(null);
@@ -368,34 +371,9 @@ export default function BuildingBillingPage() {
         setIsInvoiceDialogOpen(true);
     };
 
-    const handleExportPDF = () => {
-        try {
-            generateBillingReportPDF({
-                buildingName: 'Residencias Granada',
-                budgetTitle: filterBudget !== 'all' ? filterBudget : 'Todos los Presupuestos',
-                statusFilterLabel,
-                invoices: filteredInvoices,
-                summary: globalSummary,
-            });
-            toast.success(`Reporte PDF generado con ${filteredInvoices.length} facturas completas`);
-        } catch (err) {
-            console.error('Error generando reporte PDF:', err);
-            toast.error('Error al generar el reporte PDF');
-        }
-    };
-
-    const handleExportExcel = () => {
-        try {
-            exportBillingReportExcel({
-                buildingName: 'Residencias Granada',
-                budgetTitle: filterBudget !== 'all' ? filterBudget : 'Todos los Presupuestos',
-                invoices: filteredInvoices,
-            });
-            toast.success(`Archivo Excel generado con ${filteredInvoices.length} facturas completas`);
-        } catch (err) {
-            console.error('Error exportando a Excel:', err);
-            toast.error('Error al exportar el archivo Excel');
-        }
+    const handleOpenExportDialog = (format: 'pdf' | 'excel' = 'pdf') => {
+        setExportDialogFormat(format);
+        setIsExportReportDialogOpen(true);
     };
 
     return (
@@ -697,7 +675,7 @@ export default function BuildingBillingPage() {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleExportPDF}
+                            onClick={() => handleOpenExportDialog('pdf')}
                             disabled={filteredInvoices.length === 0}
                             className="h-7 text-xs gap-1.5 font-medium border-rose-500/30 text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 px-2.5"
                             title="Descargar reporte completo en PDF de todas las facturas filtradas (incluyendo todas las páginas)"
@@ -708,7 +686,7 @@ export default function BuildingBillingPage() {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleExportExcel}
+                            onClick={() => handleOpenExportDialog('excel')}
                             disabled={filteredInvoices.length === 0}
                             className="h-7 text-xs gap-1.5 font-medium border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 px-2.5"
                             title="Exportar a Excel (CSV) todas las facturas filtradas (incluyendo todas las páginas)"
@@ -1112,6 +1090,17 @@ export default function BuildingBillingPage() {
                     receiptInvoice?.unit ||
                     units.find((u) => u.id === receiptInvoice?.unit_id)
                 }
+            />
+
+            <ExportBillingReportDialog
+                open={isExportReportDialogOpen}
+                onOpenChange={setIsExportReportDialogOpen}
+                buildingName="Residencias Granada"
+                budgetTitle={filterBudget !== 'all' ? filterBudget : 'Todos los Presupuestos'}
+                statusFilterLabel={statusFilterLabel}
+                invoices={filteredInvoices}
+                summary={globalSummary}
+                defaultFormat={exportDialogFormat}
             />
 
             <GenerateByAliquotDialog
