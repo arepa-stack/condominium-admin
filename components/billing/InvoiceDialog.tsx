@@ -45,6 +45,8 @@ import {
     type ActiveBudgetOption,
 } from '@/lib/utils/budget-helpers';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import {
     Building2,
     Home,
@@ -60,8 +62,6 @@ import {
     FolderKanban,
     Coins,
     RefreshCw,
-    Download,
-    ArrowRight,
 } from 'lucide-react';
 import type { Unit, Building, BillingDebtPayload, Invoice, Decision, RateSet } from '@/types/models';
 import type { InvoicePdfPaymentDetails } from '@/lib/utils/invoice-pdf';
@@ -182,6 +182,24 @@ export function InvoiceDialog({
     const activeBudgets = useMemo(() => {
         return extractActiveBudgets(existingInvoices, decisions);
     }, [existingInvoices, decisions]);
+
+    // Unit options formatted with Apto number, code, and coproprietor for easy autocomplete
+    const unitOptions = useMemo(() => {
+        return units.map((unit) => {
+            const coprop = getGranadaCoproprietor(unit.name);
+            const unitLabel = coprop
+                ? `Apartamento ${coprop.apto} (${unit.name}) - ${coprop.propietario}`
+                : `Apartamento ${unit.name}${unit.floor ? ` (Piso ${unit.floor})` : ''}`;
+            const aliquotVal = coprop?.aliquot ?? unit.aliquot;
+            const aliquotPart = aliquotVal ? ` [${aliquotVal.toFixed(4)}%]` : '';
+
+            return {
+                value: unit.id,
+                label: `${unitLabel}${aliquotPart}`,
+                icon: Home,
+            };
+        });
+    }, [units]);
 
     // Fetch rates whenever payment date changes or dialog opens
     const fetchRates = useCallback(async (dateStr?: string) => {
@@ -403,7 +421,6 @@ export function InvoiceDialog({
             // If it was marked as paid, provide immediate receipt download/view option
             if (values.is_paid) {
                 const selectedUnitObj = units.find(u => u.id === values.unit_id);
-                const selectedBuildingObj = buildings.find(b => b.id === (values.building_id || propBuildingId));
 
                 const invoiceWithUnit: Invoice = {
                     ...createdInvoice,
@@ -451,9 +468,10 @@ export function InvoiceDialog({
             });
             setSelectedBudgetId('none');
             setBudgetHint(null);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to create invoice', error);
-            toast.error(error.response?.data?.message || 'Error al crear la factura');
+            const err = error as { response?: { data?: { message?: string } } };
+            toast.error(err.response?.data?.message || 'Error al crear la factura');
         }
     };
 
@@ -563,7 +581,7 @@ export function InvoiceDialog({
                                 )}
                             </div>
 
-                            {/* Unit Selector */}
+                            {/* Unit Selector (Autocomplete) */}
                             <FormField
                                 control={form.control}
                                 name="unit_id"
@@ -573,38 +591,27 @@ export function InvoiceDialog({
                                             <Home className="h-4 w-4 text-muted-foreground" />
                                             Unidad / Apartamento <span className="text-destructive">*</span>
                                         </FormLabel>
-                                        <Select
-                                            disabled={!selectedBuildingId || !!initialUnitId || isLoadingUnits}
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger className="bg-background/50 border-border/50 text-xs">
-                                                    <SelectValue placeholder={
-                                                        !selectedBuildingId
-                                                            ? "Primero seleccioná un edificio"
-                                                            : isLoadingUnits
-                                                                ? "Cargando unidades..."
-                                                                : "Seleccioná una unidad"
-                                                    } />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent className="max-h-56">
-                                                {units.length === 0 ? (
-                                                    <SelectItem value="none" disabled className="text-xs">No se encontraron unidades</SelectItem>
-                                                ) : (
-                                                    units.map((unit) => (
-                                                        <SelectItem key={unit.id} value={unit.id} className="text-xs">
-                                                            <div className="flex items-center gap-2">
-                                                                <Home className="h-4 w-4 text-primary" />
-                                                                Apartamento {unit.name} {unit.floor ? `(Piso ${unit.floor})` : ''}
-                                                                {unit.aliquot ? ` - ${unit.aliquot}%` : ''}
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))
-                                                )}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={unitOptions}
+                                                value={field.value}
+                                                onValueChange={(val) => {
+                                                    field.onChange(val);
+                                                }}
+                                                placeholder={
+                                                    !selectedBuildingId
+                                                        ? "Primero seleccioná un edificio"
+                                                        : isLoadingUnits
+                                                            ? "Cargando unidades..."
+                                                            : "Escribí o seleccioná unidad (ej. 2-3, 23, propietario)..."
+                                                }
+                                                searchPlaceholder="Buscar por número (ej. 2-3, 23) o nombre..."
+                                                emptyText="No se encontraron unidades"
+                                                disabled={!selectedBuildingId || !!initialUnitId || isLoadingUnits}
+                                                triggerIcon={Home}
+                                                clearValue=""
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

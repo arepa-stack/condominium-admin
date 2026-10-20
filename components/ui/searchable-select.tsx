@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Check, LucideIcon, X, ChevronDown } from 'lucide-react';
+import { Check, LucideIcon, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SearchableSelectProps {
@@ -17,6 +15,7 @@ interface SearchableSelectProps {
     className?: string;
     disabled?: boolean;
     triggerIcon?: LucideIcon;
+    clearValue?: string;
 }
 
 export function SearchableSelect({
@@ -29,11 +28,16 @@ export function SearchableSelect({
     className,
     disabled = false,
     triggerIcon: TriggerIcon,
+    clearValue,
 }: SearchableSelectProps) {
     const [open, setOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeIndex, setActiveIndex] = useState(-1);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    const defaultClearValue = clearValue !== undefined
+        ? clearValue
+        : (options.some((opt) => opt.value === 'all') ? 'all' : '');
 
     const selectedOption = useMemo(
         () => options.find((opt) => opt.value === value),
@@ -41,10 +45,19 @@ export function SearchableSelect({
     );
 
     const filteredOptions = useMemo(() => {
-        const query = searchQuery.toLowerCase();
-        return options.filter((opt) =>
-            opt.label.toLowerCase().includes(query)
-        );
+        const query = searchQuery.toLowerCase().trim();
+        if (!query) return options;
+        const cleanQuery = query.replace(/[-\s]/g, '');
+
+        return options.filter((opt) => {
+            const labelLower = opt.label.toLowerCase();
+            if (labelLower.includes(query)) return true;
+            if (cleanQuery.length > 0) {
+                const cleanLabel = labelLower.replace(/[-\s]/g, '');
+                if (cleanLabel.includes(cleanQuery)) return true;
+            }
+            return false;
+        });
     }, [options, searchQuery]);
 
     const handleSelect = (val: string) => {
@@ -109,7 +122,7 @@ export function SearchableSelect({
                         TriggerIcon && "pl-9",
                         "pr-10" // Space for chevron/clear
                     )}
-                    placeholder={selectedOption ? selectedOption.label : placeholder}
+                    placeholder={open ? searchPlaceholder : (selectedOption ? selectedOption.label : placeholder)}
                     value={open ? searchQuery : (selectedOption?.label || '')}
                     onChange={(e) => {
                         setSearchQuery(e.target.value);
@@ -124,11 +137,12 @@ export function SearchableSelect({
                     disabled={disabled}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    {value !== 'all' && value !== '' && !open && (
+                    {value !== defaultClearValue && value !== '' && !open && (
                         <button
+                            type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                handleSelect('all');
+                                handleSelect(defaultClearValue);
                             }}
                             className="text-muted-foreground hover:text-foreground p-0.5"
                         >
