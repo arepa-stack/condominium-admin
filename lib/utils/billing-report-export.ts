@@ -44,8 +44,8 @@ function getPaymentMethodInfo(invoice: Invoice) {
     }
 
     const desc = invoice.description || '';
-    const isExplicitCash = /efectivo|cash/i.test(desc);
-    const hasBs = /en bs|bs\.?\s*[0-9]|tasa/i.test(desc);
+    const hasBs = /en bs|abono en bs|pagado en bs|bs\.?\s*[0-9]|tasa\s*(euro|bcv)?/i.test(desc);
+    const isExplicitCash = !hasBs && /efectivo|cash/i.test(desc);
 
     if (isExplicitCash || !hasBs) {
         return {
