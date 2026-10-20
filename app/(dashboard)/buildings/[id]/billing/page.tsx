@@ -909,7 +909,7 @@ export default function BuildingBillingPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-1">
-                                                    {invoice.status === 'PAID' && (
+                                                    {(invoice.status === 'PAID' || invoice.status === 'PARTIAL' || (invoice.paid_amount && invoice.paid_amount > 0)) && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -1044,6 +1044,10 @@ export default function BuildingBillingPage() {
                 onOpenChange={setIsReceiptOpen}
                 invoice={receiptInvoice}
                 buildingName="Edificio Granada"
+                unit={
+                    receiptInvoice?.unit ||
+                    units.find((u) => u.id === receiptInvoice?.unit_id)
+                }
             />
 
             <GenerateByAliquotDialog
@@ -1174,7 +1178,7 @@ function GroupInvoicesTable({
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-1">
-                                        {invoice.status === 'PAID' && (
+                                        {(invoice.status === 'PAID' || invoice.status === 'PARTIAL' || (invoice.paid_amount && invoice.paid_amount > 0)) && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"

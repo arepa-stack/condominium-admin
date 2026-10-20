@@ -34,10 +34,10 @@ export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: Invo
     // Determine actual paid amount in USD
     let paidAmount = explicitDetails?.paidAmountUsd;
     if (paidAmount === undefined) {
-        if (invoice.status === 'PAID') {
-            paidAmount = totalAmount;
-        } else if (invoice.paid_amount !== undefined && invoice.paid_amount > 0) {
+        if (invoice.paid_amount !== undefined && invoice.paid_amount > 0) {
             paidAmount = invoice.paid_amount;
+        } else if (invoice.status === 'PAID') {
+            paidAmount = totalAmount;
         } else {
             paidAmount = totalAmount;
         }
@@ -63,8 +63,12 @@ export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: Invo
         const bsMatch = invoice.description.match(/Pagado en Bs:\s*([0-9.,]+)/i) || 
                         invoice.description.match(/Abono en Bs:\s*([0-9.,]+)/i) ||
                         invoice.description.match(/Bs\.?\s*([0-9.,]+)/i);
-        const rateMatch = invoice.description.match(/Tasa\s*(?:EUR|Euro|USD|Dólar)?:\s*([0-9.,]+)/i);
+        const rateMatch = invoice.description.match(/Tasa[^:]*:\s*([0-9.,]+)/i);
         const isEuro = /euro|eur/i.test(invoice.description);
+        const dateMatch = invoice.description.match(/Fecha:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/i);
+        if (dateMatch && !explicitDetails?.paymentDate) {
+            details.paymentDate = dateMatch[1];
+        }
 
         if (bsMatch) {
             details.currency = 'VES';
