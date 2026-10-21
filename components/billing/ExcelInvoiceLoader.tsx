@@ -149,7 +149,7 @@ export function ExcelInvoiceLoader({
                 if (!val) resetState();
             }
         }}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-2">
                     <DialogTitle className="flex items-center gap-2">
                         <FileSpreadsheet className="h-5 w-5 text-green-600" />
