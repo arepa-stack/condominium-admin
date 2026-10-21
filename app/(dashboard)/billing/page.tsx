@@ -151,7 +151,7 @@ export default function BillingPage() {
                             className="gap-2 border-chart-1/30 text-chart-1 hover:bg-chart-1/10"
                         >
                             <FileSpreadsheet className="h-4 w-4" />
-                            Importar Excel
+                            Importar Excel / PDF
                         </Button>
                         <Button onClick={() => setIsInvoiceDialogOpen(true)} className="gap-2">
                             <Plus className="h-4 w-4" />

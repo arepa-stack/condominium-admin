@@ -97,6 +97,7 @@ interface RawProposedInvoice {
     issueDate?: string;
     receipt_number?: string;
     receiptNumber?: string;
+    description?: string;
     unit_id?: string;
     unitId?: string;
     warning?: string;
@@ -125,6 +126,7 @@ function mapProposedInvoice(raw: RawProposedInvoice): ProposedInvoice {
         period: raw.period,
         issueDate: raw.issue_date ?? raw.issueDate ?? '',
         receiptNumber: raw.receipt_number ?? raw.receiptNumber ?? '',
+        description: raw.description,
         warning: raw.warning,
         status: raw.status,
     };
@@ -137,6 +139,7 @@ export function proposedInvoiceToBody(inv: ProposedInvoice): Record<string, unkn
         period: inv.period,
         issue_date: inv.issueDate,
         receipt_number: inv.receiptNumber,
+        ...(inv.description ? { description: inv.description } : {}),
         ...(inv.warning ? { warning: inv.warning } : {}),
         status: inv.status,
     };

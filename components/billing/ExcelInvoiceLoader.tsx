@@ -26,6 +26,13 @@ import { formatCurrency } from '@/lib/utils/format';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, X, Building2 } from 'lucide-react';
 import type { ProposedInvoice, PreviewInvoicesResponse, Building } from '@/types/models';
 
+const SUPPORTED_EXTENSIONS = ['.xlsx', '.pdf'];
+
+function isSupportedFile(file: File): boolean {
+    const name = file.name.toLowerCase();
+    return SUPPORTED_EXTENSIONS.some(ext => name.endsWith(ext));
+}
+
 interface ExcelInvoiceLoaderProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -66,11 +73,11 @@ export function ExcelInvoiceLoader({
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            if (selectedFile.name.endsWith('.xlsx')) {
+            if (isSupportedFile(selectedFile)) {
                 setFile(selectedFile);
                 handlePreview(selectedFile);
             } else {
-                toast.error('Solo se permiten archivos .xlsx');
+                toast.error('Solo se permiten archivos .xlsx o .pdf');
             }
         }
     };
@@ -126,11 +133,11 @@ export function ExcelInvoiceLoader({
         e.stopPropagation();
         const droppedFile = e.dataTransfer.files?.[0];
         if (droppedFile) {
-            if (droppedFile.name.endsWith('.xlsx')) {
+            if (isSupportedFile(droppedFile)) {
                 setFile(droppedFile);
                 handlePreview(droppedFile);
             } else {
-                toast.error('Solo se permiten archivos .xlsx');
+                toast.error('Solo se permiten archivos .xlsx o .pdf');
             }
         }
     };
@@ -146,10 +153,10 @@ export function ExcelInvoiceLoader({
                 <DialogHeader className="p-6 pb-2">
                     <DialogTitle className="flex items-center gap-2">
                         <FileSpreadsheet className="h-5 w-5 text-green-600" />
-                        Carga Masiva desde Excel
+                        Carga Masiva desde Excel o PDF
                     </DialogTitle>
                     <DialogDescription>
-                        Sube un archivo Excel para crear múltiples facturas y unidades automáticamente.
+                        Sube un archivo Excel, o el PDF de avisos de cobro de la administradora (un aviso por página), para crear múltiples facturas y unidades automáticamente.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -194,7 +201,7 @@ export function ExcelInvoiceLoader({
                                     type="file"
                                     ref={fileInputRef}
                                     onChange={handleFileChange}
-                                    accept=".xlsx"
+                                    accept=".xlsx,.pdf"
                                     className="hidden"
                                     disabled={!selectedBuildingId}
                                 />
@@ -207,7 +214,7 @@ export function ExcelInvoiceLoader({
                                 </div>
                                 <div className="text-center">
                                     <p className="text-lg font-medium">Click o arrastra para subir</p>
-                                    <p className="text-sm text-muted-foreground">Solo archivos Excel (.xlsx)</p>
+                                    <p className="text-sm text-muted-foreground">Archivos Excel (.xlsx) o PDF (.pdf)</p>
                                 </div>
                             </div>
                         </div>

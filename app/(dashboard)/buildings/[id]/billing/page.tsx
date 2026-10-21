@@ -410,7 +410,7 @@ export default function BuildingBillingPage() {
                             className="gap-2 border-chart-1/30 text-chart-1 hover:bg-chart-1/10 text-xs"
                         >
                             <FileSpreadsheet className="h-4 w-4" />
-                            Importar Excel
+                            Importar Excel / PDF
                         </Button>
                         <Button
                             onClick={() => setIsAliquotDialogOpen(true)}

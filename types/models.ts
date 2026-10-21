@@ -275,6 +275,7 @@ export interface ProposedInvoice {
   period: string; // Formato YYYY-MM
   issueDate: string;
   receiptNumber: string;
+  description?: string;
   warning?: string;
   status: "EXISTS" | "TO_BE_CREATED";
 }
