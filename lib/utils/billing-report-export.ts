@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency, formatDate } from './format';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo } from '@/lib/utils/unit-display';
 import { parseFormattedNumber } from './invoice-pdf';
 import type { Invoice } from '@/types/models';
 
@@ -154,9 +154,9 @@ export function generateBillingReportPDF({
     if (hideSensitiveData) {
         // --- MODE: PUBLIC / BULLETIN BOARD (ONLY APARTMENT NUMBER, NO NAMES) ---
         const tableData = invoices.map((inv) => {
-            const coprop = getGranadaCoproprietor(inv.unit?.name || '');
-            const apto = coprop?.apto ? `Apto ${coprop.apto}` : (inv.unit?.name ? `Apto ${inv.unit.name}` : '--');
-            const aliquot = coprop?.aliquot ? `${coprop.aliquot.toFixed(4)}%` : '--';
+            const unitInfo = getUnitInfo(inv.unit, inv.user);
+            const apto = unitInfo.unitName ? `Apto ${unitInfo.unitName}` : '--';
+            const aliquot = unitInfo.aliquot ? `${unitInfo.aliquot.toFixed(4)}%` : '--';
             const payment = getPaymentMethodInfo(inv);
             const remaining = Math.max(0, (inv.amount || 0) - (inv.paid_amount || 0));
             const progressPct = inv.amount > 0 ? Math.round(((inv.paid_amount || 0) / inv.amount) * 100) : 0;
@@ -241,10 +241,10 @@ export function generateBillingReportPDF({
     } else {
         // --- MODE: ADMINISTRATIVE COMPLETE (INCLUDES COPROPRIETOR NAMES) ---
         const tableData = invoices.map((inv) => {
-            const coprop = getGranadaCoproprietor(inv.unit?.name || '');
-            const apto = coprop?.apto ? `Apto ${coprop.apto}` : (inv.unit?.name || '--');
-            const propietario = inv.user?.name || coprop?.propietario || 'Copropietario';
-            const aliquot = coprop?.aliquot ? `${coprop.aliquot.toFixed(4)}%` : '--';
+            const unitInfo = getUnitInfo(inv.unit, inv.user);
+            const apto = unitInfo.unitName ? `Apto ${unitInfo.unitName}` : '--';
+            const propietario = unitInfo.ownerName || 'Copropietario';
+            const aliquot = unitInfo.aliquot ? `${unitInfo.aliquot.toFixed(4)}%` : '--';
             const payment = getPaymentMethodInfo(inv);
             const remaining = Math.max(0, (inv.amount || 0) - (inv.paid_amount || 0));
             const progressPct = inv.amount > 0 ? Math.round(((inv.paid_amount || 0) / inv.amount) * 100) : 0;
@@ -368,9 +368,9 @@ export function exportBillingReportExcel({
         ];
 
         rows = invoices.map((inv) => {
-            const coprop = getGranadaCoproprietor(inv.unit?.name || '');
-            const apto = coprop?.apto ? `Apto ${coprop.apto}` : (inv.unit?.name ? `Unidad ${inv.unit.name}` : '');
-            const aliquot = coprop?.aliquot ? coprop.aliquot.toFixed(6) : '';
+            const unitInfo = getUnitInfo(inv.unit, inv.user);
+            const apto = unitInfo.unitName ? `Apto ${unitInfo.unitName}` : '';
+            const aliquot = unitInfo.aliquot ? unitInfo.aliquot.toFixed(6) : '';
             const payment = getPaymentMethodInfo(inv);
             const remaining = Math.max(0, (inv.amount || 0) - (inv.paid_amount || 0));
             const progressPct = inv.amount > 0 ? Math.round(((inv.paid_amount || 0) / inv.amount) * 100) : 0;
@@ -413,13 +413,13 @@ export function exportBillingReportExcel({
         ];
 
         rows = invoices.map((inv) => {
-            const coprop = getGranadaCoproprietor(inv.unit?.name || '');
-            const apto = coprop?.apto ? `Apto ${coprop.apto}` : (inv.unit?.name || '');
+            const unitInfo = getUnitInfo(inv.unit, inv.user);
+            const apto = unitInfo.unitName ? `Apto ${unitInfo.unitName}` : '';
             const unitName = inv.unit?.name || '';
-            const propietario = inv.user?.name || coprop?.propietario || 'Copropietario';
-            const email = inv.user?.email || coprop?.email || '';
-            const phone = inv.user?.phone || coprop?.phone || '';
-            const aliquot = coprop?.aliquot ? coprop.aliquot.toFixed(6) : '';
+            const propietario = unitInfo.ownerName || 'Copropietario';
+            const email = unitInfo.email || '';
+            const phone = unitInfo.phone || '';
+            const aliquot = unitInfo.aliquot ? unitInfo.aliquot.toFixed(6) : '';
             const payment = getPaymentMethodInfo(inv);
             const remaining = Math.max(0, (inv.amount || 0) - (inv.paid_amount || 0));
             const progressPct = inv.amount > 0 ? Math.round(((inv.paid_amount || 0) / inv.amount) * 100) : 0;

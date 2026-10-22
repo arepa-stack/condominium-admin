@@ -31,7 +31,7 @@ import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { ExportBillingReportDialog } from '@/components/billing/ExportBillingReportDialog';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo } from '@/lib/utils/unit-display';
 import { parseFormattedNumber } from '@/lib/utils/invoice-pdf';
 import {
     generateBillingReportPDF,
@@ -182,10 +182,7 @@ export default function BuildingBillingPage() {
     const unitFilterOptions = useMemo(() => [
         { value: 'all', label: 'Todas las unidades' },
         ...units.map((u) => {
-            const coprop = getGranadaCoproprietor(u.name);
-            const label = coprop
-                ? `Apartamento ${coprop.apto} (${u.name}) - ${coprop.propietario}`
-                : `Apartamento ${u.name}${u.floor ? ` (Piso ${u.floor})` : ''}`;
+            const label = `Apartamento ${u.name}${u.floor ? ` (Piso ${u.floor})` : ''}`;
             return {
                 value: u.id,
                 label,
@@ -308,11 +305,7 @@ export default function BuildingBillingPage() {
 
         // 3. Natural unit sort
         return [...result].sort((a, b) => {
-            const copropA = getGranadaCoproprietor(a.unit?.name || '');
-            const copropB = getGranadaCoproprietor(b.unit?.name || '');
-            const aptoA = copropA?.apto || a.unit?.name || '';
-            const aptoB = copropB?.apto || b.unit?.name || '';
-            return aptoA.localeCompare(aptoB, undefined, { numeric: true });
+            return (a.unit?.name ?? '').localeCompare(b.unit?.name ?? '', undefined, { numeric: true });
         });
     }, [invoices, selectedStatuses, filterBudget]);
 
@@ -907,12 +900,9 @@ export default function BuildingBillingPage() {
                                 {paginatedInvoices.map((invoice) => {
                                     const progress =
                                         invoice.amount > 0 ? (invoice.paid_amount / invoice.amount) * 100 : 0;
-                                    const coprop = getGranadaCoproprietor(invoice.unit?.name || '');
-                                    const unitDisplayName = coprop
-                                        ? `Apartamento ${coprop.apto}`
-                                        : invoice.unit?.name || 'Unidad desconocida';
-                                    const ownerDisplayName =
-                                        invoice.user?.name || coprop?.propietario || 'Copropietario';
+                                    const unitInfo = getUnitInfo(invoice.unit, invoice.user);
+                                    const unitDisplayName = invoice.unit?.name || 'Unidad desconocida';
+                                    const ownerDisplayName = unitInfo.ownerName || 'Copropietario';
 
                                     return (
                                         <TableRow
@@ -929,11 +919,6 @@ export default function BuildingBillingPage() {
                                             <TableCell>
                                                 <div className="font-semibold group-hover:text-primary transition-colors flex items-center gap-1.5">
                                                     {unitDisplayName}
-                                                    {coprop && (
-                                                        <span className="text-[10px] text-muted-foreground font-normal">
-                                                            ({invoice.unit?.name})
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground">{ownerDisplayName}</div>
                                             </TableCell>
@@ -1232,14 +1217,10 @@ function GroupInvoicesTable({
                             invoice.amount > 0
                                 ? (invoice.paid_amount / invoice.amount) * 100
                                 : 0;
-                        const coprop = getGranadaCoproprietor(invoice.unit?.name || '');
-                        const unitDisplayName = coprop
-                            ? `Apartamento ${coprop.apto}`
-                            : invoice.unit?.name || 'Unidad desconocida';
-                        const ownerDisplayName =
-                            invoice.user?.name || coprop?.propietario || 'Copropietario';
-                        const aliquotVal =
-                            coprop?.aliquot ?? (invoice.unit?.aliquot || 0);
+                        const unitInfo = getUnitInfo(invoice.unit, invoice.user);
+                        const unitDisplayName = invoice.unit?.name || 'Unidad desconocida';
+                        const ownerDisplayName = unitInfo.ownerName || 'Copropietario';
+                        const aliquotVal = unitInfo.aliquot ?? 0;
 
                         return (
                             <TableRow
@@ -1253,11 +1234,6 @@ function GroupInvoicesTable({
                                 <TableCell>
                                     <div className="font-semibold text-xs group-hover:text-primary transition-colors flex items-center gap-1.5">
                                         {unitDisplayName}
-                                        {coprop && (
-                                            <span className="text-[10px] text-muted-foreground font-normal">
-                                                ({invoice.unit?.name})
-                                            </span>
-                                        )}
                                     </div>
                                     <div className="text-[11px] text-muted-foreground">
                                         {ownerDisplayName}

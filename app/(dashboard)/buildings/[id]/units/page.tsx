@@ -22,7 +22,6 @@ import { usePermissions } from '@/lib/hooks/usePermissions';
 import { CreateUnitDialog } from '@/components/buildings/CreateUnitDialog';
 import { BatchUnitWizard } from '@/components/buildings/BatchUnitWizard';
 import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -221,26 +220,14 @@ export default function BuildingUnitsPage() {
                                     </div>
 
                                     {(() => {
-                                        const coprop = getGranadaCoproprietor(unit.name);
-                                        const displayTitle = coprop ? `Apartamento ${coprop.apto}` : `Unidad ${unit.name}`;
+                                        const displayTitle = `Unidad ${unit.name}`;
                                         return (
                                             <>
                                                 <div className="flex items-baseline justify-between mb-0.5">
                                                     <h3 className="font-bold text-lg text-foreground">
                                                         {displayTitle}
                                                     </h3>
-                                                    {coprop && (
-                                                        <span className="text-[11px] font-mono text-muted-foreground">
-                                                            {unit.name}
-                                                        </span>
-                                                    )}
                                                 </div>
-
-                                                {coprop?.propietario && (
-                                                    <p className="text-xs text-muted-foreground line-clamp-1 mb-2 font-medium" title={coprop.propietario}>
-                                                        {coprop.propietario}
-                                                    </p>
-                                                )}
                                             </>
                                         );
                                     })()}
