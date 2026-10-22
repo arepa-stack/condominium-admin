@@ -556,6 +556,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                 onClose={() => setIsInvoiceDialogOpen(false)}
                 invoiceId={selectedInvoiceId}
                 unitName={unit.name}
+                unit={unit}
             // Building name will be resolved from context inside if not passed, 
             // but we can try to find it in the URL or context if needed.
             />

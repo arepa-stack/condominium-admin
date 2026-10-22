@@ -1071,6 +1071,8 @@ export default function BuildingBillingPage() {
                     fetchData();
                 }}
                 invoiceId={selectedInvoiceId}
+                unit={invoices.find((i) => i.id === selectedInvoiceId)?.unit}
+                user={invoices.find((i) => i.id === selectedInvoiceId)?.user}
                 buildingName="Residencias Granada"
                 unitName={
                     invoices.find((i) => i.id === selectedInvoiceId)?.unit?.name ||

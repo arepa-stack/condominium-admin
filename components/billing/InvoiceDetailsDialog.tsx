@@ -36,7 +36,7 @@ import { paymentsService } from '@/lib/services/payments.service';
 import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import Image from 'next/image';
-import type { Invoice, InvoicePayment, Payment } from '@/types/models';
+import type { Invoice, InvoicePayment, Payment, Unit, User } from '@/types/models';
 import { toast } from 'sonner';
 
 interface InvoiceDetailsDialogProps {
@@ -45,10 +45,13 @@ interface InvoiceDetailsDialogProps {
     invoiceId: string | null;
     buildingName?: string;
     unitName?: string;
+    // GET /billing/invoices/:id returns the bare invoice; the caller supplies the unit and resident it already has
+    unit?: Unit | null;
+    user?: User | null;
     onPaymentApproved?: () => void;
 }
 
-export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName, unitName, onPaymentApproved }: InvoiceDetailsDialogProps) {
+export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName, unitName, unit, user, onPaymentApproved }: InvoiceDetailsDialogProps) {
     const { availableBuildings } = useBuildingContext();
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [payments, setPayments] = useState<InvoicePayment[]>([]);
@@ -141,7 +144,11 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                 billingService.getInvoiceById(invoiceId),
                 billingService.getInvoicePayments(invoiceId)
             ]);
-            setInvoice(invoiceData);
+            setInvoice({
+                ...invoiceData,
+                unit: invoiceData.unit ?? unit ?? undefined,
+                user: invoiceData.user ?? user ?? undefined,
+            });
             setPayments(paymentsData);
         } catch (error) {
             console.error('Failed to fetch invoice details:', error);
