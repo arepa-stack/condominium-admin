@@ -113,10 +113,12 @@ export const billingService = {
         return data;
     },
 
+    // Excel files and the administrator's PDF notices share the preview/confirm flow.
     async previewInvoices(building_id: string, file: File): Promise<PreviewInvoicesResponse> {
         const formData = new FormData();
         formData.append('file', file);
-        const { data } = await apiClient.post(`${P}/billing/invoices/preview`, formData, {
+        const endpoint = isPdfFile(file) ? 'preview-pdf' : 'preview';
+        const { data } = await apiClient.post(`${P}/billing/invoices/${endpoint}`, formData, {
             params: { building_id },
             headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -149,3 +151,7 @@ export const billingService = {
         return res;
     },
 };
+
+function isPdfFile(file: File): boolean {
+    return file.name.toLowerCase().endsWith('.pdf');
+}
