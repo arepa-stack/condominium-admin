@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { APTO_LOGO_BASE64 } from './logo-base64';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo, unitAliquot } from '@/lib/utils/unit-display';
 import { formatCurrency } from './format';
 import type { Invoice, Unit } from '@/types/models';
 
@@ -135,10 +135,10 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     const contentWidth = pageWidth - margin * 2;
 
     const unitName = invoice.unit?.name || unit?.name || '';
-    const coprop = getGranadaCoproprietor(unitName);
-    const aptoNumber = coprop?.apto || unitName.replace('-', '');
-    const ownerName = coprop?.propietario || invoice.user?.name || 'Copropietario';
-    const aliquot = coprop?.aliquot ?? (invoice.unit?.aliquot || unit?.aliquot || 0);
+    const unitInfo = getUnitInfo({ name: unitName }, invoice.user);
+    const aptoNumber = unitInfo.unitName;
+    const ownerName = unitInfo.ownerName || 'Copropietario';
+    const aliquot = unitAliquot(unit?.aliquot) ?? unitAliquot(invoice.unit?.aliquot) ?? 0;
 
     const paymentInfo = parseInvoicePaymentInfo(invoice, options.paymentDetails);
     const totalAmount = paymentInfo.totalAmountUsd ?? invoice.amount ?? 0;
@@ -246,7 +246,7 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.text('Apartamento / Unidad:', margin + 4, currentY + 12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(`Apartamento ${aptoNumber} ${unitName ? `(${unitName})` : ''}`, margin + 4, currentY + 17);
+    doc.text(`Apartamento ${aptoNumber}`, margin + 4, currentY + 17);
 
     // Column 2
     doc.setFont('helvetica', 'normal');
@@ -270,7 +270,7 @@ export function generateInvoicePDF(options: GenerateInvoicePdfOptions): void {
     doc.text('Teléfono de Contacto:', margin + 155, currentY + 12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42);
-    doc.text(coprop?.phone || '--', margin + 155, currentY + 17);
+    doc.text(unitInfo.phone || '--', margin + 155, currentY + 17);
 
     currentY += 31;
 

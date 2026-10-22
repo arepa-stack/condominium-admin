@@ -27,7 +27,7 @@ import {
     Calculator,
     AlertCircle
 } from 'lucide-react';
-import { GRANADA_COPROPRIETORS, getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo } from '@/lib/utils/unit-display';
 import { unitsService } from '@/lib/services/units.service';
 import { toast } from 'sonner';
 import type { Unit } from '@/types/models';
@@ -54,15 +54,15 @@ export function AliquotTableDialog({
     const [editAliquotValue, setEditAliquotValue] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Merge units with official coproprietor data
+    // Unit rows from DB data; owner contact is not part of the unit payload
     const rows = useMemo(() => {
         return units.map(unit => {
-            const coprop = getGranadaCoproprietor(unit.name);
-            const apto = coprop?.apto ?? unit.name.replace('-', '');
-            const owner = coprop?.propietario ?? 'Sin propietario asignado';
-            const email = coprop?.email ?? null;
-            const phone = coprop?.phone ?? null;
-            const aliquot = unit.aliquot ?? (coprop?.aliquot || 0);
+            const unitInfo = getUnitInfo(unit);
+            const apto = unitInfo.unitName;
+            const owner = unitInfo.ownerName ?? 'Sin propietario asignado';
+            const email = unitInfo.email;
+            const phone = unitInfo.phone;
+            const aliquot = unitInfo.aliquot ?? 0;
 
             return {
                 unit,

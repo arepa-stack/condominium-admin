@@ -20,7 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calculator, CheckSquare, Square, Search, DollarSign, Calendar, FileText, Loader2, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
-import { getGranadaCoproprietor, formatUnitDisplay } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo } from '@/lib/utils/unit-display';
 import { billingService } from '@/lib/services/billing.service';
 import { toast } from 'sonner';
 import type { Unit } from '@/types/models';
@@ -91,10 +91,12 @@ export function GenerateByAliquotDialog({
     // Compute calculations for each unit
     const calculations: UnitCalculation[] = useMemo(() => {
         return units.map(unit => {
-            const coprop = getGranadaCoproprietor(unit.name);
-            const aliquot = coprop?.aliquot ?? (unit.aliquot || 0);
-            const apto = coprop?.apto ?? unit.name.replace('-', '');
-            const ownerName = coprop?.propietario ?? 'Copropietario';
+            const unitInfo = getUnitInfo(unit);
+            // Units without a registered aliquot yield amount 0 and are skipped on generate ("Sin alícuota" in preview).
+            const aliquot = unitInfo.aliquot ?? 0;
+            const apto = unitInfo.unitName;
+            // Owner contact is not part of the unit payload; no linked user data available here.
+            const ownerName = '--';
 
             // Amount = Budget * (aliquot / 100)
             const calculatedAmount = parseFloat((numericBudget * (aliquot / 100)).toFixed(2));

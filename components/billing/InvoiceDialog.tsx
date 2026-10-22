@@ -46,7 +46,7 @@ import {
 } from '@/lib/utils/budget-helpers';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { unitAliquot } from '@/lib/utils/unit-display';
 import {
     Building2,
     Home,
@@ -186,11 +186,8 @@ export function InvoiceDialog({
     // Unit options formatted with Apto number, code, and coproprietor for easy autocomplete
     const unitOptions = useMemo(() => {
         return units.map((unit) => {
-            const coprop = getGranadaCoproprietor(unit.name);
-            const unitLabel = coprop
-                ? `Apartamento ${coprop.apto} (${unit.name}) - ${coprop.propietario}`
-                : `Apartamento ${unit.name}${unit.floor ? ` (Piso ${unit.floor})` : ''}`;
-            const aliquotVal = coprop?.aliquot ?? unit.aliquot;
+            const unitLabel = `Apartamento ${unit.name}${unit.floor ? ` (Piso ${unit.floor})` : ''}`;
+            const aliquotVal = unitAliquot(unit.aliquot);
             const aliquotPart = aliquotVal ? ` [${aliquotVal.toFixed(4)}%]` : '';
 
             return {
@@ -324,7 +321,14 @@ export function InvoiceDialog({
 
         const currentUnit = units.find(u => u.id === selectedUnitId);
 
-        if (budget.baseBudget && currentUnit) {
+        if (budget.baseBudget && currentUnit && unitAliquot(currentUnit.aliquot) === null) {
+            // Do not silently produce a $0 invoice: the unit has no aliquot registered in the DB.
+            form.setValue('description', budget.title, { shouldValidate: true });
+            if (budget.period) {
+                form.setValue('period', budget.period);
+            }
+            setBudgetHint('Esta unidad no tiene alícuota registrada (sin alícuota). Ingrese el monto manualmente.');
+        } else if (budget.baseBudget && currentUnit) {
             const { amount: calcAmount, aliquot } = calculateUnitAmountForBudget(currentUnit, budget.baseBudget);
             form.setValue('amount', calcAmount.toString(), { shouldValidate: true });
 
