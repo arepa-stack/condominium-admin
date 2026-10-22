@@ -43,7 +43,7 @@ import { useRouter } from 'next/navigation';
 import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import { UserDialog } from '@/components/users/UserDialog';
 import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo } from '@/lib/utils/unit-display';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import { buildingsService } from '@/lib/services/buildings.service';
@@ -209,7 +209,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div className="space-y-1">
                         {(() => {
-                            const coprop = getGranadaCoproprietor(unit.name);
+                            const unitInfo = getUnitInfo(unit);
                             return (
                                 <>
                                     <div className="flex items-center gap-3">
@@ -218,21 +218,10 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                         </div>
                                         <div>
                                             <h1 className="text-4xl font-black text-foreground tracking-tight">
-                                                {coprop ? `Apartamento ${coprop.apto}` : `Unidad ${unit.name}`}
+                                                {`Unidad ${unit.name}`}
                                             </h1>
-                                            {coprop && (
-                                                <span className="text-xs font-mono text-muted-foreground">
-                                                    Identificador en sistema: {unit.name}
-                                                </span>
-                                            )}
                                         </div>
                                     </div>
-                                    {coprop?.propietario && (
-                                        <div className="text-sm font-semibold text-foreground/80 mt-1 ml-1 flex items-center gap-2">
-                                            <span className="text-xs text-muted-foreground uppercase font-medium">Propietario(a):</span>
-                                            <span>{coprop.propietario}</span>
-                                        </div>
-                                    )}
                                     <div className="flex items-center gap-4 text-muted-foreground mt-2 ml-1">
                                         <span className="flex items-center gap-1.5 bg-muted/50 px-3 py-1 rounded-full text-xs font-semibold">
                                             <MapPin className="h-3 w-3 text-primary" />
@@ -240,7 +229,7 @@ export default function UnitDetailsPage({ params }: { params: Promise<{ id: stri
                                         </span>
                                         <span className="flex items-center gap-1.5 bg-muted/50 px-3 py-1 rounded-full text-xs font-semibold">
                                             <Percent className="h-3 w-3 text-chart-2" />
-                                            Alícuota {unit.aliquot ?? coprop?.aliquot}%
+                                            Alícuota {unitInfo.aliquot !== null ? `${unitInfo.aliquot}%` : '--'}
                                         </span>
                                     </div>
                                 </>

@@ -1,4 +1,4 @@
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { unitAliquot } from '@/lib/utils/unit-display';
 import type { Invoice, Decision, Unit } from '@/types/models';
 
 export interface ActiveBudgetOption {
@@ -170,9 +170,7 @@ export function groupInvoicesByBudget(invoices: Invoice[]): BudgetInvoiceGroup[]
     }
 
     // Accumulate unit aliquot
-    const unitName = invoice.unit?.name || '';
-    const coprop = getGranadaCoproprietor(unitName);
-    const aliquot = coprop?.aliquot ?? (invoice.unit?.aliquot || 0);
+    const aliquot = unitAliquot(invoice.unit?.aliquot) ?? 0;
     group.totalAliquot += aliquot;
   }
 
@@ -180,11 +178,7 @@ export function groupInvoicesByBudget(invoices: Invoice[]): BudgetInvoiceGroup[]
   const result = Array.from(groupsMap.values()).map((g) => {
     const progress = g.totalAmount > 0 ? (g.totalPaid / g.totalAmount) * 100 : 0;
     const sortedInvoices = [...g.invoices].sort((a, b) => {
-      const copropA = getGranadaCoproprietor(a.unit?.name || '');
-      const copropB = getGranadaCoproprietor(b.unit?.name || '');
-      const aptoA = copropA?.apto || a.unit?.name || '';
-      const aptoB = copropB?.apto || b.unit?.name || '';
-      return aptoA.localeCompare(aptoB, undefined, { numeric: true });
+      return (a.unit?.name ?? '').localeCompare(b.unit?.name ?? '', undefined, { numeric: true });
     });
     return {
       ...g,
@@ -298,8 +292,7 @@ export function calculateUnitAmountForBudget(unit: Unit, baseBudget: number): {
   amount: number;
   aliquot: number;
 } {
-  const coprop = getGranadaCoproprietor(unit.name);
-  const aliquot = coprop?.aliquot ?? (unit.aliquot || 0);
+  const aliquot = unitAliquot(unit.aliquot) ?? 0;
 
   if (aliquot > 0 && baseBudget > 0) {
     const calc = parseFloat((baseBudget * (aliquot / 100)).toFixed(2));

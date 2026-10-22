@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Printer, Download, Building2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo } from '@/lib/utils/unit-display';
 import type { Invoice } from '@/types/models';
 
 interface AvisoDeCobroDialogProps {
@@ -16,11 +16,10 @@ interface AvisoDeCobroDialogProps {
 export function AvisoDeCobroDialog({ open, onOpenChange, invoice }: AvisoDeCobroDialogProps) {
     if (!invoice) return null;
 
-    const unitName = invoice.unit?.name || '';
-    const coprop = getGranadaCoproprietor(unitName);
-    const aptoNumber = coprop?.apto || unitName.replace('-', '');
-    const ownerName = coprop?.propietario || invoice.user?.name || 'Copropietario';
-    const aliquot = coprop?.aliquot || invoice.unit?.aliquot || 0;
+    const unitInfo = getUnitInfo(invoice.unit, invoice.user);
+    const aptoNumber = unitInfo.unitName;
+    const ownerName = unitInfo.ownerName || 'Copropietario';
+    const aliquot = unitInfo.aliquot ?? 0;
 
     const reference = invoice.receipt_number || invoice.number || `CE-${new Date().getFullYear()}-${aptoNumber.padStart(3, '0')}`;
     const issueDate = invoice.issue_date
@@ -95,10 +94,10 @@ export function AvisoDeCobroDialog({ open, onOpenChange, invoice }: AvisoDeCobro
                                 <span className="text-xs text-zinc-500 block uppercase font-medium">Porcentaje de Alícuota</span>
                                 <span className="font-bold text-zinc-900">{aliquot.toFixed(6)}%</span>
                             </div>
-                            {coprop?.phone && (
+                            {unitInfo.phone && (
                                 <div>
                                     <span className="text-xs text-zinc-500 block uppercase font-medium">Teléfono de Contacto</span>
-                                    <span className="text-zinc-800 font-mono">{coprop.phone}</span>
+                                    <span className="text-zinc-800 font-mono">{unitInfo.phone}</span>
                                 </div>
                             )}
                         </div>

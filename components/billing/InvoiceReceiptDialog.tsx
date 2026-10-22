@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Printer, Download, Building2, CheckCircle2, AlertCircle, FileText, ArrowDownToLine } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
-import { getGranadaCoproprietor } from '@/lib/data/granada-coproprietors';
+import { getUnitInfo, unitAliquot } from '@/lib/utils/unit-display';
 import {
     generateInvoicePDF,
     parseInvoicePaymentInfo,
@@ -37,10 +37,10 @@ export function InvoiceReceiptDialog({
     if (!invoice) return null;
 
     const unitName = invoice.unit?.name || unit?.name || '';
-    const coprop = getGranadaCoproprietor(unitName);
-    const aptoNumber = coprop?.apto || unitName.replace('-', '');
-    const ownerName = coprop?.propietario || invoice.user?.name || 'Copropietario';
-    const aliquot = coprop?.aliquot ?? (invoice.unit?.aliquot || unit?.aliquot || 0);
+    const unitInfo = getUnitInfo({ name: unitName }, invoice.user);
+    const aptoNumber = unitInfo.unitName;
+    const ownerName = unitInfo.ownerName || 'Copropietario';
+    const aliquot = unitAliquot(unit?.aliquot) ?? unitAliquot(invoice.unit?.aliquot) ?? 0;
 
     const paymentInfo = parseInvoicePaymentInfo(invoice, paymentDetails);
     const totalAmount = paymentInfo.totalAmountUsd ?? invoice.amount ?? 0;
@@ -190,7 +190,7 @@ export function InvoiceReceiptDialog({
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                             <div>
                                 <span className="text-zinc-500 block uppercase font-medium text-[10px]">Apartamento</span>
-                                <span className="font-bold text-zinc-900 text-sm">Apto {aptoNumber} {unitName ? `(${unitName})` : ''}</span>
+                                <span className="font-bold text-zinc-900 text-sm">Apto {aptoNumber}</span>
                             </div>
                             <div>
                                 <span className="text-zinc-500 block uppercase font-medium text-[10px]">Propietario / Pagador</span>
@@ -202,7 +202,7 @@ export function InvoiceReceiptDialog({
                             </div>
                             <div>
                                 <span className="text-zinc-500 block uppercase font-medium text-[10px]">Teléfono de Contacto</span>
-                                <span className="font-mono text-zinc-900 text-sm">{coprop?.phone || '--'}</span>
+                                <span className="font-mono text-zinc-900 text-sm">{unitInfo.phone || '--'}</span>
                             </div>
                         </div>
                     </div>
