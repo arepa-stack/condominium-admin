@@ -100,6 +100,23 @@ interface InvoiceDialogProps {
     existingInvoices?: Invoice[];
 }
 
+// The concept is the description before the payment notes appended after " | ".
+const chargeConcept = (description?: string) => (description ?? '').split(' | ')[0].trim().toLowerCase();
+
+async function findOpenSameCharge(unitId: string, period: string, description: string): Promise<Invoice | undefined> {
+    try {
+        const invoices = await billingService.getUnitInvoices(unitId);
+        return invoices.find(inv =>
+            (inv.status === 'PENDING' || inv.status === 'PARTIAL') &&
+            inv.period === period &&
+            chargeConcept(inv.description) === chargeConcept(description)
+        );
+    } catch (error) {
+        console.warn('Could not check existing invoices for the unit', error);
+        return undefined;
+    }
+}
+
 const COMMON_CONCEPTS = [
     'Cisterna de agua',
     'Cuota de condominio',
@@ -358,6 +375,18 @@ export function InvoiceDialog({
                 return;
             }
 
+            // Paying an existing charge must not create a second invoice for it.
+            const openCharge = await findOpenSameCharge(values.unit_id, values.period, values.description);
+            if (openCharge) {
+                const pending = Math.max(0, openCharge.amount - (openCharge.paid_amount || 0));
+                const proceed = confirm(
+                    `Esta unidad ya tiene abierta la factura "${openCharge.description?.split(' | ')[0].trim()}" del período ${values.period}, con saldo pendiente de $${pending.toFixed(2)}.\n\n` +
+                    `Para registrar un abono o pago de esa cuota, cancela y usa "Registrar abono" en el detalle de esa factura.\n\n` +
+                    `¿Crear de todas formas una factura NUEVA?`
+                );
+                if (!proceed) return;
+            }
+
             const numAmount = Number(values.amount);
             const parsedPaid = values.paid_amount ? parseFloat(values.paid_amount) : NaN;
             const numPaidAmount = values.is_paid
@@ -409,6 +438,14 @@ export function InvoiceDialog({
                 paid_amount: numPaidAmount,
                 payment_method: values.is_paid ? (values.payment_method || 'CASH') : undefined,
                 payment_date: values.is_paid ? (values.payment_date || new Date().toISOString().slice(0, 10)) : undefined,
+                // Keep the Bs amount and rate on the payment record itself.
+                ...(isVesPayment && numRate > 0 && {
+                    exchange_rate: numRate,
+                    amount_ves: numVes > 0 ? numVes : Number((numPaidAmount * numRate).toFixed(2)),
+                    rate_source: values.rate_type === 'EUR_BCV' ? 'euro_oficial' as const
+                        : values.rate_type === 'USD_BCV' ? 'dolar_oficial' as const
+                        : undefined,
+                }),
             };
 
             const createdInvoice = await billingService.loadDebt(payload);

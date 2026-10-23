@@ -241,6 +241,22 @@ export interface BillingDebtPayload {
   paid_amount?: number;
   payment_method?: string;
   payment_date?: string;
+  amount_ves?: number;
+  exchange_rate?: number;
+  rate_source?: RateSource;
+}
+
+export interface RecordInvoicePaymentPayload {
+  amount: number; // USD credited to the invoice
+  method: 'PAGO_MOVIL' | 'TRANSFER' | 'CASH';
+  payment_date?: string; // YYYY-MM-DD
+  reference?: string;
+  bank?: string;
+  notes?: string;
+  // Paid in bolívares: both amount_ves and exchange_rate, or neither
+  amount_ves?: number;
+  exchange_rate?: number;
+  rate_source?: RateSource;
 }
 
 export interface UnitInvoice {
