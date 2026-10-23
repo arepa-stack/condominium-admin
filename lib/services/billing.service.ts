@@ -8,7 +8,7 @@ import {
 import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
 import type {
     Invoice, InvoicePayment, UnitBalance, BillingDebtPayload,
-    ProposedInvoice, PreviewInvoicesResponse, UnitCreditResponse, InvoiceTag,
+    RecordInvoicePaymentPayload, Payment, ProposedInvoice, PreviewInvoicesResponse, UnitCreditResponse, InvoiceTag,
     PaginatedResponse, PaginationParams,
 } from '@/types/models';
 
@@ -108,6 +108,18 @@ export const billingService = {
         return data;
     },
 
+    // Full or partial payment on an existing invoice; never creates a new invoice.
+    async recordInvoicePayment(
+        invoiceId: string,
+        payload: RecordInvoicePaymentPayload,
+    ): Promise<{ invoice: Invoice; payment: Payment }> {
+        const { data } = await apiClient.post<{ invoice: Invoice; payment: Payment }>(
+            `${P}/billing/invoices/${invoiceId}/payments`,
+            payload,
+        );
+        return data;
+    },
+
     async loadDebt(payload: BillingDebtPayload): Promise<Invoice> {
         const { data } = await apiClient.post<Invoice>(`${P}/billing/debt`, payload);
         return data;
@@ -139,7 +151,6 @@ export const billingService = {
         id: string,
         data: {
             status?: string;
-            paid_amount?: number;
             receipt_number?: string;
             description?: string;
             due_date?: string;
