@@ -28,6 +28,7 @@ import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog'
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { GenerateByAliquotDialog } from '@/components/billing/GenerateByAliquotDialog';
 import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
+import { ChargeConceptsDialog } from '@/components/billing/ChargeConceptsDialog';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { ExportBillingReportDialog } from '@/components/billing/ExportBillingReportDialog';
@@ -43,7 +44,6 @@ import {
     groupInvoicesByBudget,
     parseBudgetFromDescription,
     type BudgetInvoiceGroup,
-    type ActiveBudgetOption,
 } from '@/lib/utils/budget-helpers';
 import {
     DropdownMenu,
@@ -87,6 +87,7 @@ export default function BuildingBillingPage() {
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
     const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
     const [isAliquotDialogOpen, setIsAliquotDialogOpen] = useState(false);
+    const [isConceptsDialogOpen, setIsConceptsDialogOpen] = useState(false);
     const [isTableDialogOpen, setIsTableDialogOpen] = useState(false);
     const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -98,7 +99,6 @@ export default function BuildingBillingPage() {
     const [exportDialogFormat, setExportDialogFormat] = useState<'pdf' | 'excel'>('pdf');
 
     // Active budget to attach when creating invoice from a specific group
-    const [selectedBudgetForNewInvoice, setSelectedBudgetForNewInvoice] = useState<ActiveBudgetOption | null>(null);
 
     // View mode: 'grouped' by budget/concept or 'flat' list
     const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
@@ -356,19 +356,7 @@ export default function BuildingBillingPage() {
         setExpandedGroupIds(new Set());
     };
 
-    const handleOpenCreateForBudget = (group: BudgetInvoiceGroup) => {
-        setSelectedBudgetForNewInvoice({
-            id: `camp-${group.id}`,
-            title: group.title,
-            baseBudget: group.baseBudget,
-            details: group.details,
-            source: 'invoice_campaign',
-        });
-        setIsInvoiceDialogOpen(true);
-    };
-
     const handleOpenStandardCreate = () => {
-        setSelectedBudgetForNewInvoice(null);
         setIsInvoiceDialogOpen(true);
     };
 
@@ -396,6 +384,14 @@ export default function BuildingBillingPage() {
                         >
                             <TableProperties className="h-4 w-4" />
                             Cuadro de Alícuotas
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsConceptsDialogOpen(true)}
+                            className="gap-2 text-xs"
+                        >
+                            <FolderKanban className="h-4 w-4" />
+                            Conceptos de Cobro
                         </Button>
                         <Button
                             variant="outline"
@@ -829,7 +825,7 @@ export default function BuildingBillingPage() {
                                                     variant="outline"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleOpenCreateForBudget(group);
+                                                        handleOpenStandardCreate();
                                                     }}
                                                     className="h-8 px-2.5 text-xs gap-1.5 text-primary border-primary/30 hover:bg-primary/10"
                                                     title="Agregar una factura individual a este presupuesto"
@@ -1051,8 +1047,6 @@ export default function BuildingBillingPage() {
                 open={isInvoiceDialogOpen}
                 onOpenChange={setIsInvoiceDialogOpen}
                 buildingId={buildingId}
-                initialBudgetOption={selectedBudgetForNewInvoice}
-                existingInvoices={invoices}
                 onSuccess={fetchData}
             />
 
@@ -1124,6 +1118,12 @@ export default function BuildingBillingPage() {
                 units={units}
                 onUnitsUpdated={fetchData}
                 onOpenBillingDialog={() => setIsAliquotDialogOpen(true)}
+            />
+
+            <ChargeConceptsDialog
+                open={isConceptsDialogOpen}
+                onOpenChange={setIsConceptsDialogOpen}
+                buildingId={buildingId}
             />
         </div>
     );
