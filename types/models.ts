@@ -1045,3 +1045,30 @@ export interface BillConceptResult {
   total: number;
   invoices: { id: string; unit_id: string | null; amount: number }[];
 }
+
+export interface BillingTotals {
+  invoice_count: number;
+  billed: number;
+  collected: number;
+  outstanding: number;
+  paid_count: number;
+  partial_count: number;
+  pending_count: number;
+}
+
+// One concept (ORDINARY: per period) of GET /billing/buildings/:id/billing-summary; cancelled invoices excluded
+export interface ConceptBillingGroup extends BillingTotals {
+  concept_id: string;
+  name: string;
+  kind: ChargeConceptKind;
+  distribution: ChargeDistribution;
+  status: ChargeConceptStatus;
+  period: string | null; // null for EXTRAORDINARY
+  goal: number | null;
+  progress: number | null; // % of the goal collected
+}
+
+export interface BillingSummary {
+  groups: ConceptBillingGroup[];
+  unclassified: BillingTotals;
+}
