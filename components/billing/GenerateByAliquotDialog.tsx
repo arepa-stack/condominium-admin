@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
@@ -22,8 +21,13 @@ import { Calculator, CheckSquare, Square, Search, DollarSign, Calendar, FileText
 import { formatCurrency } from '@/lib/utils/format';
 import { getUnitInfo } from '@/lib/utils/unit-display';
 import { billingService } from '@/lib/services/billing.service';
+import { chargeConceptsService } from '@/lib/services/charge-concepts.service';
+import { ChargeConceptSelect } from '@/components/billing/ChargeConceptSelect';
+import {
+    apiErrorMessage, conceptInvoiceDescription, splitConceptAmount, DISTRIBUTION_LABELS,
+} from '@/lib/utils/charge-concepts';
 import { toast } from 'sonner';
-import type { Unit } from '@/types/models';
+import type { ChargeConcept, Unit } from '@/types/models';
 
 interface GenerateByAliquotDialogProps {
     open: boolean;
@@ -50,15 +54,13 @@ export function GenerateByAliquotDialog({
     onSuccess,
 }: GenerateByAliquotDialogProps) {
     // Form parameters
-    const [totalBudget, setTotalBudget] = useState<string>('3100');
+    const [concept, setConcept] = useState<ChargeConcept | null>(null);
+    const [totalBudget, setTotalBudget] = useState<string>('');
     const [period, setPeriod] = useState<string>(() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     });
-    const [conceptTitle, setConceptTitle] = useState<string>('Cuota Especial: Reparaciones Mayores y Pintura');
-    const [conceptDetails, setConceptDetails] = useState<string>(
-        'Según lo aprobado en el Comunicado N° 01-2026 para la reparación de infraestructura, albañilería general, compra de materiales de pintura (Maxigama) y mano de obra especializada.'
-    );
+    const [description, setDescription] = useState<string>('');
     const [dueDate, setDueDate] = useState<string>(() => {
         const d = new Date();
         d.setMonth(d.getMonth() + 1);
@@ -82,11 +84,49 @@ export function GenerateByAliquotDialog({
         }
     }, [open, units]);
 
+    useEffect(() => {
+        if (!open) {
+            setConcept(null);
+            setTotalBudget('');
+            setDescription('');
+            setMarkAsPaid(false);
+        }
+    }, [open]);
+
+    // A concept brings its base amount and a default description
+    const handleConceptChange = (next: ChargeConcept | null) => {
+        setConcept(next);
+        setTotalBudget(next?.base_amount ? String(next.base_amount) : '');
+        setDescription(next ? conceptInvoiceDescription(next, period) : '');
+    };
+
+    // A period change updates the default description, unless the user wrote their own
+    const handlePeriodChange = (next: string) => {
+        if (concept && description === conceptInvoiceDescription(concept, period)) {
+            setDescription(conceptInvoiceDescription(concept, next));
+        }
+        setPeriod(next);
+    };
+
+    const distribution = concept?.distribution ?? 'ALIQUOT';
+
     // Parse budget as number
     const numericBudget = useMemo(() => {
         const parsed = parseFloat(totalBudget.replace(/,/g, '.'));
         return isNaN(parsed) || parsed < 0 ? 0 : parsed;
     }, [totalBudget]);
+
+    const allSelected = units.length > 0 && units.every(u => selectedUnitIds.has(u.id));
+
+    // Same split the API applies. EQUAL divides among the selected units.
+    const shares = useMemo(() => {
+        const base = distribution === 'EQUAL' ? units.filter(u => selectedUnitIds.has(u.id)) : units;
+        return splitConceptAmount(
+            distribution,
+            numericBudget,
+            base.map(u => ({ id: u.id, name: u.name, aliquot: getUnitInfo(u).aliquot ?? null })),
+        );
+    }, [units, distribution, numericBudget, selectedUnitIds]);
 
     // Compute calculations for each unit
     const calculations: UnitCalculation[] = useMemo(() => {
@@ -98,19 +138,16 @@ export function GenerateByAliquotDialog({
             // Owner contact is not part of the unit payload; no linked user data available here.
             const ownerName = '--';
 
-            // Amount = Budget * (aliquot / 100)
-            const calculatedAmount = parseFloat((numericBudget * (aliquot / 100)).toFixed(2));
-
             return {
                 unit,
                 apto,
                 ownerName,
                 aliquot,
-                amount: calculatedAmount,
+                amount: shares.get(unit.id) ?? 0,
                 selected: selectedUnitIds.has(unit.id),
             };
         });
-    }, [units, numericBudget, selectedUnitIds]);
+    }, [units, shares, selectedUnitIds]);
 
     // Filter calculations by search
     const filteredCalculations = useMemo(() => {
@@ -126,7 +163,7 @@ export function GenerateByAliquotDialog({
     // Summary metrics
     const summary = useMemo(() => {
         const selected = calculations.filter(c => c.selected);
-        const totalAmount = selected.reduce((sum, c) => sum + c.amount, 0);
+        const totalAmount = selected.reduce((sum, c) => sum + Math.round(c.amount * 100), 0) / 100;
         const totalAliquot = selected.reduce((sum, c) => sum + c.aliquot, 0);
 
         return {
@@ -157,36 +194,37 @@ export function GenerateByAliquotDialog({
         setSelectedUnitIds(new Set());
     };
 
-    const handleGenerate = async () => {
-        const toGenerate = calculations.filter(c => c.selected && c.amount > 0);
+    // Whole building, unpaid: the API bills it in one request and refuses a second run for the period.
+    const billWholeBuilding = async (selectedConcept: ChargeConcept) => {
+        const result = await chargeConceptsService.bill(buildingId, selectedConcept.id, {
+            period,
+            amount: numericBudget,
+            description: description.trim() || undefined,
+            due_date: dueDate || undefined,
+        });
+        toast.success(`Se generaron ${result.count} facturas por un total de ${formatCurrency(result.total)}`);
+        onSuccess();
+        onOpenChange(false);
+    };
 
-        if (toGenerate.length === 0) {
-            toast.error('Seleccioná al menos una unidad con monto mayor a cero');
-            return;
-        }
-
-        if (!period || !/^\d{4}-\d{2}$/.test(period)) {
-            toast.error('El período debe tener el formato AAAA-MM (ej. 2026-10)');
-            return;
-        }
-
-        setIsGenerating(true);
+    // Some units, or already paid: one invoice per unit, each linked to the concept.
+    const billUnitByUnit = async (selectedConcept: ChargeConcept, toGenerate: UnitCalculation[]) => {
         setProgressCurrent(0);
         setProgressTotal(toGenerate.length);
 
         let successCount = 0;
         let failCount = 0;
+        const invoiceDescription = description.trim() || conceptInvoiceDescription(selectedConcept, period);
 
         for (let i = 0; i < toGenerate.length; i++) {
             const item = toGenerate[i];
             try {
-                const fullDescription = `${conceptTitle.trim()} - Base: $${numericBudget.toFixed(2)} (Alícuota: ${item.aliquot.toFixed(4)}%)${conceptDetails ? ` | ${conceptDetails.trim()}` : ''}`;
-
                 await billingService.loadDebt({
                     unit_id: item.unit.id,
                     amount: item.amount,
                     period: period,
-                    description: fullDescription,
+                    description: invoiceDescription,
+                    concept_id: selectedConcept.id,
                     due_date: dueDate || undefined,
                     status: markAsPaid ? 'PAID' : 'PENDING',
                     paid_amount: markAsPaid ? item.amount : 0,
@@ -200,16 +238,46 @@ export function GenerateByAliquotDialog({
             setProgressCurrent(i + 1);
         }
 
-        setIsGenerating(false);
-
         if (successCount > 0) {
-            toast.success(`Se generaron ${successCount} facturas correctamente por un total de ${formatCurrency(summary.totalAmount)}`);
+            toast.success(`Se generaron ${successCount} facturas correctamente`);
             onSuccess();
             onOpenChange(false);
         }
 
         if (failCount > 0) {
             toast.error(`Ocurrió un error al generar ${failCount} facturas`);
+        }
+    };
+
+    const handleGenerate = async () => {
+        if (!concept) {
+            toast.error('Selecciona el concepto de cobro');
+            return;
+        }
+
+        const toGenerate = calculations.filter(c => c.selected && c.amount > 0);
+
+        if (toGenerate.length === 0) {
+            toast.error('Seleccioná al menos una unidad con monto mayor a cero');
+            return;
+        }
+
+        if (!period || !/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) {
+            toast.error('El período debe tener el formato AAAA-MM (ej. 2026-10)');
+            return;
+        }
+
+        setIsGenerating(true);
+        try {
+            if (allSelected && !markAsPaid) {
+                await billWholeBuilding(concept);
+            } else {
+                await billUnitByUnit(concept, toGenerate);
+            }
+        } catch (err) {
+            toast.error(apiErrorMessage(err, 'Error al generar las facturas'));
+        } finally {
+            setIsGenerating(false);
         }
     };
 
@@ -223,21 +291,40 @@ export function GenerateByAliquotDialog({
                         </div>
                         <div>
                             <DialogTitle className="text-xl font-bold font-display">
-                                Facturación Masiva por Alícuotas
+                                Facturación Masiva por Concepto
                             </DialogTitle>
                             <DialogDescription className="text-sm text-muted-foreground mt-0.5">
-                                Calculá y generá automáticamente los recibos proporcionales a la alícuota de cada unidad a partir del presupuesto total.
+                                Genera un recibo por unidad para un concepto de cobro, repartido según su distribución (alícuota, partes iguales o monto fijo).
                             </DialogDescription>
                         </div>
                     </div>
                 </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Concepto de cobro
+                        </Label>
+                        <ChargeConceptSelect
+                            buildingId={buildingId}
+                            value={concept?.id ?? null}
+                            onChange={handleConceptChange}
+                            disabled={isGenerating}
+                            required
+                        />
+                        {concept && (
+                            <span className="text-[11px] text-muted-foreground">
+                                {DISTRIBUTION_LABELS[concept.distribution]}
+                                {concept.distribution === 'EQUAL' && ' entre las unidades seleccionadas'}
+                            </span>
+                        )}
+                    </div>
+
                     {/* Input parameters grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="totalBudget" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Presupuesto Total ($ USD)
+                                {distribution === 'FIXED' ? 'Monto por unidad ($ USD)' : 'Monto total ($ USD)'}
                             </Label>
                             <div className="relative">
                                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -254,7 +341,7 @@ export function GenerateByAliquotDialog({
                                 />
                             </div>
                             <span className="text-[11px] text-muted-foreground">
-                                Monto base total a distribuir proporcionalmente
+                                {distribution === 'FIXED' ? 'Se cobra igual a cada unidad' : 'Monto a repartir entre las unidades'}
                             </span>
                         </div>
 
@@ -268,7 +355,7 @@ export function GenerateByAliquotDialog({
                                     id="period"
                                     type="text"
                                     value={period}
-                                    onChange={(e) => setPeriod(e.target.value)}
+                                    onChange={(e) => handlePeriodChange(e.target.value)}
                                     placeholder="2026-10"
                                     className="pl-9 font-mono bg-background/50"
                                     disabled={isGenerating}
@@ -297,35 +384,18 @@ export function GenerateByAliquotDialog({
                         </div>
                     </div>
 
-                    {/* Concept & Description */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="conceptTitle" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Concepto / Título de la Cuota
-                            </Label>
-                            <Input
-                                id="conceptTitle"
-                                value={conceptTitle}
-                                onChange={(e) => setConceptTitle(e.target.value)}
-                                placeholder="Cuota Especial: Reparaciones Mayores y Pintura"
-                                className="bg-background/50"
-                                disabled={isGenerating}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="conceptDetails" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Detalle / Motivo (Aparece en el recibo)
-                            </Label>
-                            <Input
-                                id="conceptDetails"
-                                value={conceptDetails}
-                                onChange={(e) => setConceptDetails(e.target.value)}
-                                placeholder="Aprobado en Comunicado N° 01-2026..."
-                                className="bg-background/50"
-                                disabled={isGenerating}
-                            />
-                        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="description" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Descripción (aparece en el recibo)
+                        </Label>
+                        <Input
+                            id="description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder={concept ? conceptInvoiceDescription(concept, period) : 'Condominio 2026-10'}
+                            className="bg-background/50"
+                            disabled={isGenerating}
+                        />
                     </div>
 
                     {/* Mark as pre-paid toggle */}
@@ -359,7 +429,7 @@ export function GenerateByAliquotDialog({
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <Card className="bg-muted/40 border-border/60">
                             <CardContent className="p-3.5">
-                                <span className="text-[11px] font-medium text-muted-foreground uppercase block">Presupuesto</span>
+                                <span className="text-[11px] font-medium text-muted-foreground uppercase block">Monto</span>
                                 <span className="text-lg font-bold font-mono text-foreground">
                                     {formatCurrency(numericBudget)}
                                 </span>
@@ -505,7 +575,8 @@ export function GenerateByAliquotDialog({
 
                 <DialogFooter className="p-4 md:p-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3 bg-muted/20">
                     <div className="text-xs text-muted-foreground text-center sm:text-left">
-                        Se generará una factura pendiente para cada una de las <strong className="text-foreground">{summary.selectedCount}</strong> unidades seleccionadas.
+                        Se generará una factura {markAsPaid ? 'pagada' : 'pendiente'} para cada una de las <strong className="text-foreground">{summary.selectedCount}</strong> unidades seleccionadas.
+                        {allSelected && !markAsPaid && ' Si el concepto ya se facturó en este período, no se vuelve a generar.'}
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button
@@ -517,7 +588,7 @@ export function GenerateByAliquotDialog({
                         </Button>
                         <Button
                             onClick={handleGenerate}
-                            disabled={isGenerating || summary.selectedCount === 0 || numericBudget <= 0}
+                            disabled={isGenerating || !concept || summary.selectedCount === 0 || numericBudget <= 0}
                             className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
                         >
                             {isGenerating ? (

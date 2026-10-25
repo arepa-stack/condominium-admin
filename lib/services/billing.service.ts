@@ -137,8 +137,15 @@ export const billingService = {
         return mapPreviewInvoicesResponse(data);
     },
 
-    async confirmInvoices(building_id: string, invoices: ProposedInvoice[]): Promise<{ success: boolean }> {
-        const body = { invoices: invoices.map(proposedInvoiceToBody) };
+    async confirmInvoices(
+        building_id: string,
+        invoices: ProposedInvoice[],
+        concept_id?: string | null,
+    ): Promise<{ success: boolean }> {
+        const body = {
+            invoices: invoices.map(proposedInvoiceToBody),
+            ...(concept_id ? { concept_id } : {}),
+        };
         const { data } = await apiClient.post<{ success: boolean }>(
             `${P}/billing/invoices/confirm`,
             body,

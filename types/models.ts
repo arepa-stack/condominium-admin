@@ -91,6 +91,7 @@ export interface Invoice {
   building_id?: string | null;
   period?: string; // YYYY-MM
   receipt_number?: string;
+  concept_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -235,6 +236,7 @@ export interface BillingDebtPayload {
   amount: number;
   period: string; // "YYYY-MM"
   description: string;
+  concept_id?: string | null;
   due_date?: string;
   receipt_number?: string;
   status?: 'PENDING' | 'PAID' | 'PARTIAL';
@@ -997,4 +999,76 @@ export interface RegisterContributionDto {
   description?: string;
   currency?: 'USD' | 'VES';
   proof_image?: File;
+}
+
+// Charge concepts: what an invoice is charging for (monthly fee, special assessment...)
+export type ChargeConceptKind = 'ORDINARY' | 'EXTRAORDINARY';
+export type ChargeDistribution = 'ALIQUOT' | 'EQUAL' | 'FIXED';
+export type ChargeConceptStatus = 'ACTIVE' | 'CLOSED';
+
+export interface ChargeConcept {
+  id: string;
+  building_id: string;
+  name: string;
+  kind: ChargeConceptKind;
+  base_amount: number | null; // goal for EXTRAORDINARY, default amount otherwise
+  distribution: ChargeDistribution;
+  decision_id: string | null;
+  status: ChargeConceptStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChargeConceptPayload {
+  name: string;
+  kind: ChargeConceptKind;
+  base_amount?: number | null;
+  distribution?: ChargeDistribution;
+  decision_id?: string | null;
+}
+
+export type ChargeConceptUpdatePayload = Partial<Omit<ChargeConceptPayload, 'kind'>> & {
+  status?: ChargeConceptStatus;
+};
+
+export interface BillConceptPayload {
+  period: string; // YYYY-MM
+  amount?: number; // defaults to the concept base amount
+  description?: string;
+  due_date?: string; // YYYY-MM-DD
+}
+
+export interface BillConceptResult {
+  concept_id: string;
+  period: string;
+  count: number;
+  total: number;
+  invoices: { id: string; unit_id: string | null; amount: number }[];
+}
+
+export interface BillingTotals {
+  invoice_count: number;
+  billed: number;
+  collected: number;
+  outstanding: number;
+  paid_count: number;
+  partial_count: number;
+  pending_count: number;
+}
+
+// One concept (ORDINARY: per period) of GET /billing/buildings/:id/billing-summary; cancelled invoices excluded
+export interface ConceptBillingGroup extends BillingTotals {
+  concept_id: string;
+  name: string;
+  kind: ChargeConceptKind;
+  distribution: ChargeDistribution;
+  status: ChargeConceptStatus;
+  period: string | null; // null for EXTRAORDINARY
+  goal: number | null;
+  progress: number | null; // % of the goal collected
+}
+
+export interface BillingSummary {
+  groups: ConceptBillingGroup[];
+  unclassified: BillingTotals;
 }

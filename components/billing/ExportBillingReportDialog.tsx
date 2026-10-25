@@ -52,7 +52,7 @@ export function ExportBillingReportDialog({
     open,
     onOpenChange,
     buildingName = 'Residencias Granada',
-    budgetTitle = 'Todos los Presupuestos',
+    budgetTitle = 'Todos los conceptos',
     statusFilterLabel = 'Todos los Estados',
     invoices,
     summary,
@@ -130,10 +130,10 @@ export function ExportBillingReportDialog({
                         <div className="flex items-center justify-between text-muted-foreground">
                             <span className="flex items-center gap-1.5 font-medium text-foreground">
                                 <Filter className="w-3.5 h-3.5 text-primary" />
-                                Presupuesto:
+                                Concepto:
                             </span>
                             <span className="font-semibold text-foreground text-right truncate max-w-[280px]">
-                                {budgetTitle !== 'all' ? budgetTitle : 'Todos los Presupuestos'}
+                                {budgetTitle !== 'all' ? budgetTitle : 'Todos los conceptos'}
                             </span>
                         </div>
                         <div className="flex items-center justify-between pt-1 border-t border-border/40 text-muted-foreground">

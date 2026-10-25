@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { billingService } from '@/lib/services/billing.service';
+import { ChargeConceptSelect } from '@/components/billing/ChargeConceptSelect';
+import { apiErrorMessage } from '@/lib/utils/charge-concepts';
 import { formatCurrency } from '@/lib/utils/format';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, X, Building2 } from 'lucide-react';
 import type { ProposedInvoice, PreviewInvoicesResponse, Building } from '@/types/models';
@@ -53,6 +55,7 @@ export function ExcelInvoiceLoader({
     const [previewData, setPreviewData] = useState<PreviewInvoicesResponse | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedBuildingId, setSelectedBuildingId] = useState<string | undefined>(buildingId);
+    const [conceptId, setConceptId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Sync selectedBuildingId with buildingId prop
@@ -67,6 +70,7 @@ export function ExcelInvoiceLoader({
         setFile(null);
         setPreviewData(null);
         setIsLoading(false);
+        setConceptId(null);
         if (!buildingId) setSelectedBuildingId(undefined);
     };
 
@@ -108,7 +112,7 @@ export function ExcelInvoiceLoader({
         setIsLoading(true);
         setStep('processing');
         try {
-            await billingService.confirmInvoices(selectedBuildingId, previewData.invoices);
+            await billingService.confirmInvoices(selectedBuildingId, previewData.invoices, conceptId);
             toast.success('Facturas y unidades procesadas exitosamente');
             onSuccess?.();
             onOpenChange(false);
@@ -116,7 +120,7 @@ export function ExcelInvoiceLoader({
         } catch (error) {
             //...
             console.error('Error confirming invoices:', error);
-            toast.error('Error al confirmar las facturas');
+            toast.error(apiErrorMessage(error, 'Error al confirmar las facturas'));
             setStep('preview');
         } finally {
             setIsLoading(false);
@@ -222,6 +226,17 @@ export function ExcelInvoiceLoader({
 
                     {step === 'preview' && previewData && (
                         <div className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Concepto de cobro</label>
+                                <ChargeConceptSelect
+                                    buildingId={selectedBuildingId}
+                                    value={conceptId}
+                                    onChange={(concept) => setConceptId(concept?.id ?? null)}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Se asigna a todas las facturas nuevas de este archivo, por ejemplo &quot;Condominio&quot; para los avisos del mes.
+                                </p>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Card className="bg-primary/5 border-primary/20">
                                     <CardContent className="p-4 flex items-center gap-4">

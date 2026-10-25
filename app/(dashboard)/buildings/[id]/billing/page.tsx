@@ -28,6 +28,7 @@ import { InvoiceDetailsDialog } from '@/components/billing/InvoiceDetailsDialog'
 import { ExcelInvoiceLoader } from '@/components/billing/ExcelInvoiceLoader';
 import { GenerateByAliquotDialog } from '@/components/billing/GenerateByAliquotDialog';
 import { AliquotTableDialog } from '@/components/buildings/AliquotTableDialog';
+import { ChargeConceptsDialog } from '@/components/billing/ChargeConceptsDialog';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { ExportBillingReportDialog } from '@/components/billing/ExportBillingReportDialog';
@@ -39,12 +40,9 @@ import {
 } from '@/lib/utils/billing-report-export';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Paginator } from '@/components/ui/paginator';
-import {
-    groupInvoicesByBudget,
-    parseBudgetFromDescription,
-    type BudgetInvoiceGroup,
-    type ActiveBudgetOption,
-} from '@/lib/utils/budget-helpers';
+import { chargeConceptsService } from '@/lib/services/charge-concepts.service';
+import { buildConceptGroups, UNCLASSIFIED_GROUP_ID } from '@/lib/utils/billing-groups';
+import { CONCEPT_KIND_LABELS, DISTRIBUTION_LABELS } from '@/lib/utils/charge-concepts';
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -64,7 +62,6 @@ import {
     Layers,
     ChevronDown,
     ChevronRight,
-    Droplets,
     Printer,
     Receipt,
     FolderKanban,
@@ -72,7 +69,7 @@ import {
     X,
     Filter,
 } from 'lucide-react';
-import type { Invoice, Unit } from '@/types/models';
+import type { BillingSummary, ChargeConcept, Invoice, Unit } from '@/types/models';
 
 export default function BuildingBillingPage() {
     const { isSuperAdmin, isBoardMember } = usePermissions();
@@ -81,12 +78,15 @@ export default function BuildingBillingPage() {
 
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [summary, setSummary] = useState<BillingSummary | null>(null);
+    const [concepts, setConcepts] = useState<ChargeConcept[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Dialog states
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
     const [isExcelLoaderOpen, setIsExcelLoaderOpen] = useState(false);
     const [isAliquotDialogOpen, setIsAliquotDialogOpen] = useState(false);
+    const [isConceptsDialogOpen, setIsConceptsDialogOpen] = useState(false);
     const [isTableDialogOpen, setIsTableDialogOpen] = useState(false);
     const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -97,18 +97,19 @@ export default function BuildingBillingPage() {
     const [isExportReportDialogOpen, setIsExportReportDialogOpen] = useState(false);
     const [exportDialogFormat, setExportDialogFormat] = useState<'pdf' | 'excel'>('pdf');
 
-    // Active budget to attach when creating invoice from a specific group
-    const [selectedBudgetForNewInvoice, setSelectedBudgetForNewInvoice] = useState<ActiveBudgetOption | null>(null);
+    // Concept preselected when creating an invoice from a group card
+    const [conceptForNewInvoice, setConceptForNewInvoice] = useState<string | null>(null);
 
-    // View mode: 'grouped' by budget/concept or 'flat' list
+    // View mode: 'grouped' by charge concept or 'flat' list
     const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
-    // Accordion state for grouped view (set of expanded group IDs)
-    const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
+    // Accordion state for grouped view: groups start expanded
+    const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
 
     // Filters
     const [filterUnitId, setFilterUnitId] = useState<string>('all');
-    const [filterBudget, setFilterBudget] = useState<string>('all');
+    // 'all', a concept id, or UNCLASSIFIED_GROUP_ID for invoices without concept
+    const [filterConceptId, setFilterConceptId] = useState<string>('all');
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
     const [filterMonth, setFilterMonth] = useState<string>('all');
@@ -127,17 +128,21 @@ export default function BuildingBillingPage() {
             if (filterYear) query.year = parseInt(filterYear);
             if (filterMonth && filterMonth !== 'all') query.month = parseInt(filterMonth);
 
-            const [invoicesData, unitsData] = await Promise.all([
+            // The grouped view still works from the invoices if the summary or concepts fail
+            const [invoicesData, unitsData, summaryData, conceptsData] = await Promise.all([
                 billingService.getInvoices(query),
                 unitsService.getUnits(buildingId),
+                chargeConceptsService.summary(buildingId).catch(() => null),
+                chargeConceptsService.list(buildingId).catch(() => [] as ChargeConcept[]),
             ]);
 
             setInvoices(invoicesData);
             setUnits(unitsData);
-
-            // Automatically expand all groups by default on first load
-            const groups = groupInvoicesByBudget(invoicesData);
-            setExpandedGroupIds(new Set(groups.map((g) => g.id)));
+            setSummary(summaryData);
+            setConcepts(conceptsData);
+            if (!summaryData) {
+                toast.error('No se pudo cargar el resumen por concepto; los totales de los grupos pueden estar incompletos');
+            }
         } catch (error) {
             console.error('Failed to fetch billing data:', error);
             toast.error('Error al cargar las facturas');
@@ -150,34 +155,19 @@ export default function BuildingBillingPage() {
         fetchData();
     }, [fetchData]);
 
-    // Extract available budget and concept options from all loaded invoices
-    const availableBudgets = useMemo(() => {
-        const groups = groupInvoicesByBudget(invoices);
-        return groups.map((g) => ({
-            id: g.id,
-            title: g.title,
-            count: g.count,
-            isBudget: g.isBudget,
-            baseBudget: g.baseBudget,
-        }));
-    }, [invoices]);
+    const conceptOptions = useMemo(() => [
+        { value: 'all', label: 'Todos los conceptos' },
+        ...concepts.map((c) => ({
+            value: c.id,
+            label: `${c.name} (${CONCEPT_KIND_LABELS[c.kind]}${c.status === 'CLOSED' ? ', cerrado' : ''})`,
+            icon: c.kind === 'EXTRAORDINARY' ? Calculator : Layers,
+        })),
+        { value: UNCLASSIFIED_GROUP_ID, label: 'Sin concepto', icon: FolderKanban },
+    ], [concepts]);
 
-    const budgetOptions = useMemo(() => [
-        { value: 'all', label: 'Todos los cobros y conceptos' },
-        ...availableBudgets.map((b) => {
-            const isWater = /cisterna/i.test(b.title);
-            const prefix = b.isBudget
-                ? '🏗️ Presupuesto:'
-                : isWater
-                ? '💧 Gasto Rutinario:'
-                : '📋 Concepto:';
-            return {
-                value: b.title,
-                label: `${prefix} ${b.title} (${b.count} facturas)`,
-                icon: b.isBudget ? Calculator : isWater ? Droplets : FolderKanban,
-            };
-        }),
-    ], [availableBudgets]);
+    const filterConceptName = filterConceptId === UNCLASSIFIED_GROUP_ID
+        ? 'Sin concepto'
+        : concepts.find((c) => c.id === filterConceptId)?.name ?? '';
 
     const unitFilterOptions = useMemo(() => [
         { value: 'all', label: 'Todas las unidades' },
@@ -194,7 +184,7 @@ export default function BuildingBillingPage() {
     // Reset pagination to first page when any filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [filterUnitId, filterBudget, selectedStatuses, filterYear, filterMonth]);
+    }, [filterUnitId, filterConceptId, selectedStatuses, filterYear, filterMonth]);
 
     const toggleStatus = (status: string) => {
         setSelectedStatuses((prev) => {
@@ -257,62 +247,26 @@ export default function BuildingBillingPage() {
             });
         }
 
-        // 2. Budget filter
-        if (filterBudget && filterBudget !== 'all') {
-            const target = filterBudget.toLowerCase().trim();
-            const isEarthquakeOrRepairsTarget =
-                /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(
-                    target
-                );
-
-            result = result.filter((inv) => {
-                const parsed = parseBudgetFromDescription(inv.description, inv);
-                const groupKey = parsed.title
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]/g, '-');
-                const targetKey = target.replace(/[^a-z0-9]/g, '-');
-
-                if (groupKey === targetKey) return true;
-                if (parsed.title.toLowerCase() === target) return true;
-                if (
-                    inv.description &&
-                    inv.description.toLowerCase().includes(target)
-                )
-                    return true;
-
-                // Specifically handle terremoto and reparaciones mayores / pintura interchangeably
-                if (isEarthquakeOrRepairsTarget) {
-                    if (
-                        inv.description &&
-                        /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(
-                            inv.description
-                        )
-                    ) {
-                        return true;
-                    }
-                    if (
-                        /terremoto|reparaci[oó]n.*pintura|reparaciones mayores|pintura/i.test(
-                            parsed.title
-                        )
-                    ) {
-                        return true;
-                    }
-                }
-
-                return false;
-            });
+        // 2. Concept filter
+        if (filterConceptId === UNCLASSIFIED_GROUP_ID) {
+            result = result.filter((inv) => !inv.concept_id);
+        } else if (filterConceptId !== 'all') {
+            result = result.filter((inv) => inv.concept_id === filterConceptId);
         }
 
         // 3. Natural unit sort
         return [...result].sort((a, b) => {
             return (a.unit?.name ?? '').localeCompare(b.unit?.name ?? '', undefined, { numeric: true });
         });
-    }, [invoices, selectedStatuses, filterBudget]);
+    }, [invoices, selectedStatuses, filterConceptId]);
 
-    // Group invoices based on filtered invoices
+    // Group the filtered invoices by concept; card totals come from the billing summary
     const invoiceGroups = useMemo(() => {
-        return groupInvoicesByBudget(filteredInvoices);
-    }, [filteredInvoices]);
+        const unfiltered = filterUnitId === 'all' && selectedStatuses.length === 0 && filterConceptId === 'all';
+        return buildConceptGroups(summary, concepts, filteredInvoices, unfiltered);
+    }, [summary, concepts, filteredInvoices, filterUnitId, selectedStatuses, filterConceptId]);
+
+    const extraordinaryGroups = (summary?.groups ?? []).filter((g) => g.kind === 'EXTRAORDINARY' && g.status === 'ACTIVE');
 
     // Financial totals across all currently filtered invoices
     const globalSummary = useMemo(() => {
@@ -337,7 +291,7 @@ export default function BuildingBillingPage() {
     }, [filteredInvoices, currentPage, pageSize]);
 
     const toggleGroup = (groupId: string) => {
-        setExpandedGroupIds((prev) => {
+        setCollapsedGroupIds((prev) => {
             const next = new Set(prev);
             if (next.has(groupId)) {
                 next.delete(groupId);
@@ -349,26 +303,20 @@ export default function BuildingBillingPage() {
     };
 
     const handleExpandAll = () => {
-        setExpandedGroupIds(new Set(invoiceGroups.map((g) => g.id)));
+        setCollapsedGroupIds(new Set());
     };
 
     const handleCollapseAll = () => {
-        setExpandedGroupIds(new Set());
-    };
-
-    const handleOpenCreateForBudget = (group: BudgetInvoiceGroup) => {
-        setSelectedBudgetForNewInvoice({
-            id: `camp-${group.id}`,
-            title: group.title,
-            baseBudget: group.baseBudget,
-            details: group.details,
-            source: 'invoice_campaign',
-        });
-        setIsInvoiceDialogOpen(true);
+        setCollapsedGroupIds(new Set(invoiceGroups.map((g) => g.id)));
     };
 
     const handleOpenStandardCreate = () => {
-        setSelectedBudgetForNewInvoice(null);
+        setConceptForNewInvoice(null);
+        setIsInvoiceDialogOpen(true);
+    };
+
+    const handleOpenCreateForConcept = (conceptId: string | null) => {
+        setConceptForNewInvoice(conceptId);
         setIsInvoiceDialogOpen(true);
     };
 
@@ -384,7 +332,7 @@ export default function BuildingBillingPage() {
                 <div>
                     <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Facturación</h1>
                     <p className="text-muted-foreground mt-1">
-                        Gestioná presupuestos, facturas masivas por alícuotas y cobros del edificio
+                        Gestioná conceptos de cobro, facturas masivas y cobros del edificio
                     </p>
                 </div>
                 {(isSuperAdmin || isBoardMember) && (
@@ -396,6 +344,14 @@ export default function BuildingBillingPage() {
                         >
                             <TableProperties className="h-4 w-4" />
                             Cuadro de Alícuotas
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsConceptsDialogOpen(true)}
+                            className="gap-2 text-xs"
+                        >
+                            <FolderKanban className="h-4 w-4" />
+                            Conceptos de Cobro
                         </Button>
                         <Button
                             variant="outline"
@@ -460,13 +416,13 @@ export default function BuildingBillingPage() {
 
                 <Card className="border-border/60 bg-primary/5 border-primary/20 p-4 space-y-1">
                     <span className="text-[11px] font-medium text-primary uppercase tracking-wider block">
-                        Presupuesto de Obra
+                        Cuotas Extraordinarias
                     </span>
                     <span className="text-xl font-bold font-mono text-foreground">
-                        {invoiceGroups.filter((g) => g.isBudget && g.baseBudget).length || 1}
+                        {extraordinaryGroups.length}
                     </span>
                     <span className="text-[10px] text-muted-foreground block truncate">
-                        Cuota Especial (Reparaciones y Pintura)
+                        {extraordinaryGroups.map((g) => `${g.name} (${g.progress ?? 0}%)`).join(', ') || 'Ninguna activa'}
                     </span>
                 </Card>
             </div>
@@ -486,11 +442,11 @@ export default function BuildingBillingPage() {
                     </div>
                     <div className="w-full md:w-64">
                         <SearchableSelect
-                            options={budgetOptions}
-                            value={filterBudget}
-                            onValueChange={setFilterBudget}
-                            placeholder="Todos los presupuestos"
-                            searchPlaceholder="Filtrar por presupuesto..."
+                            options={conceptOptions}
+                            value={filterConceptId}
+                            onValueChange={setFilterConceptId}
+                            placeholder="Todos los conceptos"
+                            searchPlaceholder="Filtrar por concepto..."
                             triggerIcon={FolderKanban}
                         />
                     </div>
@@ -611,7 +567,7 @@ export default function BuildingBillingPage() {
                                 className="h-7 text-xs font-medium gap-1.5 px-3"
                             >
                                 <FolderKanban className="w-3.5 h-3.5" />
-                                Agrupadas por Presupuesto
+                                Agrupadas por Concepto
                             </Button>
                             <Button
                                 variant={viewMode === 'flat' ? 'default' : 'ghost'}
@@ -624,14 +580,14 @@ export default function BuildingBillingPage() {
                             </Button>
                         </div>
 
-                        {filterBudget !== 'all' && (
+                        {filterConceptId !== 'all' && (
                             <Badge variant="outline" className="h-7 text-xs bg-primary/10 text-primary border-primary/30 gap-1 pl-2.5 pr-1 font-normal animate-in fade-in-50">
-                                <span className="font-semibold">Presupuesto:</span> {filterBudget}
+                                <span className="font-semibold">Concepto:</span> {filterConceptName}
                                 <button
                                     type="button"
-                                    onClick={() => setFilterBudget('all')}
+                                    onClick={() => setFilterConceptId('all')}
                                     className="hover:bg-primary/20 rounded-full p-0.5 ml-0.5"
-                                    title="Quitar filtro de presupuesto"
+                                    title="Quitar filtro de concepto"
                                 >
                                     <X className="h-3 w-3" />
                                 </button>
@@ -708,12 +664,13 @@ export default function BuildingBillingPage() {
                 <EmptyState icon={FileText} message="No se encontraron facturas para los filtros seleccionados" variant="inline" />
             ) : viewMode === 'grouped' ? (
                 /* ═══════════════════════════════════════════════════════════════════
-                   GROUPED VIEW (Agrupadas por Presupuesto / Concepto)
+                   GROUPED VIEW (Agrupadas por concepto de cobro)
                    ═══════════════════════════════════════════════════════════════════ */
                 <div className="space-y-4">
                     {invoiceGroups.map((group) => {
-                        const isExpanded = expandedGroupIds.has(group.id);
-                        const isWater = /cisterna/i.test(group.title);
+                        const isExpanded = !collapsedGroupIds.has(group.id);
+                        const isExtraordinary = group.kind === 'EXTRAORDINARY';
+                        const isUnclassified = group.conceptId === null;
                         const isAllPaid = group.paidCount === group.count && group.count > 0;
 
                         return (
@@ -732,17 +689,17 @@ export default function BuildingBillingPage() {
                                     <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                                         <div
                                             className={`p-2.5 rounded-xl border shrink-0 ${
-                                                group.isBudget
+                                                isExtraordinary
                                                     ? 'bg-primary/10 border-primary/20 text-primary'
-                                                    : isWater
-                                                    ? 'bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400'
-                                                    : 'bg-muted border-border text-muted-foreground'
+                                                    : isUnclassified
+                                                    ? 'bg-muted border-border text-muted-foreground'
+                                                    : 'bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400'
                                             }`}
                                         >
-                                            {group.isBudget ? (
+                                            {isExtraordinary ? (
                                                 <Calculator className="h-5 w-5" />
-                                            ) : isWater ? (
-                                                <Droplets className="h-5 w-5" />
+                                            ) : isUnclassified ? (
+                                                <FolderKanban className="h-5 w-5" />
                                             ) : (
                                                 <Layers className="h-5 w-5" />
                                             )}
@@ -753,18 +710,18 @@ export default function BuildingBillingPage() {
                                                 <h3 className="font-bold text-base font-display text-foreground truncate">
                                                     {group.title}
                                                 </h3>
-                                                {group.baseBudget && group.isBudget ? (
+                                                {isExtraordinary && group.goal ? (
                                                     <Badge className="bg-primary/15 text-primary border-primary/30 font-mono text-[11px]">
-                                                        Presupuesto de Obra: ${group.baseBudget.toFixed(2)} USD
+                                                        Meta: {formatCurrency(group.goal)}
                                                     </Badge>
-                                                ) : isWater ? (
-                                                    <Badge variant="outline" className="bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 font-medium text-[11px] gap-1">
-                                                        <Droplets className="w-3 h-3 text-sky-500" />
-                                                        Gasto Rutinario (Agua)
+                                                ) : isUnclassified ? (
+                                                    <Badge variant="outline" className="bg-muted text-muted-foreground text-[11px]">
+                                                        Facturas sin concepto asignado
                                                     </Badge>
                                                 ) : (
-                                                    <Badge variant="outline" className="bg-muted text-muted-foreground text-[11px]">
-                                                        Gasto Operativo
+                                                    <Badge variant="outline" className="bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30 font-medium text-[11px]">
+                                                        {group.kind ? CONCEPT_KIND_LABELS[group.kind] : 'Concepto'}
+                                                        {group.distribution ? ` · ${DISTRIBUTION_LABELS[group.distribution]}` : ''}
                                                     </Badge>
                                                 )}
                                                 {isAllPaid && (
@@ -796,11 +753,6 @@ export default function BuildingBillingPage() {
                                                         </span>
                                                     </>
                                                 )}
-                                                {group.details && (
-                                                    <span className="hidden lg:inline text-[11px] italic truncate max-w-md">
-                                                        ({group.details})
-                                                    </span>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -809,10 +761,10 @@ export default function BuildingBillingPage() {
                                     <div className="flex items-center gap-4 shrink-0 justify-between md:justify-end">
                                         <div className="text-right">
                                             <div className="font-mono font-bold text-base text-foreground">
-                                                {formatCurrency(group.totalAmount)}
+                                                {formatCurrency(group.billed)}
                                             </div>
                                             <div className="text-xs text-muted-foreground flex items-center justify-end gap-1.5">
-                                                <span>Cobrado: {formatCurrency(group.totalPaid)}</span>
+                                                <span>Cobrado: {formatCurrency(group.collected)}</span>
                                                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                                                     ({group.progress}%)
                                                 </span>
@@ -829,13 +781,13 @@ export default function BuildingBillingPage() {
                                                     variant="outline"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleOpenCreateForBudget(group);
+                                                        handleOpenCreateForConcept(group.conceptId);
                                                     }}
                                                     className="h-8 px-2.5 text-xs gap-1.5 text-primary border-primary/30 hover:bg-primary/10"
-                                                    title="Agregar una factura individual a este presupuesto"
+                                                    title="Agregar una factura individual a este concepto"
                                                 >
                                                     <Plus className="h-3.5 w-3.5" />
-                                                    <span className="hidden sm:inline">{isWater ? '+ Cobro Cisterna' : '+ Factura a Presupuesto'}</span>
+                                                    <span className="hidden sm:inline">+ Factura</span>
                                                 </Button>
                                             )}
 
@@ -1051,8 +1003,7 @@ export default function BuildingBillingPage() {
                 open={isInvoiceDialogOpen}
                 onOpenChange={setIsInvoiceDialogOpen}
                 buildingId={buildingId}
-                initialBudgetOption={selectedBudgetForNewInvoice}
-                existingInvoices={invoices}
+                initialConceptId={conceptForNewInvoice}
                 onSuccess={fetchData}
             />
 
@@ -1102,7 +1053,7 @@ export default function BuildingBillingPage() {
                 open={isExportReportDialogOpen}
                 onOpenChange={setIsExportReportDialogOpen}
                 buildingName="Residencias Granada"
-                budgetTitle={filterBudget !== 'all' ? filterBudget : 'Todos los Presupuestos'}
+                budgetTitle={filterConceptId !== 'all' ? filterConceptName : 'Todos los conceptos'}
                 statusFilterLabel={statusFilterLabel}
                 invoices={filteredInvoices}
                 summary={globalSummary}
@@ -1124,6 +1075,13 @@ export default function BuildingBillingPage() {
                 units={units}
                 onUnitsUpdated={fetchData}
                 onOpenBillingDialog={() => setIsAliquotDialogOpen(true)}
+            />
+
+            <ChargeConceptsDialog
+                open={isConceptsDialogOpen}
+                onOpenChange={setIsConceptsDialogOpen}
+                buildingId={buildingId}
+                onChanged={fetchData}
             />
         </div>
     );
