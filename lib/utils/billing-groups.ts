@@ -70,12 +70,14 @@ export function buildConceptGroups(
     includeEmpty: boolean,
 ): ConceptViewGroup[] {
     const conceptById = new Map(concepts.map(c => [c.id, c]));
+    // The summary also knows each concept's kind, in case the concept list could not be loaded
+    const kindById = new Map<string, ChargeConceptKind>((summary?.groups ?? []).map(g => [g.concept_id, g.kind]));
+    concepts.forEach(c => kindById.set(c.id, c.kind));
 
     const invoicesByKey = new Map<string, Invoice[]>();
     for (const inv of invoices) {
-        const concept = inv.concept_id ? conceptById.get(inv.concept_id) : undefined;
         const key = inv.concept_id
-            ? groupKey(inv.concept_id, concept?.kind === 'EXTRAORDINARY' ? null : (inv.period ?? null))
+            ? groupKey(inv.concept_id, kindById.get(inv.concept_id) === 'EXTRAORDINARY' ? null : (inv.period ?? null))
             : UNCLASSIFIED_GROUP_ID;
         const list = invoicesByKey.get(key) ?? [];
         list.push(inv);

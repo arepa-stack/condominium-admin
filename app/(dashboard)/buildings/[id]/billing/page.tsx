@@ -140,6 +140,9 @@ export default function BuildingBillingPage() {
             setUnits(unitsData);
             setSummary(summaryData);
             setConcepts(conceptsData);
+            if (!summaryData) {
+                toast.error('No se pudo cargar el resumen por concepto; los totales de los grupos pueden estar incompletos');
+            }
         } catch (error) {
             console.error('Failed to fetch billing data:', error);
             toast.error('Error al cargar las facturas');
@@ -1078,6 +1081,7 @@ export default function BuildingBillingPage() {
                 open={isConceptsDialogOpen}
                 onOpenChange={setIsConceptsDialogOpen}
                 buildingId={buildingId}
+                onChanged={fetchData}
             />
         </div>
     );

@@ -328,6 +328,19 @@ export function InvoiceDialog({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedConcept?.id]);
 
+    // A later period change updates the default description, unless the user wrote their own
+    const currentPeriod = form.watch('period');
+    const [describedPeriod, setDescribedPeriod] = useState<string>('');
+    useEffect(() => {
+        if (!selectedConcept) return;
+        const previous = conceptInvoiceDescription(selectedConcept, describedPeriod);
+        if (describedPeriod && form.getValues('description') === previous) {
+            form.setValue('description', conceptInvoiceDescription(selectedConcept, currentPeriod), { shouldValidate: true });
+        }
+        setDescribedPeriod(currentPeriod);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPeriod, selectedConcept?.id]);
+
     useEffect(() => {
         if (!selectedConcept) return;
         const base = selectedConcept.base_amount;

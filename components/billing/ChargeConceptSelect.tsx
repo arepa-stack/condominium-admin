@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { chargeConceptsService } from '@/lib/services/charge-concepts.service';
 import { CONCEPT_KIND_LABELS } from '@/lib/utils/charge-concepts';
@@ -37,7 +38,12 @@ export function ChargeConceptSelect({ buildingId, value, onChange, disabled, req
                 setConcepts(data);
                 onConceptsLoaded?.(data);
             })
-            .catch(() => { if (!cancelled) setConcepts([]); })
+            .catch(() => {
+                if (cancelled) return;
+                setConcepts([]);
+                onConceptsLoaded?.([]);
+                toast.error('No se pudieron cargar los conceptos de cobro');
+            })
             .finally(() => { if (!cancelled) setIsLoading(false); });
         return () => { cancelled = true; };
         // onConceptsLoaded is a notification; reloading on every new callback identity is not wanted

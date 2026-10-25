@@ -100,6 +100,14 @@ export function GenerateByAliquotDialog({
         setDescription(next ? conceptInvoiceDescription(next, period) : '');
     };
 
+    // A period change updates the default description, unless the user wrote their own
+    const handlePeriodChange = (next: string) => {
+        if (concept && description === conceptInvoiceDescription(concept, period)) {
+            setDescription(conceptInvoiceDescription(concept, next));
+        }
+        setPeriod(next);
+    };
+
     const distribution = concept?.distribution ?? 'ALIQUOT';
 
     // Parse budget as number
@@ -347,7 +355,7 @@ export function GenerateByAliquotDialog({
                                     id="period"
                                     type="text"
                                     value={period}
-                                    onChange={(e) => setPeriod(e.target.value)}
+                                    onChange={(e) => handlePeriodChange(e.target.value)}
                                     placeholder="2026-10"
                                     className="pl-9 font-mono bg-background/50"
                                     disabled={isGenerating}
