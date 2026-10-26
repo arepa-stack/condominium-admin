@@ -42,6 +42,7 @@ import { ChargeConceptSelect } from '@/components/billing/ChargeConceptSelect';
 import { conceptInvoiceDescription, unitShareOfConcept, DISTRIBUTION_LABELS } from '@/lib/utils/charge-concepts';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { unitAliquot } from '@/lib/utils/unit-display';
 import {
     Building2,
@@ -154,6 +155,12 @@ export function InvoiceDialog({
     const [createdInvoiceForReceipt, setCreatedInvoiceForReceipt] = useState<Invoice | null>(null);
     const [createdPaymentDetails, setCreatedPaymentDetails] = useState<InvoicePdfPaymentDetails | null>(null);
     const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+    const [openChargePrompt, setOpenChargePrompt] = useState<{
+        description: string;
+        period: string;
+        pending: number;
+        resolve: (proceed: boolean) => void;
+    } | null>(null);
 
     // Admin needs to select building, board has it pre-selected
     const needsBuildingSelector = isSuperAdmin && !propBuildingId;
@@ -380,10 +387,13 @@ export function InvoiceDialog({
             const openCharge = await findOpenSameCharge(values.unit_id, values.period, values.description, selectedConceptId);
             if (openCharge) {
                 const pending = Math.max(0, openCharge.amount - (openCharge.paid_amount || 0));
-                const proceed = confirm(
-                    `Esta unidad ya tiene abierta la factura "${openCharge.description?.split(' | ')[0].trim()}" del período ${values.period}, con saldo pendiente de $${pending.toFixed(2)}.\n\n` +
-                    `Para registrar un abono o pago de esa cuota, cancela y usa "Registrar abono" en el detalle de esa factura.\n\n` +
-                    `¿Crear de todas formas una factura NUEVA?`
+                const proceed = await new Promise<boolean>(resolve =>
+                    setOpenChargePrompt({
+                        description: openCharge.description?.split(' | ')[0].trim() ?? '',
+                        period: values.period,
+                        pending,
+                        resolve,
+                    })
                 );
                 if (!proceed) return;
             }
@@ -1161,6 +1171,42 @@ export function InvoiceDialog({
                     </Form>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={!!openChargePrompt}
+                onOpenChange={(open) => {
+                    if (open) return;
+                    openChargePrompt?.resolve(false);
+                    setOpenChargePrompt(null);
+                }}
+                title={
+                    <span className="flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5 text-amber-500" />
+                        Ya existe una factura abierta
+                    </span>
+                }
+                description={openChargePrompt && (
+                    <span className="block space-y-3">
+                        <span className="block">
+                            Esta unidad ya tiene abierta la factura{' '}
+                            <strong className="text-foreground">&quot;{openChargePrompt.description}&quot;</strong>{' '}
+                            del período <strong className="text-foreground">{openChargePrompt.period}</strong>, con saldo pendiente de{' '}
+                            <strong className="text-amber-500">${openChargePrompt.pending.toFixed(2)}</strong>.
+                        </span>
+                        <span className="block rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-amber-600 dark:text-amber-400">
+                            Para registrar un abono o pago de esa cuota, cancela y usa &quot;Registrar abono&quot; en el detalle de esa factura.
+                        </span>
+                        <span className="block">
+                            ¿Crear de todas formas una factura <strong className="text-foreground">NUEVA</strong>?
+                        </span>
+                    </span>
+                )}
+                confirmLabel="Crear factura nueva"
+                onConfirm={() => {
+                    openChargePrompt?.resolve(true);
+                    setOpenChargePrompt(null);
+                }}
+            />
 
             {/* Receipt Modal for Immediate PDF Download / Print */}
             {createdInvoiceForReceipt && (
