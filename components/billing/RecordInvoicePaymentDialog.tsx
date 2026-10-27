@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Coins, Loader2, RefreshCw, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { billingService } from '@/lib/services/billing.service';
+import { paymentsService } from '@/lib/services/payments.service';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { formatCurrency } from '@/lib/utils/format';
 import type { Invoice, RateSet, RateSource, RecordInvoicePaymentPayload } from '@/types/models';
@@ -82,6 +83,7 @@ export function RecordInvoicePaymentDialog({ open, onOpenChange, invoice, onReco
 
     const [ratesData, setRatesData] = useState<RateSet | null>(null);
     const [isLoadingRates, setIsLoadingRates] = useState(false);
+    const [proofFile, setProofFile] = useState<File | null>(null);
     // Blocks a second submit while the first is in flight: each submit records a payment.
     const submittingRef = useRef(false);
 
@@ -109,6 +111,7 @@ export function RecordInvoicePaymentDialog({ open, onOpenChange, invoice, onReco
     useEffect(() => {
         if (open) {
             form.reset({ ...form.getValues(), amount: remaining.toFixed(2), payment_date: today, exchange_rate: '', amount_ves: '', reference: '', notes: '' });
+            setProofFile(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, invoice.id]);
@@ -165,7 +168,15 @@ export function RecordInvoicePaymentDialog({ open, onOpenChange, invoice, onReco
                 }),
             };
 
-            const { invoice: updated } = await billingService.recordInvoicePayment(invoice.id, payload);
+            const { invoice: updated, payment } = await billingService.recordInvoicePayment(invoice.id, payload);
+
+            if (proofFile) {
+                const fd = new FormData();
+                fd.append('proof_image', proofFile);
+                // The payment is already recorded; a failed upload can be retried from the payment detail
+                await paymentsService.uploadPaymentProof(payment.id, fd)
+                    .catch(() => toast.warning('Pago registrado, pero no se pudo subir el comprobante'));
+            }
 
             toast.success(updated.status === 'PAID' ? 'Pago registrado. La factura quedó PAGADA.' : 'Abono registrado correctamente');
             onOpenChange(false);
@@ -198,7 +209,7 @@ export function RecordInvoicePaymentDialog({ open, onOpenChange, invoice, onReco
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-foreground">
                         <Wallet className="h-5 w-5 text-primary" />
-                        Registrar abono
+                        Registrar pago
                     </DialogTitle>
                     <DialogDescription>
                         Se aplica a esta factura. Saldo pendiente: <strong>{formatCurrency(remaining)}</strong> de {formatCurrency(invoice.amount)}.
@@ -372,6 +383,17 @@ export function RecordInvoicePaymentDialog({ open, onOpenChange, invoice, onReco
                                         </FormControl>
                                     </FormItem>
                                 )}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label htmlFor="proof_image" className="text-xs font-medium">Comprobante (opcional)</label>
+                            <Input
+                                id="proof_image"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,application/pdf"
+                                onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                                className="h-9 text-xs"
                             />
                         </div>
 
