@@ -1072,3 +1072,18 @@ export interface BillingSummary {
   groups: ConceptBillingGroup[];
   unclassified: BillingTotals;
 }
+
+/** Per-building payment details shown to residents on "Pagar ahora" in the app. */
+export interface BuildingPaymentInfo {
+  bank_name: string | null;
+  bank_code: string | null;
+  account_holder: string | null;
+  rif: string | null;
+  account_number: string | null;
+  pago_movil_phone: string | null;
+  email: string | null;
+  qr_url: string | null;
+  configured: boolean;
+}
+
+export type BuildingPaymentInfoFields = Omit<BuildingPaymentInfo, 'qr_url' | 'configured'>;
