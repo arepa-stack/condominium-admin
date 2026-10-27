@@ -70,7 +70,6 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     const [isApprovingPayment, setIsApprovingPayment] = useState(false);
     const [isAvisoOpen, setIsAvisoOpen] = useState(false);
     const [isReceiptOpen, setIsReceiptOpen] = useState(false);
-    const [isMarkingPaid, setIsMarkingPaid] = useState(false);
     const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
     const [receiptDetails, setReceiptDetails] = useState<InvoicePdfPaymentDetails | undefined>(undefined);
 
@@ -79,29 +78,6 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
         onPaymentApproved?.();
         setReceiptDetails(details);
         setIsReceiptOpen(true);
-    };
-
-    const handleMarkInvoiceAsPaid = async () => {
-        if (!invoice) return;
-        const pending = Math.max(0, invoice.amount - (invoice.paid_amount || 0));
-        if (!confirm(`¿Marcar la factura #${displayId} como PAGADA? Se registrará un pago en efectivo por el saldo pendiente (${formatCurrency(pending)}).`)) return;
-
-        setIsMarkingPaid(true);
-        try {
-            await billingService.updateInvoice(invoice.id, {
-                status: 'PAID',
-                payment_method: 'CASH',
-                payment_date: new Date().toISOString().slice(0, 10),
-            });
-            toast.success('Factura marcada como PAGADA con éxito.');
-            await fetchData();
-            onPaymentApproved?.();
-        } catch (error) {
-            console.error('Error al marcar factura como pagada:', error);
-            toast.error('Error al marcar la factura como pagada');
-        } finally {
-            setIsMarkingPaid(false);
-        }
     };
 
     const handleApprovePayment = async (paymentId: string) => {
@@ -416,11 +392,10 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                     {isOpenForPayment && (
                                         <Button
                                             size="sm"
-                                            onClick={handleMarkInvoiceAsPaid}
-                                            disabled={isMarkingPaid}
+                                            onClick={() => setIsRecordPaymentOpen(true)}
                                             className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                                         >
-                                            {isMarkingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
                                             Marcar como Pagada
                                         </Button>
                                     )}
