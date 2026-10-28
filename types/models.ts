@@ -181,6 +181,7 @@ export interface UpdateBuildingDto {
   name?: string;
   address?: string;
   default_rate_source?: RateSource;
+  building_code?: string;
 }
 
 export interface UpdateUserDto {
