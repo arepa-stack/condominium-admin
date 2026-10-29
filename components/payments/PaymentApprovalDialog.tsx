@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Eye, Info, Loader2, Upload, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import {
@@ -66,32 +66,34 @@ export function PaymentApprovalDialog({
     const [rate, setRate] = useState('');
     // BCV references of the payment date: charges may be billed at the euro or the dollar rate.
     const [refRates, setRefRates] = useState<{ label: string; value: number }[]>([]);
+    // Payment the fields were initialised for. Uploading a proof reloads the same payment
+    // (null, then a new object): that must not wipe what the approver already typed.
+    const currencyInitFor = useRef<string | null>(null);
 
     useEffect(() => {
         const p = detailedPayment;
-        if (!p || p.status !== 'PENDING') return;
+        if (!p || p.status !== 'PENDING' || currencyInitFor.current === p.id) return;
+        currencyInitFor.current = p.id;
         const reportedVes = p.original_currency === 'VES' && !!p.exchange_rate;
         // Residents pay Pago Móvil/transfer in Bs; only cash is assumed to be dollars.
         setPaidCurrency(reportedVes || p.method !== 'CASH' ? 'VES' : 'USD');
         setAmountVes(reportedVes && p.original_amount ? String(p.original_amount) : '');
         setRate(reportedVes ? String(p.exchange_rate) : '');
         setRefRates([]);
-        let cancelled = false;
         // No prefill: which rate applies depends on the charge, the approver types the Bs received or picks one.
         pettyCashService.getRates(p.payment_date?.slice(0, 10)).then((r) => {
-            if (cancelled) return;
+            if (currencyInitFor.current !== p.id) return; // another payment opened meanwhile
             setRefRates([
                 { label: 'Euro BCV', value: r.rates.euro_oficial?.bs_per_unit ?? 0 },
                 { label: 'Dólar BCV', value: r.rates.dolar_oficial?.bs_per_unit ?? 0 },
             ].filter((x) => x.value > 0));
         }).catch(() => { /* no reference rates: the approver types the rate */ });
-        return () => { cancelled = true; };
     }, [detailedPayment]);
 
     const onAmountVesChange = (value: string) => {
         setAmountVes(value);
         const bs = parseFloat(value);
-        if (detailedPayment && bs > 0) setRate((bs / detailedPayment.amount).toFixed(4));
+        if (detailedPayment && detailedPayment.amount > 0 && bs > 0) setRate((bs / detailedPayment.amount).toFixed(4));
     };
 
     const onRateChange = (value: string) => {
@@ -139,6 +141,7 @@ export function PaymentApprovalDialog({
         if (payment) {
             loadDetails(payment.id);
         } else {
+            currencyInitFor.current = null; // reopening the same payment starts from its data again
             setDetailedPayment(null);
             setAllocations([]);
             setProofUrl(null);
@@ -182,7 +185,7 @@ export function PaymentApprovalDialog({
         if (!payment) return;
         const bs = parseFloat(amountVes);
         const r = parseFloat(rate);
-        if (paidCurrency === 'VES' && !(bs > 0 && r > 0)) {
+        if (paidCurrency === 'VES' && !(bs > 0 && r > 0 && Number.isFinite(bs) && Number.isFinite(r))) {
             toast.error('Indica el monto en Bs y la tasa');
             return;
         }
@@ -485,7 +488,7 @@ export function PaymentApprovalDialog({
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <Label htmlFor="approve-rate" className="text-[11px] font-medium text-muted-foreground">Tasa (Bs por USD)</Label>
+                                                <Label htmlFor="approve-rate" className="text-[11px] font-medium text-muted-foreground">Tasa aplicada (Bs por 1 USD facturado)</Label>
                                                 <Input
                                                     id="approve-rate"
                                                     type="number"
