@@ -210,7 +210,13 @@ export interface CreateUserDto {
 export interface UpdatePaymentDto {
   status: PaymentStatus;
   notes?: string;
+  // Approval only: currency it was received in; VES also needs the Bs amount and rate.
+  currency?: 'USD' | 'VES';
+  amount_ves?: number;
+  exchange_rate?: number;
 }
+
+export type PaidCurrency = Pick<UpdatePaymentDto, 'currency' | 'amount_ves' | 'exchange_rate'>;
 
 export interface Unit {
   id: string;
