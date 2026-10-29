@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { paymentsService } from '@/lib/services/payments.service';
 import { billingService } from '@/lib/services/billing.service';
+import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { formatCurrency, formatDate, formatPaymentMethod, formatPeriod } from '@/lib/utils/format';
 import type { Payment } from '@/types/models';
 import { toast } from 'sonner';
@@ -57,6 +58,47 @@ export function PaymentApprovalDialog({
     const [editBank, setEditBank] = useState('');
     const [editNotes, setEditNotes] = useState('');
     const [isUploadingProof, setIsUploadingProof] = useState(false);
+
+    // Currency the payment was received in, confirmed on approval. Bs = USD amount × rate, always:
+    // the USD amount is what the invoices were paid with, so editing one field recomputes the other.
+    const [paidCurrency, setPaidCurrency] = useState<'USD' | 'VES'>('VES');
+    const [amountVes, setAmountVes] = useState('');
+    const [rate, setRate] = useState('');
+    // BCV references of the payment date: charges may be billed at the euro or the dollar rate.
+    const [refRates, setRefRates] = useState<{ label: string; value: number }[]>([]);
+
+    useEffect(() => {
+        const p = detailedPayment;
+        if (!p || p.status !== 'PENDING') return;
+        const reportedVes = p.original_currency === 'VES' && !!p.exchange_rate;
+        // Residents pay Pago Móvil/transfer in Bs; only cash is assumed to be dollars.
+        setPaidCurrency(reportedVes || p.method !== 'CASH' ? 'VES' : 'USD');
+        setAmountVes(reportedVes && p.original_amount ? String(p.original_amount) : '');
+        setRate(reportedVes ? String(p.exchange_rate) : '');
+        setRefRates([]);
+        let cancelled = false;
+        // No prefill: which rate applies depends on the charge, the approver types the Bs received or picks one.
+        pettyCashService.getRates(p.payment_date?.slice(0, 10)).then((r) => {
+            if (cancelled) return;
+            setRefRates([
+                { label: 'Euro BCV', value: r.rates.euro_oficial?.bs_per_unit ?? 0 },
+                { label: 'Dólar BCV', value: r.rates.dolar_oficial?.bs_per_unit ?? 0 },
+            ].filter((x) => x.value > 0));
+        }).catch(() => { /* no reference rates: the approver types the rate */ });
+        return () => { cancelled = true; };
+    }, [detailedPayment]);
+
+    const onAmountVesChange = (value: string) => {
+        setAmountVes(value);
+        const bs = parseFloat(value);
+        if (detailedPayment && bs > 0) setRate((bs / detailedPayment.amount).toFixed(4));
+    };
+
+    const onRateChange = (value: string) => {
+        setRate(value);
+        const r = parseFloat(value);
+        if (detailedPayment && r > 0) setAmountVes((detailedPayment.amount * r).toFixed(2));
+    };
 
     const loadDetails = useCallback(async (id: string) => {
         setDetailedPayment(null);
@@ -138,9 +180,19 @@ export function PaymentApprovalDialog({
 
     const handleApprove = async () => {
         if (!payment) return;
+        const bs = parseFloat(amountVes);
+        const r = parseFloat(rate);
+        if (paidCurrency === 'VES' && !(bs > 0 && r > 0)) {
+            toast.error('Indica el monto en Bs y la tasa');
+            return;
+        }
         setIsSubmitting(true);
         try {
-            await paymentsService.approvePayment(payment.id, undefined);
+            await paymentsService.approvePayment(
+                payment.id,
+                undefined,
+                paidCurrency === 'VES' ? { currency: 'VES', amount_ves: bs, exchange_rate: r } : { currency: 'USD' }
+            );
             toast.success('Pago aprobado correctamente');
             onSuccess();
             onClose();
@@ -397,6 +449,76 @@ export function PaymentApprovalDialog({
                                 </div>
                             ) : (
                                 <p className="text-sm text-muted-foreground italic">Sin información detallada de imputación.</p>
+                            )}
+
+                            {detailedPayment.status === 'PENDING' && (
+                                <div className="p-4 rounded-xl bg-muted/20 border border-border/50 space-y-3">
+                                    <span className="text-xs font-semibold text-foreground uppercase tracking-wider block">
+                                        Moneda en que se recibió
+                                    </span>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {(['VES', 'USD'] as const).map((c) => (
+                                            <Button
+                                                key={c}
+                                                type="button"
+                                                size="sm"
+                                                variant={paidCurrency === c ? 'default' : 'outline'}
+                                                onClick={() => setPaidCurrency(c)}
+                                                aria-pressed={paidCurrency === c}
+                                            >
+                                                {c === 'VES' ? 'Bolívares (Bs)' : 'Dólares (USD)'}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                    {paidCurrency === 'VES' && (
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <div className="space-y-1">
+                                                <Label htmlFor="approve-amount-ves" className="text-[11px] font-medium text-muted-foreground">Monto recibido (Bs)</Label>
+                                                <Input
+                                                    id="approve-amount-ves"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={amountVes}
+                                                    onChange={(e) => onAmountVesChange(e.target.value)}
+                                                    className="h-8 text-sm bg-background font-mono"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="approve-rate" className="text-[11px] font-medium text-muted-foreground">Tasa (Bs por USD)</Label>
+                                                <Input
+                                                    id="approve-rate"
+                                                    type="number"
+                                                    step="0.0001"
+                                                    min="0"
+                                                    value={rate}
+                                                    onChange={(e) => onRateChange(e.target.value)}
+                                                    className="h-8 text-sm bg-background font-mono"
+                                                />
+                                            </div>
+                                            {refRates.length > 0 && (
+                                                <div className="col-span-2 flex flex-wrap items-center gap-1.5">
+                                                    <span className="text-[11px] text-muted-foreground">Tasas del {formatDate(detailedPayment.payment_date)}:</span>
+                                                    {refRates.map((x) => (
+                                                        <Button
+                                                            key={x.label}
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-6 px-2 text-[11px]"
+                                                            onClick={() => onRateChange(x.value.toFixed(4))}
+                                                        >
+                                                            {x.label} {x.value.toFixed(2)}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <p className="col-span-2 text-[11px] text-muted-foreground">
+                                                Se aplican {formatCurrency(detailedPayment.amount)} a las facturas; el monto en Bs y la tasa quedan como registro.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {detailedPayment.status !== 'PENDING' && (
