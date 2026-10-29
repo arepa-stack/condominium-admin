@@ -136,6 +136,18 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                 ...invoiceData,
                 unit: invoiceData.unit ?? unit ?? undefined,
                 user: invoiceData.user ?? user ?? undefined,
+                // How it was paid, for the receipt (the detail endpoint doesn't include payments).
+                payments: paymentsData
+                    .filter((p) => p.status === 'APPROVED')
+                    .map((p) => ({
+                        payment_id: p.id,
+                        method: p.method,
+                        payment_date: p.payment_date,
+                        allocated_amount: p.allocated_amount,
+                        original_currency: p.original_currency === 'VES' ? 'VES' : 'USD',
+                        exchange_rate: p.exchange_rate ?? null,
+                        amount_ves: p.amount_ves ?? null,
+                    })),
             });
             setPayments(paymentsData);
         } catch (error) {

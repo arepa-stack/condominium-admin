@@ -94,6 +94,20 @@ export interface Invoice {
   concept_id?: string | null;
   created_at?: string;
   updated_at?: string;
+  /** Approved payments applied to it and the currency each was received in (admin invoice list). */
+  payments?: InvoicePaidWith[];
+}
+
+export interface InvoicePaidWith {
+  payment_id: string;
+  method: PaymentMethod;
+  payment_date: string;
+  /** USD applied to the invoice. */
+  allocated_amount: number;
+  original_currency?: 'USD' | 'VES';
+  exchange_rate?: number | null;
+  /** Bs that went to the invoice; null for USD payments. */
+  amount_ves?: number | null;
 }
 
 export interface Allocation {
@@ -136,6 +150,8 @@ export interface InvoicePayment extends Payment {
   allocated_amount: number;
   allocation_id: string;
   allocated_at: string;
+  /** Bs share of this invoice; null for USD payments. */
+  amount_ves?: number | null;
 }
 
 export type SolvencyStatus = "SOLVENT" | "PENDING" | "OVERDUE";

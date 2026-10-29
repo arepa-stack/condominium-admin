@@ -43,6 +43,31 @@ export function parseFormattedNumber(str: string): number {
     return parseFloat(clean) || 0;
 }
 
+/**
+ * How the invoice was paid, from its approved payments (null when the API sent none: invoices
+ * paid before payments carried their currency fall back to the description notes).
+ * Several Bs payments add up; their rate is the average weighted by the USD each applied.
+ */
+export function paidFromPayments(invoice: Invoice): Pick<InvoicePdfPaymentDetails,
+    'currency' | 'amountVes' | 'exchangeRate' | 'paymentMethod' | 'paymentDate'> | null {
+    const payments = invoice.payments ?? [];
+    if (payments.length === 0) return null;
+    const last = [...payments].sort((a, b) => a.payment_date.localeCompare(b.payment_date)).at(-1)!;
+    const ves = payments.filter((p) => p.original_currency === 'VES' && p.exchange_rate && p.amount_ves != null);
+    if (ves.length === 0) {
+        return { currency: 'USD', paymentMethod: last.method, paymentDate: last.payment_date.slice(0, 10) };
+    }
+    const amountVes = ves.reduce((s, p) => s + p.amount_ves!, 0);
+    const usd = ves.reduce((s, p) => s + p.allocated_amount, 0);
+    return {
+        currency: 'VES',
+        amountVes: Math.round(amountVes * 100) / 100,
+        exchangeRate: ves.length === 1 ? ves[0].exchange_rate! : amountVes / usd,
+        paymentMethod: last.method,
+        paymentDate: last.payment_date.slice(0, 10),
+    };
+}
+
 export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: InvoicePdfPaymentDetails): InvoicePdfPaymentDetails {
     const totalAmount = explicitDetails?.totalAmountUsd ?? invoice.amount ?? 0;
     
@@ -73,8 +98,12 @@ export function parseInvoicePaymentInfo(invoice: Invoice, explicitDetails?: Invo
         remainingBalanceUsd: remainingBalance,
     };
 
-    // If explicit details were not provided with VES info, try to parse from description
-    if (!details.amountVes && invoice.description) {
+    // Without explicit details, the invoice's payments say how it was paid; older invoices only
+    // have it in the description notes.
+    const fromPayments = explicitDetails?.currency ? null : paidFromPayments(invoice);
+    if (fromPayments) {
+        Object.assign(details, fromPayments, { rateType: 'CUSTOM' });
+    } else if (!details.amountVes && invoice.description) {
         const bsMatch = invoice.description.match(/Pagado en Bs:\s*([0-9.,]+)/i) || 
                         invoice.description.match(/Abono en Bs:\s*([0-9.,]+)/i) ||
                         invoice.description.match(/Bs\.?\s*([0-9.,]+)/i);

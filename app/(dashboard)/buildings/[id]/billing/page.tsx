@@ -33,7 +33,7 @@ import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { ExportBillingReportDialog } from '@/components/billing/ExportBillingReportDialog';
 import { getUnitInfo } from '@/lib/utils/unit-display';
-import { parseFormattedNumber } from '@/lib/utils/invoice-pdf';
+import { paidFromPayments, parseFormattedNumber } from '@/lib/utils/invoice-pdf';
 import {
     generateBillingReportPDF,
     exportBillingReportExcel,
@@ -1099,8 +1099,12 @@ function InvoicePaymentMethodBadge({ invoice }: { invoice: Invoice }) {
         return <span className="text-[11px] text-muted-foreground/60">--</span>;
     }
 
+    // The invoice's payments say how it was paid; older invoices only have it in the description notes.
+    const paid = paidFromPayments(invoice);
     const desc = invoice.description || '';
-    const hasBs = /en bs|abono en bs|pagado en bs|bs\.?\s*[0-9]|tasa\s*(euro|bcv)?/i.test(desc);
+    const hasBs = paid
+        ? paid.currency === 'VES'
+        : /en bs|abono en bs|pagado en bs|bs\.?\s*[0-9]|tasa\s*(euro|bcv)?/i.test(desc);
     const isExplicitCash = !hasBs && /efectivo|cash/i.test(desc);
 
     if (isExplicitCash || !hasBs) {
@@ -1120,9 +1124,11 @@ function InvoicePaymentMethodBadge({ invoice }: { invoice: Invoice }) {
     }
 
     const rateMatch = desc.match(/Tasa[^:]*:\s*([0-9.,]+)/i);
-    const rate = rateMatch ? parseFormattedNumber(rateMatch[1]) : null;
+    const rate = paid ? paid.exchangeRate ?? null : rateMatch ? parseFormattedNumber(rateMatch[1]) : null;
     const bsMatch = desc.match(/Pagado en Bs:\s*([0-9.,]+)/i) || desc.match(/Abono en Bs:\s*([0-9.,]+)/i);
-    const bsFormatted = bsMatch ? bsMatch[1] : null;
+    const bsFormatted = paid?.amountVes != null
+        ? paid.amountVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : bsMatch ? bsMatch[1] : null;
 
     return (
         <div className="flex flex-col items-start gap-0.5">
