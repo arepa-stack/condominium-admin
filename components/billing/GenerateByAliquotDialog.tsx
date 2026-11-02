@@ -67,6 +67,8 @@ export function GenerateByAliquotDialog({
         return d.toISOString().split('T')[0];
     });
     const [markAsPaid, setMarkAsPaid] = useState<boolean>(false);
+    const [rateType, setRateType] = useState<'USD_BCV' | 'EUR_BCV'>('USD_BCV');
+    const [roundUp, setRoundUp] = useState<boolean>(true);
 
     // Selection & filter
     const [searchQuery, setSearchQuery] = useState('');
@@ -117,16 +119,29 @@ export function GenerateByAliquotDialog({
     }, [totalBudget]);
 
     const allSelected = units.length > 0 && units.every(u => selectedUnitIds.has(u.id));
+    // Rounded-up equal shares differ from the API's cent-exact split, so they are billed unit by unit
+    const roundUpEqual = distribution === 'EQUAL' && roundUp;
+
+    const currencySymbol = rateType === 'EUR_BCV' ? '€' : '$';
+    // ponytail: amounts stay numeric; only the symbol follows the chosen rate
+    const fmt = (n: number) => formatCurrency(n).replace('$', currencySymbol);
+    const withRate = (text: string) =>
+        `${text} | Cobro en Bs. a tasa ${rateType === 'EUR_BCV' ? 'Euro' : 'Dólar'} oficial BCV del día de pago${dueDate ? ` | Fecha límite de pago: ${dueDate}` : ''}`;
 
     // Same split the API applies. EQUAL divides among the selected units.
     const shares = useMemo(() => {
         const base = distribution === 'EQUAL' ? units.filter(u => selectedUnitIds.has(u.id)) : units;
+        if (roundUpEqual) {
+            // 790 / 28 = 28.21 -> 29 each; epsilon keeps exact splits (812 / 28 = 29) from float-bumping to 30
+            const each = numericBudget > 0 && base.length ? Math.ceil(numericBudget / base.length - 1e-9) : null;
+            return new Map<string, number | null>(base.map(u => [u.id, each]));
+        }
         return splitConceptAmount(
             distribution,
             numericBudget,
             base.map(u => ({ id: u.id, name: u.name, aliquot: getUnitInfo(u).aliquot ?? null })),
         );
-    }, [units, distribution, numericBudget, selectedUnitIds]);
+    }, [units, distribution, numericBudget, selectedUnitIds, roundUpEqual]);
 
     // Compute calculations for each unit
     const calculations: UnitCalculation[] = useMemo(() => {
@@ -199,10 +214,10 @@ export function GenerateByAliquotDialog({
         const result = await chargeConceptsService.bill(buildingId, selectedConcept.id, {
             period,
             amount: numericBudget,
-            description: description.trim() || undefined,
+            description: withRate(description.trim() || conceptInvoiceDescription(selectedConcept, period)),
             due_date: dueDate || undefined,
         });
-        toast.success(`Se generaron ${result.count} facturas por un total de ${formatCurrency(result.total)}`);
+        toast.success(`Se generaron ${result.count} facturas por un total de ${fmt(result.total)}`);
         onSuccess();
         onOpenChange(false);
     };
@@ -214,7 +229,7 @@ export function GenerateByAliquotDialog({
 
         let successCount = 0;
         let failCount = 0;
-        const invoiceDescription = description.trim() || conceptInvoiceDescription(selectedConcept, period);
+        const invoiceDescription = withRate(description.trim() || conceptInvoiceDescription(selectedConcept, period));
 
         for (let i = 0; i < toGenerate.length; i++) {
             const item = toGenerate[i];
@@ -269,7 +284,7 @@ export function GenerateByAliquotDialog({
 
         setIsGenerating(true);
         try {
-            if (allSelected && !markAsPaid) {
+            if (allSelected && !markAsPaid && !roundUpEqual) {
                 await billWholeBuilding(concept);
             } else {
                 await billUnitByUnit(concept, toGenerate);
@@ -318,13 +333,37 @@ export function GenerateByAliquotDialog({
                                 {concept.distribution === 'EQUAL' && ' entre las unidades seleccionadas'}
                             </span>
                         )}
+                        {distribution === 'EQUAL' && (
+                            <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
+                                <Checkbox checked={roundUp} onCheckedChange={(v) => setRoundUp(!!v)} disabled={isGenerating} />
+                                Redondear al entero superior
+                                {summary.selectedCount > 0 && numericBudget > 0 && ` (${(numericBudget / summary.selectedCount).toFixed(2)} → ${Math.ceil(numericBudget / summary.selectedCount - 1e-9).toFixed(2)} por unidad)`}
+                            </label>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Tasa de cobro (Bs.)
+                        </Label>
+                        <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
+                            <Button type="button" size="sm" variant={rateType === 'USD_BCV' ? 'default' : 'outline'} onClick={() => setRateType('USD_BCV')} disabled={isGenerating}>
+                                $ Dólar BCV
+                            </Button>
+                            <Button type="button" size="sm" variant={rateType === 'EUR_BCV' ? 'default' : 'outline'} onClick={() => setRateType('EUR_BCV')} disabled={isGenerating}>
+                                € Euro BCV
+                            </Button>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                            Queda indicada en cada recibo la tasa oficial a la que se cobra en bolívares
+                        </span>
                     </div>
 
                     {/* Input parameters grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="totalBudget" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                {distribution === 'FIXED' ? 'Monto por unidad ($ USD)' : 'Monto total ($ USD)'}
+                                {distribution === 'FIXED' ? 'Monto por unidad' : 'Monto total'} ({rateType === 'EUR_BCV' ? '€ EUR' : '$ USD'})
                             </Label>
                             <div className="relative">
                                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -368,7 +407,7 @@ export function GenerateByAliquotDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="dueDate" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Fecha de Vencimiento
+                                Fecha Límite de Pago
                             </Label>
                             <Input
                                 id="dueDate"
@@ -431,7 +470,7 @@ export function GenerateByAliquotDialog({
                             <CardContent className="p-3.5">
                                 <span className="text-[11px] font-medium text-muted-foreground uppercase block">Monto</span>
                                 <span className="text-lg font-bold font-mono text-foreground">
-                                    {formatCurrency(numericBudget)}
+                                    {fmt(numericBudget)}
                                 </span>
                             </CardContent>
                         </Card>
@@ -458,7 +497,7 @@ export function GenerateByAliquotDialog({
                             <CardContent className="p-3.5">
                                 <span className="text-[11px] font-medium text-primary uppercase block">Total a Facturar</span>
                                 <span className="text-lg font-black font-mono text-primary">
-                                    {formatCurrency(summary.totalAmount)}
+                                    {fmt(summary.totalAmount)}
                                 </span>
                             </CardContent>
                         </Card>
@@ -563,7 +602,7 @@ export function GenerateByAliquotDialog({
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right font-mono font-bold text-base text-foreground">
-                                                {formatCurrency(item.amount)}
+                                                {fmt(item.amount)}
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -576,7 +615,7 @@ export function GenerateByAliquotDialog({
                 <DialogFooter className="p-4 md:p-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3 bg-muted/20">
                     <div className="text-xs text-muted-foreground text-center sm:text-left">
                         Se generará una factura {markAsPaid ? 'pagada' : 'pendiente'} para cada una de las <strong className="text-foreground">{summary.selectedCount}</strong> unidades seleccionadas.
-                        {allSelected && !markAsPaid && ' Si el concepto ya se facturó en este período, no se vuelve a generar.'}
+                        {allSelected && !markAsPaid && !roundUpEqual && ' Si el concepto ya se facturó en este período, no se vuelve a generar.'}
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button
@@ -599,7 +638,7 @@ export function GenerateByAliquotDialog({
                             ) : (
                                 <>
                                     <Sparkles className="h-4 w-4" />
-                                    Generar {summary.selectedCount} Facturas ({formatCurrency(summary.totalAmount)})
+                                    Generar {summary.selectedCount} Facturas ({fmt(summary.totalAmount)})
                                 </>
                             )}
                         </Button>

@@ -366,7 +366,7 @@ export default function BuildingBillingPage() {
                             className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm text-xs"
                         >
                             <Calculator className="h-4 w-4" />
-                            Generar por Alícuotas
+                            Generar Facturas Masivas
                         </Button>
                         <Button
                             variant="outline"
