@@ -27,7 +27,7 @@ import {
     apiErrorMessage, conceptInvoiceDescription, splitConceptAmount, DISTRIBUTION_LABELS,
 } from '@/lib/utils/charge-concepts';
 import { toast } from 'sonner';
-import type { ChargeConcept, Unit } from '@/types/models';
+import type { ChargeConcept, ChargeDistribution, Unit } from '@/types/models';
 
 interface GenerateByAliquotDialogProps {
     open: boolean;
@@ -98,6 +98,7 @@ export function GenerateByAliquotDialog({
     // A concept brings its base amount and a default description
     const handleConceptChange = (next: ChargeConcept | null) => {
         setConcept(next);
+        setDistributionOverride(null);
         setTotalBudget(next?.base_amount ? String(next.base_amount) : '');
         setDescription(next ? conceptInvoiceDescription(next, period) : '');
     };
@@ -110,7 +111,9 @@ export function GenerateByAliquotDialog({
         setPeriod(next);
     };
 
-    const distribution = concept?.distribution ?? 'ALIQUOT';
+    // The concept sets the default split; the admin can switch it for this billing run
+    const [distributionOverride, setDistributionOverride] = useState<ChargeDistribution | null>(null);
+    const distribution = distributionOverride ?? concept?.distribution ?? 'ALIQUOT';
 
     // Parse budget as number
     const numericBudget = useMemo(() => {
@@ -121,6 +124,8 @@ export function GenerateByAliquotDialog({
     const allSelected = units.length > 0 && units.every(u => selectedUnitIds.has(u.id));
     // Rounded-up equal shares differ from the API's cent-exact split, so they are billed unit by unit
     const roundUpEqual = distribution === 'EQUAL' && roundUp;
+    // The whole-building endpoint splits with the concept's own distribution, cent exact
+    const apiCanSplit = distribution === concept?.distribution && !roundUpEqual;
 
     const currencySymbol = rateType === 'EUR_BCV' ? '€' : '$';
     // ponytail: amounts stay numeric; only the symbol follows the chosen rate
@@ -284,7 +289,7 @@ export function GenerateByAliquotDialog({
 
         setIsGenerating(true);
         try {
-            if (allSelected && !markAsPaid && !roundUpEqual) {
+            if (allSelected && !markAsPaid && apiCanSplit) {
                 await billWholeBuilding(concept);
             } else {
                 await billUnitByUnit(concept, toGenerate);
@@ -327,17 +332,36 @@ export function GenerateByAliquotDialog({
                             disabled={isGenerating}
                             required
                         />
-                        {concept && (
-                            <span className="text-[11px] text-muted-foreground">
-                                {DISTRIBUTION_LABELS[concept.distribution]}
-                                {concept.distribution === 'EQUAL' && ' entre las unidades seleccionadas'}
-                            </span>
-                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Distribución
+                        </Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {(Object.keys(DISTRIBUTION_LABELS) as ChargeDistribution[]).map(d => (
+                                <Button
+                                    key={d}
+                                    type="button"
+                                    size="sm"
+                                    variant={distribution === d ? 'default' : 'outline'}
+                                    onClick={() => setDistributionOverride(d === concept?.distribution ? null : d)}
+                                    disabled={isGenerating}
+                                    className="text-xs"
+                                >
+                                    {DISTRIBUTION_LABELS[d]}
+                                </Button>
+                            ))}
+                        </div>
                         {distribution === 'EQUAL' && (
                             <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
                                 <Checkbox checked={roundUp} onCheckedChange={(v) => setRoundUp(!!v)} disabled={isGenerating} />
                                 Redondear al entero superior
-                                {summary.selectedCount > 0 && numericBudget > 0 && ` (${(numericBudget / summary.selectedCount).toFixed(2)} → ${Math.ceil(numericBudget / summary.selectedCount - 1e-9).toFixed(2)} por unidad)`}
+                                {summary.selectedCount > 0 && numericBudget > 0 && (() => {
+                                    const each = Math.ceil(numericBudget / summary.selectedCount - 1e-9);
+                                    const extra = each * summary.selectedCount - numericBudget;
+                                    return ` (${(numericBudget / summary.selectedCount).toFixed(2)} → ${each.toFixed(2)} por unidad${extra > 0.004 ? `; se cobran ${fmt(extra)} más que el monto total` : ''})`;
+                                })()}
                             </label>
                         )}
                     </div>
@@ -615,7 +639,7 @@ export function GenerateByAliquotDialog({
                 <DialogFooter className="p-4 md:p-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3 bg-muted/20">
                     <div className="text-xs text-muted-foreground text-center sm:text-left">
                         Se generará una factura {markAsPaid ? 'pagada' : 'pendiente'} para cada una de las <strong className="text-foreground">{summary.selectedCount}</strong> unidades seleccionadas.
-                        {allSelected && !markAsPaid && !roundUpEqual && ' Si el concepto ya se facturó en este período, no se vuelve a generar.'}
+                        {allSelected && !markAsPaid && apiCanSplit && ' Si el concepto ya se facturó en este período, no se vuelve a generar.'}
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button
