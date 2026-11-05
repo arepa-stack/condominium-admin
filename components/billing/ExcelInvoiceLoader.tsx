@@ -30,6 +30,9 @@ import type { ProposedInvoice, PreviewInvoicesResponse, Building } from '@/types
 
 const SUPPORTED_EXTENSIONS = ['.xlsx', '.pdf'];
 
+// The administrator's PDF notices are always the monthly condominium fee.
+const DEFAULT_PDF_CONCEPT = 'condominio';
+
 function isSupportedFile(file: File): boolean {
     const name = file.name.toLowerCase();
     return SUPPORTED_EXTENSIONS.some(ext => name.endsWith(ext));
@@ -57,6 +60,7 @@ export function ExcelInvoiceLoader({
     const [selectedBuildingId, setSelectedBuildingId] = useState<string | undefined>(buildingId);
     const [conceptId, setConceptId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const isPdf = !!file && file.name.toLowerCase().endsWith('.pdf');
 
     // Sync selectedBuildingId with buildingId prop
     useEffect(() => {
@@ -232,7 +236,18 @@ export function ExcelInvoiceLoader({
                                     buildingId={selectedBuildingId}
                                     value={conceptId}
                                     onChange={(concept) => setConceptId(concept?.id ?? null)}
+                                    required={isPdf}
+                                    onConceptsLoaded={(concepts) => {
+                                        if (!isPdf) return;
+                                        const fee = concepts.find(c => c.name.trim().toLowerCase() === DEFAULT_PDF_CONCEPT);
+                                        if (fee) setConceptId(prev => prev ?? fee.id);
+                                    }}
                                 />
+                                {isPdf && !conceptId && (
+                                    <p className="text-xs text-destructive">
+                                        Selecciona el concepto (crea &quot;Condominio&quot; si no existe) para poder filtrar estos recibos por concepto y mes.
+                                    </p>
+                                )}
                                 <p className="text-xs text-muted-foreground">
                                     Se asigna a todas las facturas nuevas de este archivo, por ejemplo &quot;Condominio&quot; para los avisos del mes.
                                 </p>
@@ -325,7 +340,7 @@ export function ExcelInvoiceLoader({
                             <Button variant="ghost" onClick={resetState} disabled={isLoading}>
                                 Cancelar y volver a subir
                             </Button>
-                            <Button onClick={handleConfirm} disabled={isLoading} className="gap-2">
+                            <Button onClick={handleConfirm} disabled={isLoading || (isPdf && !conceptId)} className="gap-2">
                                 {isLoading ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
