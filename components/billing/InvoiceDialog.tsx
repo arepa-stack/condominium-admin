@@ -36,16 +36,13 @@ import { toast } from 'sonner';
 import { billingService } from '@/lib/services/billing.service';
 import { buildingsService } from '@/lib/services/buildings.service';
 import { unitsService } from '@/lib/services/units.service';
-import { decisionsService } from '@/lib/services/decisions.service';
 import { pettyCashService } from '@/lib/services/petty-cash.service';
 import { usePermissions } from '@/lib/hooks/usePermissions';
-import {
-    extractActiveBudgets,
-    calculateUnitAmountForBudget,
-    type ActiveBudgetOption,
-} from '@/lib/utils/budget-helpers';
+import { ChargeConceptSelect } from '@/components/billing/ChargeConceptSelect';
+import { conceptInvoiceDescription, unitShareOfConcept, DISTRIBUTION_LABELS } from '@/lib/utils/charge-concepts';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { unitAliquot } from '@/lib/utils/unit-display';
 import {
     Building2,
@@ -58,12 +55,11 @@ import {
     AlertCircle,
     Receipt,
     Sparkles,
-    Calculator,
     FolderKanban,
     Coins,
     RefreshCw,
 } from 'lucide-react';
-import type { Unit, Building, BillingDebtPayload, Invoice, Decision, RateSet } from '@/types/models';
+import type { Unit, Building, BillingDebtPayload, Invoice, RateSet, ChargeConcept } from '@/types/models';
 import type { InvoicePdfPaymentDetails } from '@/lib/utils/invoice-pdf';
 
 const createInvoiceSchema = (needsBuildingSelector: boolean) => z.object({
@@ -96,8 +92,32 @@ interface InvoiceDialogProps {
     onSuccess: () => void;
     initialUnitId?: string;
     buildingId?: string;
-    initialBudgetOption?: ActiveBudgetOption | null;
-    existingInvoices?: Invoice[];
+    /** Preselected charge concept, e.g. when billing from a concept group. */
+    initialConceptId?: string | null;
+}
+
+// The concept is the description before the payment notes appended after " | ".
+const chargeConcept = (description?: string) => (description ?? '').split(' | ')[0].trim().toLowerCase();
+
+async function findOpenSameCharge(
+    unitId: string,
+    period: string,
+    description: string,
+    conceptId: string | null,
+): Promise<Invoice | undefined> {
+    try {
+        const invoices = await billingService.getUnitInvoices(unitId);
+        return invoices.find(inv =>
+            (inv.status === 'PENDING' || inv.status === 'PARTIAL') &&
+            inv.period === period &&
+            (conceptId
+                ? inv.concept_id === conceptId
+                : chargeConcept(inv.description) === chargeConcept(description))
+        );
+    } catch (error) {
+        console.warn('Could not check existing invoices for the unit', error);
+        return undefined;
+    }
 }
 
 const COMMON_CONCEPTS = [
@@ -113,19 +133,19 @@ export function InvoiceDialog({
     onSuccess,
     initialUnitId,
     buildingId: propBuildingId,
-    initialBudgetOption,
-    existingInvoices = [],
+    initialConceptId,
 }: InvoiceDialogProps) {
     const { isSuperAdmin } = usePermissions();
     const [buildings, setBuildings] = useState<Building[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
-    const [decisions, setDecisions] = useState<Decision[]>([]);
     const [isLoadingBuildings, setIsLoadingBuildings] = useState(false);
     const [isLoadingUnits, setIsLoadingUnits] = useState(false);
 
-    // Active budget selection
-    const [selectedBudgetId, setSelectedBudgetId] = useState<string>('none');
+    // Charge concept the invoice belongs to
+    const [concepts, setConcepts] = useState<ChargeConcept[]>([]);
+    const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
     const [budgetHint, setBudgetHint] = useState<string | null>(null);
+    const selectedConcept = concepts.find(c => c.id === selectedConceptId) ?? null;
 
     // Exchange rates state
     const [ratesData, setRatesData] = useState<RateSet | null>(null);
@@ -135,6 +155,12 @@ export function InvoiceDialog({
     const [createdInvoiceForReceipt, setCreatedInvoiceForReceipt] = useState<Invoice | null>(null);
     const [createdPaymentDetails, setCreatedPaymentDetails] = useState<InvoicePdfPaymentDetails | null>(null);
     const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+    const [openChargePrompt, setOpenChargePrompt] = useState<{
+        description: string;
+        period: string;
+        pending: number;
+        resolve: (proceed: boolean) => void;
+    } | null>(null);
 
     // Admin needs to select building, board has it pre-selected
     const needsBuildingSelector = isSuperAdmin && !propBuildingId;
@@ -177,11 +203,6 @@ export function InvoiceDialog({
     const effectivePaidUsd = !isNaN(numPaidInput) && numPaidInput > 0 ? numPaidInput : numTotal;
     const isPartialPayment = isPaid && numTotal > 0 && effectivePaidUsd < numTotal;
     const remainingBalance = Math.max(0, numTotal - effectivePaidUsd);
-
-    // Extract active budgets from existing invoices & decisions
-    const activeBudgets = useMemo(() => {
-        return extractActiveBudgets(existingInvoices, decisions);
-    }, [existingInvoices, decisions]);
 
     // Unit options formatted with Apto number, code, and coproprietor for easy autocomplete
     const unitOptions = useMemo(() => {
@@ -268,20 +289,15 @@ export function InvoiceDialog({
         fetchBuildings();
     }, [open, needsBuildingSelector]);
 
-    // Fetch units & decisions when building is selected
+    // Fetch units when building is selected
     useEffect(() => {
-        const fetchUnitsAndDecisions = async () => {
+        const fetchUnits = async () => {
             if (open && selectedBuildingId) {
                 try {
                     setIsLoadingUnits(true);
-                    const [unitsData, decisionsData] = await Promise.all([
-                        unitsService.getUnits(selectedBuildingId),
-                        decisionsService.list({ building_id: selectedBuildingId }).catch(() => ({ data: [] })),
-                    ]);
-                    setUnits(unitsData);
-                    setDecisions(decisionsData.data || []);
+                    setUnits(await unitsService.getUnits(selectedBuildingId));
                 } catch (error) {
-                    console.error('Failed to fetch units or decisions', error);
+                    console.error('Failed to fetch units', error);
                     toast.error('Error al cargar las unidades');
                     setUnits([]);
                 } finally {
@@ -289,7 +305,7 @@ export function InvoiceDialog({
                 }
             }
         };
-        fetchUnitsAndDecisions();
+        fetchUnits();
     }, [open, selectedBuildingId]);
 
     // Set initial unit if provided
@@ -299,63 +315,87 @@ export function InvoiceDialog({
         }
     }, [initialUnitId, open, form]);
 
-    // Set initial budget option if provided
+    // Preselect the concept the dialog was opened for; clear it when closing
     useEffect(() => {
-        if (initialBudgetOption && open) {
-            setSelectedBudgetId(initialBudgetOption.id);
-        } else if (!open) {
-            setSelectedBudgetId('none');
+        if (open) {
+            setSelectedConceptId(initialConceptId ?? null);
+        } else {
+            setSelectedConceptId(null);
             setBudgetHint(null);
         }
-    }, [initialBudgetOption, open]);
+    }, [initialConceptId, open]);
 
-    // Automatically recalculate amount and description when budget or unit changes
+    // Picking a concept fills the description; the amount follows the concept base amount and the unit
     useEffect(() => {
-        if (selectedBudgetId === 'none') {
+        if (!selectedConcept) {
             setBudgetHint(null);
             return;
         }
+        form.setValue('description', conceptInvoiceDescription(selectedConcept, form.getValues('period')), { shouldValidate: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedConcept?.id]);
 
-        const budget = activeBudgets.find(b => b.id === selectedBudgetId);
-        if (!budget) return;
-
-        const currentUnit = units.find(u => u.id === selectedUnitId);
-
-        if (budget.baseBudget && currentUnit && unitAliquot(currentUnit.aliquot) === null) {
-            // Do not silently produce a $0 invoice: the unit has no aliquot registered in the DB.
-            form.setValue('description', budget.title, { shouldValidate: true });
-            if (budget.period) {
-                form.setValue('period', budget.period);
-            }
-            setBudgetHint('Esta unidad no tiene alícuota registrada (sin alícuota). Ingrese el monto manualmente.');
-        } else if (budget.baseBudget && currentUnit) {
-            const { amount: calcAmount, aliquot } = calculateUnitAmountForBudget(currentUnit, budget.baseBudget);
-            form.setValue('amount', calcAmount.toString(), { shouldValidate: true });
-
-            const fullDescription = `${budget.title} - Base: $${budget.baseBudget.toFixed(2)} (Alícuota: ${aliquot.toFixed(4)}%)${budget.details ? ` | ${budget.details}` : ''}`;
-            form.setValue('description', fullDescription, { shouldValidate: true });
-
-            if (budget.period) {
-                form.setValue('period', budget.period);
-            }
-
-            setBudgetHint(
-                `Alícuota de la unidad: ${aliquot.toFixed(4)}% sobre presupuesto base de $${budget.baseBudget.toFixed(2)} → Monto: $${calcAmount.toFixed(2)} USD`
-            );
-        } else if (budget.title) {
-            form.setValue('description', budget.title, { shouldValidate: true });
-            if (budget.period) {
-                form.setValue('period', budget.period);
-            }
-            setBudgetHint(`Factura vinculada a: ${budget.title}`);
+    // A later period change updates the default description, unless the user wrote their own
+    const currentPeriod = form.watch('period');
+    const [describedPeriod, setDescribedPeriod] = useState<string>('');
+    useEffect(() => {
+        if (!selectedConcept) return;
+        const previous = conceptInvoiceDescription(selectedConcept, describedPeriod);
+        if (describedPeriod && form.getValues('description') === previous) {
+            form.setValue('description', conceptInvoiceDescription(selectedConcept, currentPeriod), { shouldValidate: true });
         }
-    }, [selectedBudgetId, selectedUnitId, units, activeBudgets, form]);
+        setDescribedPeriod(currentPeriod);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPeriod, selectedConcept?.id]);
+
+    useEffect(() => {
+        if (!selectedConcept) return;
+        const base = selectedConcept.base_amount;
+        if (!base) {
+            setBudgetHint(`Factura de "${selectedConcept.name}". Ingrese el monto.`);
+            return;
+        }
+        const currentUnit = units.find(u => u.id === selectedUnitId);
+        const aliquot = currentUnit ? unitAliquot(currentUnit.aliquot) : null;
+        if (selectedConcept.distribution === 'ALIQUOT' && !currentUnit) {
+            setBudgetHint(`${DISTRIBUTION_LABELS.ALIQUOT} sobre $${base.toFixed(2)}. Seleccione la unidad para calcular el monto.`);
+            return;
+        }
+        if (selectedConcept.distribution === 'ALIQUOT' && aliquot === null) {
+            // Do not silently produce a $0 invoice: the unit has no aliquot registered in the DB.
+            setBudgetHint('Esta unidad no tiene alícuota registrada (sin alícuota). Ingrese el monto manualmente.');
+            return;
+        }
+        const share = unitShareOfConcept(selectedConcept.distribution, base, aliquot, units.length);
+        if (share === null) return;
+        form.setValue('amount', share.toFixed(2), { shouldValidate: true });
+        setBudgetHint(
+            selectedConcept.distribution === 'ALIQUOT'
+                ? `Alícuota de la unidad: ${aliquot!.toFixed(4)}% sobre $${base.toFixed(2)} → Monto: $${share.toFixed(2)} USD`
+                : `${DISTRIBUTION_LABELS[selectedConcept.distribution]} de "${selectedConcept.name}" → Monto: $${share.toFixed(2)} USD`
+        );
+    }, [selectedConcept, selectedUnitId, units, form]);
 
     const onSubmit = async (values: InvoiceFormData) => {
         try {
             if (needsBuildingSelector && !values.building_id) {
                 toast.error('Seleccioná un edificio');
                 return;
+            }
+
+            // Paying an existing charge must not create a second invoice for it.
+            const openCharge = await findOpenSameCharge(values.unit_id, values.period, values.description, selectedConceptId);
+            if (openCharge) {
+                const pending = Math.max(0, openCharge.amount - (openCharge.paid_amount || 0));
+                const proceed = await new Promise<boolean>(resolve =>
+                    setOpenChargePrompt({
+                        description: openCharge.description?.split(' | ')[0].trim() ?? '',
+                        period: values.period,
+                        pending,
+                        resolve,
+                    })
+                );
+                if (!proceed) return;
             }
 
             const numAmount = Number(values.amount);
@@ -403,12 +443,21 @@ export function InvoiceDialog({
                 amount: numAmount,
                 period: values.period,
                 description: finalDescription,
+                concept_id: selectedConceptId,
                 due_date: values.due_date || undefined,
                 receipt_number: values.receipt_number?.trim() || undefined,
                 status: invoiceStatus,
                 paid_amount: numPaidAmount,
                 payment_method: values.is_paid ? (values.payment_method || 'CASH') : undefined,
                 payment_date: values.is_paid ? (values.payment_date || new Date().toISOString().slice(0, 10)) : undefined,
+                // Keep the Bs amount and rate on the payment record itself.
+                ...(isVesPayment && numRate > 0 && {
+                    exchange_rate: numRate,
+                    amount_ves: numVes > 0 ? numVes : Number((numPaidAmount * numRate).toFixed(2)),
+                    rate_source: values.rate_type === 'EUR_BCV' ? 'euro_oficial' as const
+                        : values.rate_type === 'USD_BCV' ? 'dolar_oficial' as const
+                        : undefined,
+                }),
             };
 
             const createdInvoice = await billingService.loadDebt(payload);
@@ -470,7 +519,7 @@ export function InvoiceDialog({
                 amount_ves: '',
                 include_rate_in_notes: true,
             });
-            setSelectedBudgetId('none');
+            setSelectedConceptId(null);
             setBudgetHint(null);
         } catch (error: unknown) {
             console.error('Failed to create invoice', error);
@@ -537,45 +586,30 @@ export function InvoiceDialog({
                                 />
                             )}
 
-                            {/* Active Budget Selector Field */}
+                            {/* Charge Concept Selector Field */}
                             <div className="space-y-1.5 p-3 rounded-xl bg-primary/5 border border-primary/20">
                                 <div className="flex items-center justify-between">
                                     <label className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
                                         <FolderKanban className="h-3.5 w-3.5 text-primary" />
-                                        Vincular a Presupuesto Activo
+                                        Concepto de cobro
                                     </label>
-                                    {selectedBudgetId !== 'none' && (
+                                    {selectedConcept && (
                                         <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                                            Vinculado
+                                            {DISTRIBUTION_LABELS[selectedConcept.distribution]}
+                                            {selectedConcept.base_amount ? ` · $${selectedConcept.base_amount.toFixed(2)}` : ''}
                                         </Badge>
                                     )}
                                 </div>
-                                <Select
-                                    value={selectedBudgetId}
-                                    onValueChange={setSelectedBudgetId}
-                                >
-                                    <SelectTrigger className="h-9 text-xs bg-background/80 border-border">
-                                        <SelectValue placeholder="Selecciona un presupuesto..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-56">
-                                        <SelectItem value="none" className="text-xs">
-                                            Ninguno (Gasto rutinario / Factura individual ordinaria)
-                                        </SelectItem>
-                                        {activeBudgets.map((b) => (
-                                            <SelectItem key={b.id} value={b.id} className="text-xs font-medium">
-                                                <div className="flex items-center gap-2">
-                                                    <Calculator className="h-3.5 w-3.5 text-primary shrink-0" />
-                                                    <span className="truncate">{b.title}</span>
-                                                    {b.baseBudget && (
-                                                        <Badge variant="secondary" className="text-[10px] ml-auto shrink-0 font-mono">
-                                                            Base: ${b.baseBudget.toFixed(2)}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <ChargeConceptSelect
+                                    buildingId={selectedBuildingId}
+                                    value={selectedConceptId}
+                                    onChange={(concept) => setSelectedConceptId(concept?.id ?? null)}
+                                    onConceptsLoaded={(loaded) => {
+                                        setConcepts(loaded);
+                                        // A concept of another building (or a closed one) cannot be billed here
+                                        setSelectedConceptId(id => (id && loaded.some(c => c.id === id) ? id : null));
+                                    }}
+                                />
 
                                 {budgetHint && (
                                     <p className="text-[11px] text-primary flex items-center gap-1.5 pt-0.5 font-medium animate-in fade-in-50">
@@ -632,9 +666,9 @@ export function InvoiceDialog({
                                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                                                 Monto (USD) <span className="text-destructive">*</span>
                                             </span>
-                                            {selectedBudgetId !== 'none' && (
+                                            {selectedConcept?.base_amount && (
                                                 <span className="text-[10px] text-muted-foreground font-normal">
-                                                    Calculado automáticamente según alícuota
+                                                    Calculado automáticamente según el concepto
                                                 </span>
                                             )}
                                         </FormLabel>
@@ -674,8 +708,8 @@ export function InvoiceDialog({
                                     )}
                                 />
 
-                                {/* Quick Chips if no active budget is selected */}
-                                {selectedBudgetId === 'none' && (
+                                {/* Quick Chips if no concept is selected */}
+                                {!selectedConcept && (
                                     <div className="flex flex-wrap gap-1.5 pt-1">
                                         <span className="text-[11px] text-muted-foreground self-center mr-1">Rápidos:</span>
                                         {COMMON_CONCEPTS.map((concept) => (
@@ -685,7 +719,6 @@ export function InvoiceDialog({
                                                 onClick={() => {
                                                     form.setValue('description', concept, { shouldValidate: true });
                                                     if (concept === 'Cisterna de agua') {
-                                                        setSelectedBudgetId('none');
                                                         if (!form.getValues('amount')) {
                                                             form.setValue('amount', '10.00', { shouldValidate: true });
                                                         }
@@ -1138,6 +1171,42 @@ export function InvoiceDialog({
                     </Form>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={!!openChargePrompt}
+                onOpenChange={(open) => {
+                    if (open) return;
+                    openChargePrompt?.resolve(false);
+                    setOpenChargePrompt(null);
+                }}
+                title={
+                    <span className="flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5 text-amber-500" />
+                        Ya existe una factura abierta
+                    </span>
+                }
+                description={openChargePrompt && (
+                    <span className="block space-y-3">
+                        <span className="block">
+                            Esta unidad ya tiene abierta la factura{' '}
+                            <strong className="text-foreground">&quot;{openChargePrompt.description}&quot;</strong>{' '}
+                            del período <strong className="text-foreground">{openChargePrompt.period}</strong>, con saldo pendiente de{' '}
+                            <strong className="text-amber-500">${openChargePrompt.pending.toFixed(2)}</strong>.
+                        </span>
+                        <span className="block rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-amber-600 dark:text-amber-400">
+                            Para registrar un abono o pago de esa cuota, cancela y usa &quot;Registrar abono&quot; en el detalle de esa factura.
+                        </span>
+                        <span className="block">
+                            ¿Crear de todas formas una factura <strong className="text-foreground">NUEVA</strong>?
+                        </span>
+                    </span>
+                )}
+                confirmLabel="Crear factura nueva"
+                onConfirm={() => {
+                    openChargePrompt?.resolve(true);
+                    setOpenChargePrompt(null);
+                }}
+            />
 
             {/* Receipt Modal for Immediate PDF Download / Print */}
             {createdInvoiceForReceipt && (

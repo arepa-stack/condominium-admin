@@ -31,6 +31,13 @@ const buildingSchema = z.object({
     name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
     address: z.string().min(5, 'La dirección debe tener al menos 5 caracteres'),
     rif: z.string().optional(),
+    building_code: z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z0-9-]{3,30}$/, 'Entre 3 y 30 caracteres: letras, números o guiones')
+        .optional()
+        .or(z.literal('')),
 });
 
 type BuildingFormData = z.infer<typeof buildingSchema>;
@@ -49,6 +56,7 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
             name: '',
             address: '',
             rif: '',
+            building_code: '',
         },
     });
 
@@ -58,20 +66,29 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                 name: building.name,
                 address: building.address,
                 rif: building.rif || '',
+                building_code: building.building_code || '',
             });
         } else {
             form.reset({
                 name: '',
                 address: '',
                 rif: '',
+                building_code: '',
             });
         }
     }, [building, form]);
 
-    const onSubmit = async (data: BuildingFormData) => {
+    const onSubmit = async ({ building_code, ...data }: BuildingFormData) => {
         try {
             if (building) {
-                await buildingsService.updateBuilding(building.id, data);
+                const codeChanged = !!building_code && building_code !== building.building_code;
+                if (codeChanged && !window.confirm(
+                    `Cambiar el código a ${building_code} invalida los QR impresos con ${building.building_code}. ¿Continuar?`
+                )) return;
+                await buildingsService.updateBuilding(building.id, {
+                    ...data,
+                    ...(codeChanged && { building_code }),
+                });
                 toast.success('Edificio actualizado correctamente');
             } else {
                 await buildingsService.createBuilding(data);
@@ -79,9 +96,11 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
             }
             onSuccess();
             onOpenChange(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error('Error al guardar el edificio');
+            toast.error(error.response?.status === 409
+                ? 'Ese código ya lo usa otro edificio'
+                : 'Error al guardar el edificio');
         }
     };
 
@@ -137,6 +156,25 @@ export function BuildingDialog({ open, onOpenChange, building, onSuccess }: Buil
                                 </FormItem>
                             )}
                         />
+                        {building && (
+                            <FormField
+                                control={form.control}
+                                name="building_code"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Código del edificio (QR)</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                {...field}
+                                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                                placeholder="COND-XXXX"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
                         <DialogFooter>
                             <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -91,6 +91,7 @@ export interface Invoice {
   building_id?: string | null;
   period?: string; // YYYY-MM
   receipt_number?: string;
+  concept_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -180,6 +181,7 @@ export interface UpdateBuildingDto {
   name?: string;
   address?: string;
   default_rate_source?: RateSource;
+  building_code?: string;
 }
 
 export interface UpdateUserDto {
@@ -208,7 +210,13 @@ export interface CreateUserDto {
 export interface UpdatePaymentDto {
   status: PaymentStatus;
   notes?: string;
+  // Approval only: currency it was received in; VES also needs the Bs amount and rate.
+  currency?: 'USD' | 'VES';
+  amount_ves?: number;
+  exchange_rate?: number;
 }
+
+export type PaidCurrency = Pick<UpdatePaymentDto, 'currency' | 'amount_ves' | 'exchange_rate'>;
 
 export interface Unit {
   id: string;
@@ -235,12 +243,29 @@ export interface BillingDebtPayload {
   amount: number;
   period: string; // "YYYY-MM"
   description: string;
+  concept_id?: string | null;
   due_date?: string;
   receipt_number?: string;
   status?: 'PENDING' | 'PAID' | 'PARTIAL';
   paid_amount?: number;
   payment_method?: string;
   payment_date?: string;
+  amount_ves?: number;
+  exchange_rate?: number;
+  rate_source?: RateSource;
+}
+
+export interface RecordInvoicePaymentPayload {
+  amount: number; // USD credited to the invoice
+  method: 'PAGO_MOVIL' | 'TRANSFER' | 'CASH';
+  payment_date?: string; // YYYY-MM-DD
+  reference?: string;
+  bank?: string;
+  notes?: string;
+  // Paid in bolívares: both amount_ves and exchange_rate, or neither
+  amount_ves?: number;
+  exchange_rate?: number;
+  rate_source?: RateSource;
 }
 
 export interface UnitInvoice {
@@ -982,3 +1007,90 @@ export interface RegisterContributionDto {
   currency?: 'USD' | 'VES';
   proof_image?: File;
 }
+
+// Charge concepts: what an invoice is charging for (monthly fee, special assessment...)
+export type ChargeConceptKind = 'ORDINARY' | 'EXTRAORDINARY';
+export type ChargeDistribution = 'ALIQUOT' | 'EQUAL' | 'FIXED';
+export type ChargeConceptStatus = 'ACTIVE' | 'CLOSED';
+
+export interface ChargeConcept {
+  id: string;
+  building_id: string;
+  name: string;
+  kind: ChargeConceptKind;
+  base_amount: number | null; // goal for EXTRAORDINARY, default amount otherwise
+  distribution: ChargeDistribution;
+  decision_id: string | null;
+  status: ChargeConceptStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChargeConceptPayload {
+  name: string;
+  kind: ChargeConceptKind;
+  base_amount?: number | null;
+  distribution?: ChargeDistribution;
+  decision_id?: string | null;
+}
+
+export type ChargeConceptUpdatePayload = Partial<Omit<ChargeConceptPayload, 'kind'>> & {
+  status?: ChargeConceptStatus;
+};
+
+export interface BillConceptPayload {
+  period: string; // YYYY-MM
+  amount?: number; // defaults to the concept base amount
+  description?: string;
+  due_date?: string; // YYYY-MM-DD
+}
+
+export interface BillConceptResult {
+  concept_id: string;
+  period: string;
+  count: number;
+  total: number;
+  invoices: { id: string; unit_id: string | null; amount: number }[];
+}
+
+export interface BillingTotals {
+  invoice_count: number;
+  billed: number;
+  collected: number;
+  outstanding: number;
+  paid_count: number;
+  partial_count: number;
+  pending_count: number;
+}
+
+// One concept (ORDINARY: per period) of GET /billing/buildings/:id/billing-summary; cancelled invoices excluded
+export interface ConceptBillingGroup extends BillingTotals {
+  concept_id: string;
+  name: string;
+  kind: ChargeConceptKind;
+  distribution: ChargeDistribution;
+  status: ChargeConceptStatus;
+  period: string | null; // null for EXTRAORDINARY
+  goal: number | null;
+  progress: number | null; // % of the goal collected
+}
+
+export interface BillingSummary {
+  groups: ConceptBillingGroup[];
+  unclassified: BillingTotals;
+}
+
+/** Per-building payment details shown to residents on "Pagar ahora" in the app. */
+export interface BuildingPaymentInfo {
+  bank_name: string | null;
+  bank_code: string | null;
+  account_holder: string | null;
+  rif: string | null;
+  account_number: string | null;
+  pago_movil_phone: string | null;
+  email: string | null;
+  qr_url: string | null;
+  configured: boolean;
+}
+
+export type BuildingPaymentInfoFields = Omit<BuildingPaymentInfo, 'qr_url' | 'configured'>;

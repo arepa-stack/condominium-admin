@@ -71,7 +71,7 @@ function getPaymentMethodInfo(invoice: Invoice) {
  */
 export function generateBillingReportPDF({
     buildingName = 'Residencias Granada',
-    budgetTitle = 'Todos los Presupuestos',
+    budgetTitle = 'Todos los conceptos',
     statusFilterLabel = 'Todos los Estados',
     invoices,
     summary,
@@ -121,7 +121,7 @@ export function generateBillingReportPDF({
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
-    doc.text(`Campaña / Presupuesto: ${budgetTitle}`, margin + 4, 34);
+    doc.text(`Concepto: ${budgetTitle}`, margin + 4, 34);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
@@ -343,7 +343,7 @@ export function generateBillingReportPDF({
  */
 export function exportBillingReportExcel({
     buildingName = 'Residencias Granada',
-    budgetTitle = 'Todos los Presupuestos',
+    budgetTitle = 'Todos los conceptos',
     invoices,
     hideSensitiveData = false,
 }: BillingExcelExportOptions): void {

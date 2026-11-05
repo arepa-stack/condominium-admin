@@ -28,15 +28,18 @@ import {
     XCircle,
     FileText,
     Receipt,
+    Wallet,
 } from 'lucide-react';
 import { AvisoDeCobroDialog } from '@/components/billing/AvisoDeCobroDialog';
 import { InvoiceReceiptDialog } from '@/components/billing/InvoiceReceiptDialog';
+import { RecordInvoicePaymentDialog } from '@/components/billing/RecordInvoicePaymentDialog';
 import { billingService } from '@/lib/services/billing.service';
 import { paymentsService } from '@/lib/services/payments.service';
 import { formatCurrency, formatDate, formatPeriod, formatPaymentMethod } from '@/lib/utils/format';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import Image from 'next/image';
-import type { Invoice, InvoicePayment, Payment } from '@/types/models';
+import type { Invoice, InvoicePayment, Payment, Unit, User } from '@/types/models';
+import type { InvoicePdfPaymentDetails } from '@/lib/utils/invoice-pdf';
 import { toast } from 'sonner';
 
 interface InvoiceDetailsDialogProps {
@@ -45,10 +48,13 @@ interface InvoiceDetailsDialogProps {
     invoiceId: string | null;
     buildingName?: string;
     unitName?: string;
+    // GET /billing/invoices/:id returns the bare invoice; the caller supplies the unit and resident it already has
+    unit?: Unit | null;
+    user?: User | null;
     onPaymentApproved?: () => void;
 }
 
-export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName, unitName, onPaymentApproved }: InvoiceDetailsDialogProps) {
+export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName, unitName, unit, user, onPaymentApproved }: InvoiceDetailsDialogProps) {
     const { availableBuildings } = useBuildingContext();
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [payments, setPayments] = useState<InvoicePayment[]>([]);
@@ -64,29 +70,14 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     const [isApprovingPayment, setIsApprovingPayment] = useState(false);
     const [isAvisoOpen, setIsAvisoOpen] = useState(false);
     const [isReceiptOpen, setIsReceiptOpen] = useState(false);
-    const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+    const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
+    const [receiptDetails, setReceiptDetails] = useState<InvoicePdfPaymentDetails | undefined>(undefined);
 
-    const handleMarkInvoiceAsPaid = async () => {
-        if (!invoice) return;
-        if (!confirm(`¿Marcar la factura #${displayId} (${formatCurrency(invoice.amount)}) como PAGADA?`)) return;
-
-        setIsMarkingPaid(true);
-        try {
-            await billingService.updateInvoice(invoice.id, {
-                status: 'PAID',
-                paid_amount: invoice.amount,
-                payment_method: 'CASH',
-                payment_date: new Date().toISOString().slice(0, 10),
-            });
-            toast.success('Factura marcada como PAGADA con éxito.');
-            await fetchData();
-            onPaymentApproved?.();
-        } catch (error) {
-            console.error('Error al marcar factura como pagada:', error);
-            toast.error('Error al marcar la factura como pagada');
-        } finally {
-            setIsMarkingPaid(false);
-        }
+    const handlePaymentRecorded = async (details: InvoicePdfPaymentDetails) => {
+        await fetchData();
+        onPaymentApproved?.();
+        setReceiptDetails(details);
+        setIsReceiptOpen(true);
     };
 
     const handleApprovePayment = async (paymentId: string) => {
@@ -141,7 +132,11 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                 billingService.getInvoiceById(invoiceId),
                 billingService.getInvoicePayments(invoiceId)
             ]);
-            setInvoice(invoiceData);
+            setInvoice({
+                ...invoiceData,
+                unit: invoiceData.unit ?? unit ?? undefined,
+                user: invoiceData.user ?? user ?? undefined,
+            });
             setPayments(paymentsData);
         } catch (error) {
             console.error('Failed to fetch invoice details:', error);
@@ -186,6 +181,7 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
     const progress = invoice ? (invoice.paid_amount / invoice.amount) * 100 : 0;
     const isPaid = invoice?.status === 'PAID';
     const isPartial = invoice?.status === 'PARTIAL';
+    const isOpenForPayment = !!invoice && !isPaid && invoice.status !== 'CANCELLED';
 
     const periodDisplay = invoice
         ? invoice.period
@@ -374,21 +370,32 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setIsReceiptOpen(true)}
+                                        onClick={() => { setReceiptDetails(undefined); setIsReceiptOpen(true); }}
                                         className="gap-2 text-xs border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
                                     >
                                         <Receipt className="h-4 w-4 text-emerald-600" />
                                         Factura / Recibo PDF
                                     </Button>
 
-                                    {!isPaid && (
+                                    {isOpenForPayment && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setIsRecordPaymentOpen(true)}
+                                            className="gap-1.5 text-xs border-primary/30 hover:bg-primary/10 text-primary font-semibold"
+                                        >
+                                            <Wallet className="h-3.5 w-3.5" />
+                                            Registrar abono
+                                        </Button>
+                                    )}
+
+                                    {isOpenForPayment && (
                                         <Button
                                             size="sm"
-                                            onClick={handleMarkInvoiceAsPaid}
-                                            disabled={isMarkingPaid}
+                                            onClick={() => setIsRecordPaymentOpen(true)}
                                             className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                                         >
-                                            {isMarkingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
                                             Marcar como Pagada
                                         </Button>
                                     )}
@@ -569,7 +576,17 @@ export function InvoiceDetailsDialog({ isOpen, onClose, invoiceId, buildingName,
                 invoice={invoice}
                 buildingName={resolvedBuildingName}
                 unit={invoice?.unit}
+                paymentDetails={receiptDetails}
             />
+
+            {invoice && (
+                <RecordInvoicePaymentDialog
+                    open={isRecordPaymentOpen}
+                    onOpenChange={setIsRecordPaymentOpen}
+                    invoice={invoice}
+                    onRecorded={handlePaymentRecorded}
+                />
+            )}
         </>
     );
 }

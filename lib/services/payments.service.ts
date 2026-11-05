@@ -4,6 +4,7 @@ import { ADMIN_API_PREFIX } from '@/lib/utils/constants';
 import type {
     Payment,
     UpdatePaymentDto,
+    PaidCurrency,
     PaymentSummary,
     PaginatedResponse,
     PaginationParams,
@@ -87,10 +88,11 @@ export const paymentsService = {
         return data;
     },
 
-    async approvePayment(id: string, notes?: string): Promise<Payment> {
+    async approvePayment(id: string, notes?: string, paid?: PaidCurrency): Promise<Payment> {
         return this.updatePaymentStatus(id, {
             status: 'APPROVED',
-            notes
+            notes,
+            ...paid
         });
     },
 
