@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { FileText, Loader2, Paperclip, Plus, Printer, ReceiptText, Trash2, Undo2 } from 'lucide-react';
+import { FileText, ListPlus, Loader2, Paperclip, Plus, Printer, ReceiptText, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -340,20 +340,29 @@ export function CondoReceiptsPage({ buildingId: propBuildingId }: { buildingId?:
                     )}
 
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Códigos de gasto</CardTitle>
-                            <CardDescription>Catálogo del edificio; cada gasto se agrupa por su código en el recibo.</CardDescription>
+                        <CardHeader className="flex flex-row items-start justify-between gap-4">
+                            <div>
+                                <CardTitle>Códigos de gasto</CardTitle>
+                                <CardDescription>
+                                    Plan de cuentas del edificio (grupo 6, gastos comunes). Cada gasto se agrupa por su código en el recibo;
+                                    el detalle de cada compra va en el gasto. El 6.1.2.99 Fondo de reserva lo agrega el recibo solo.
+                                </CardDescription>
+                            </div>
+                            <Button variant="outline" className="gap-2 shrink-0" disabled={busy}
+                                onClick={() => run(() => condoReceiptsService.loadStandardCodes(buildingId), 'Catálogo estándar cargado', 'No se pudo cargar el catálogo')}>
+                                <ListPlus className="h-4 w-4" /> Cargar catálogo estándar
+                            </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <form onSubmit={addCode} className="flex flex-wrap items-end gap-3">
                                 <div className="space-y-1.5">
                                     <Label htmlFor="new_code">Código</Label>
-                                    <Input id="new_code" className="w-32" placeholder="300047" required maxLength={20}
+                                    <Input id="new_code" className="w-32" placeholder="6.1.2.18.4" required maxLength={20}
                                         value={newCode.code} onChange={e => setNewCode(p => ({ ...p, code: e.target.value }))} />
                                 </div>
                                 <div className="space-y-1.5 flex-1 min-w-56">
                                     <Label htmlFor="new_desc">Descripción</Label>
-                                    <Input id="new_desc" placeholder="SUMINISTRO ÚTILES Y PRODUCTOS DE LIMPIEZA" required maxLength={160}
+                                    <Input id="new_desc" placeholder="MANTENIMIENTO PORTÓN ELÉCTRICO" required maxLength={160}
                                         value={newCode.description} onChange={e => setNewCode(p => ({ ...p, description: e.target.value }))} />
                                 </div>
                                 <Button type="submit" variant="outline" disabled={busy} className="gap-2"><Plus className="h-4 w-4" /> Agregar</Button>
