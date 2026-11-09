@@ -17,6 +17,7 @@ import {
     Landmark,
     Megaphone,
     CreditCard,
+    ReceiptText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -49,6 +50,7 @@ const navigation: Array<{
     { name: 'Unidades', href: '/units', icon: Home, access: 'board-or-admin' },
     { name: 'Usuarios', href: '/users', icon: Users, access: 'board-or-admin' },
     { name: 'Facturación', href: '/billing', icon: FileText, access: 'board-or-admin' },
+    { name: 'Recibo de condominio', href: '/condo-receipts', icon: ReceiptText, access: 'board-or-admin' },
     { name: 'Finanzas', href: '/finances', icon: Wallet, access: 'board-or-admin' },
     { name: 'Presupuestos', href: '/decisions', icon: Vote, access: 'board-or-admin' },
     { name: 'Centro de información', href: '/information-center', icon: Megaphone, access: 'board-or-admin' },
@@ -89,7 +91,7 @@ export function Sidebar() {
             // Note: /onboarding/requests is intentionally NOT contextual — there is no
             // /buildings/[id]/onboarding/requests route. The global page filters by the
             // selected building via BuildingContext.
-            const contextualPages = ['/units', '/users', '/billing', '/decisions', '/information-center', '/payment-info'];
+            const contextualPages = ['/units', '/users', '/billing', '/condo-receipts', '/decisions', '/information-center', '/payment-info'];
             const activeBuildingId = urlBuildingId || selectedBuildingId;
             if (activeBuildingId && contextualPages.includes(item.href)) {
                 return { ...item, href: `/buildings/${activeBuildingId}${item.href}` };
