@@ -94,6 +94,10 @@ export const condoReceiptsService = {
     async createCode(buildingId: string, code: string, description: string) {
         return (await apiClient.post<ExpenseCode>(`${base(buildingId)}/codes`, { code, description })).data;
     },
+    /** Adds the standard chart-of-accounts codes the building is missing; returns the full catalog. */
+    async loadStandardCodes(buildingId: string) {
+        return (await apiClient.post<ExpenseCode[]>(`${base(buildingId)}/codes/standard`)).data;
+    },
     async listExpenses(buildingId: string, period: string) {
         return (await apiClient.get<PeriodExpenses>(`${base(buildingId)}/periods/${period}/expenses`)).data;
     },
