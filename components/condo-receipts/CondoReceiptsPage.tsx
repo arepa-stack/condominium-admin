@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { FileText, ListPlus, Loader2, Paperclip, Plus, Printer, ReceiptText, Trash2, Undo2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FileText, Loader2, Paperclip, Plus, Printer, ReceiptText, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ExpenseCodeCatalog } from './ExpenseCodeCatalog';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useBuildingContext } from '@/lib/contexts/BuildingContext';
 import {
@@ -43,7 +45,6 @@ export function CondoReceiptsPage({ buildingId: propBuildingId }: { buildingId?:
 
     const [expense, setExpense] = useState(EMPTY_EXPENSE);
     const [fileInputKey, setFileInputKey] = useState(0);
-    const [newCode, setNewCode] = useState({ code: '', description: '' });
     const [reservePercent, setReservePercent] = useState('10');
     const [confirm, setConfirm] = useState<'generate' | 'void' | null>(null);
 
@@ -66,6 +67,11 @@ export function CondoReceiptsPage({ buildingId: propBuildingId }: { buildingId?:
     }, [buildingId, period]);
 
     useEffect(() => { load(); }, [load]);
+
+    const codeOptions = useMemo(
+        () => codes.map(c => ({ value: c.id, label: `${c.code} · ${c.description}` })),
+        [codes],
+    );
 
     if (!buildingId) {
         return (
@@ -90,16 +96,6 @@ export function CondoReceiptsPage({ buildingId: propBuildingId }: { buildingId?:
         } finally {
             setBusy(false);
         }
-    };
-
-    const addCode = async (event: React.FormEvent) => {
-        event.preventDefault();
-        const ok = await run(
-            () => condoReceiptsService.createCode(buildingId, newCode.code, newCode.description),
-            'Código agregado',
-            'No se pudo agregar el código',
-        );
-        if (ok) setNewCode({ code: '', description: '' });
     };
 
     const addExpense = async (event: React.FormEvent) => {
@@ -153,12 +149,16 @@ export function CondoReceiptsPage({ buildingId: propBuildingId }: { buildingId?:
                                 <form onSubmit={addExpense} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                     <div className="space-y-1.5 lg:col-span-2">
                                         <Label>Código</Label>
-                                        <Select value={expense.code_id} onValueChange={v => setExpense(p => ({ ...p, code_id: v }))} disabled={busy}>
-                                            <SelectTrigger><SelectValue placeholder={codes.length ? 'Elige el gasto' : 'Primero agrega un código abajo'} /></SelectTrigger>
-                                            <SelectContent>
-                                                {codes.map(c => <SelectItem key={c.id} value={c.id}>{c.code} · {c.description}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            options={codeOptions}
+                                            value={expense.code_id}
+                                            onValueChange={v => setExpense(p => ({ ...p, code_id: v }))}
+                                            placeholder={codes.length ? 'Busca por código o descripción' : 'Primero carga los códigos abajo'}
+                                            searchPlaceholder="Ej. limpieza, agua, 6.1.2.18…"
+                                            emptyText="Ningún código coincide"
+                                            clearValue=""
+                                            disabled={busy || codes.length === 0}
+                                        />
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="expense_date">Fecha</Label>
@@ -339,41 +339,12 @@ export function CondoReceiptsPage({ buildingId: propBuildingId }: { buildingId?:
                         </Card>
                     )}
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-start justify-between gap-4">
-                            <div>
-                                <CardTitle>Códigos de gasto</CardTitle>
-                                <CardDescription>
-                                    Plan de cuentas del edificio (grupo 6, gastos comunes). Cada gasto se agrupa por su código en el recibo;
-                                    el detalle de cada compra va en el gasto. El 6.1.2.99 Fondo de reserva lo agrega el recibo solo.
-                                </CardDescription>
-                            </div>
-                            <Button variant="outline" className="gap-2 shrink-0" disabled={busy}
-                                onClick={() => run(() => condoReceiptsService.loadStandardCodes(buildingId), 'Catálogo estándar cargado', 'No se pudo cargar el catálogo')}>
-                                <ListPlus className="h-4 w-4" /> Cargar catálogo estándar
-                            </Button>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <form onSubmit={addCode} className="flex flex-wrap items-end gap-3">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="new_code">Código</Label>
-                                    <Input id="new_code" className="w-32" placeholder="6.1.2.18.4" required maxLength={20}
-                                        value={newCode.code} onChange={e => setNewCode(p => ({ ...p, code: e.target.value }))} />
-                                </div>
-                                <div className="space-y-1.5 flex-1 min-w-56">
-                                    <Label htmlFor="new_desc">Descripción</Label>
-                                    <Input id="new_desc" placeholder="MANTENIMIENTO PORTÓN ELÉCTRICO" required maxLength={160}
-                                        value={newCode.description} onChange={e => setNewCode(p => ({ ...p, description: e.target.value }))} />
-                                </div>
-                                <Button type="submit" variant="outline" disabled={busy} className="gap-2"><Plus className="h-4 w-4" /> Agregar</Button>
-                            </form>
-                            {codes.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                    {codes.map(c => <Badge key={c.id} variant="outline" className="font-normal"><span className="font-mono mr-1">{c.code}</span>{c.description}</Badge>)}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <ExpenseCodeCatalog
+                        codes={codes}
+                        busy={busy}
+                        onLoadStandard={() => run(() => condoReceiptsService.loadStandardCodes(buildingId), 'Catálogo estándar cargado', 'No se pudo cargar el catálogo')}
+                        onAdd={(code, description) => run(() => condoReceiptsService.createCode(buildingId, code, description), 'Código agregado', 'No se pudo agregar el código')}
+                    />
                 </>
             )}
 
