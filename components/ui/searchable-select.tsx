@@ -5,6 +5,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Check, LucideIcon, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+/** Lowercase without accents, so "energia" finds "ENERGÍA". */
+const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
 interface SearchableSelectProps {
     options: { value: string; label: string; icon?: LucideIcon }[];
     value: string;
@@ -45,12 +48,12 @@ export function SearchableSelect({
     );
 
     const filteredOptions = useMemo(() => {
-        const query = searchQuery.toLowerCase().trim();
+        const query = fold(searchQuery).trim();
         if (!query) return options;
         const cleanQuery = query.replace(/[-\s]/g, '');
 
         return options.filter((opt) => {
-            const labelLower = opt.label.toLowerCase();
+            const labelLower = fold(opt.label);
             if (labelLower.includes(query)) return true;
             if (cleanQuery.length > 0) {
                 const cleanLabel = labelLower.replace(/[-\s]/g, '');
@@ -168,6 +171,7 @@ export function SearchableSelect({
                                     const isSelected = value === option.value;
                                     return (
                                         <button
+                                            type="button"
                                             key={option.value}
                                             className={cn(
                                                 'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-sm transition-colors text-left',
